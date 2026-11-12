@@ -51,7 +51,9 @@ async function testWeBecomeWhatWeBehold() {
 
     await page.waitForFunction(() =>
       window.Game?.scene?.constructor?.name === 'Scene_Preloader' &&
-      !!window.PIXI?.loader?.resources?.cam_frame?.texture,
+      !!window.PIXI?.loader?.resources?.bg_preload?.texture &&
+      !!window.PIXI?.loader?.resources?.bg_preload_2?.texture &&
+      !!window.PIXI?.loader?.resources?.preload_play?.data?.frames,
       null,
       { timeout: 30000 }
     );
@@ -119,7 +121,22 @@ async function testIdleBreakout() {
   } finally { await context.close(); }
 }
 
-try {
-  await testWeBecomeWhatWeBehold();
-  await testIdleBreakout();
-} finally { await browser.close(); }
+const failures = [];
+for (const [name, test] of [
+  ['Webecomewhatwebehold', testWeBecomeWhatWeBehold],
+  ['Idlebreakout', testIdleBreakout]
+]) {
+  try {
+    await test();
+  } catch (error) {
+    failures.push({ name, message: error?.message || String(error) });
+    console.error('FAIL ' + name, error);
+  }
+}
+await browser.close();
+if (failures.length) {
+  console.error('Offline verification failures:', JSON.stringify(failures));
+  process.exitCode = 1;
+} else {
+  console.log('All offline game verification tests passed.');
+}
