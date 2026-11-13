@@ -6,6 +6,7 @@ import io
 import os
 import re
 import shutil
+import subprocess
 import sys
 import urllib.parse
 import urllib.request
@@ -127,7 +128,14 @@ def main() -> None:
     archive_data = download_archive(archive_url)
     slug = make_slug(issue_title)
     suffix = 2
-    while Path(slug).exists():
+    # Sparse checkout omits the game folders from disk, so check the Git tree
+    # rather than relying only on Path.exists() when avoiding folder collisions.
+    existing = subprocess.run(
+        ["git", "ls-tree", "-d", "--name-only", "HEAD"],
+        check=True, capture_output=True, text=True,
+    ).stdout.splitlines()
+    existing_names = set(existing)
+    while slug in existing_names or Path(slug).exists():
         slug = make_slug(issue_title) + "-" + str(suffix)
         suffix += 1
 
