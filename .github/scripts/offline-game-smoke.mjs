@@ -87,6 +87,7 @@ async function snapshot(page, evidence) {
       scene: window.Game?.scene?.constructor?.name || null,
       resourceKeys: Object.keys(window.PIXI?.loader?.resources || {}),
       gameMakerInit: typeof window.GameMaker_Init,
+      gameMakerRoomIndex: typeof window._YU === 'number' ? window._YU : null,
       canvasSize: canvas ? { width: canvas.width, height: canvas.height } : null,
       idleClicks: (() => {
         const instance = window._2J?._9o?.(0) || window._je?._9o?.(0);
@@ -249,18 +250,18 @@ async function testIdleBreakout() {
     const size = await canvas.evaluate(el => ({ width: el.width, height: el.height }));
     if (!size.width || !size.height) throw new Error('Idlebreakout canvas has zero dimensions');
 
-    // The source starts in rm_start. Its Play button is an instance at (416, 352);
-    // the global game-state instance with ID 0 is created only after entering rm_idle.
+    // rm_start has two buttons: the left button selects room 5; the right-hand
+    // obj_type_bZZ button at (608, 352) calls _aa(0) and enters rm_idle.
     await page.waitForTimeout(1000);
     await page.mouse.click(
-      bounds.x + bounds.width * (416 / size.width),
+      bounds.x + bounds.width * (608 / size.width),
       bounds.y + bounds.height * (352 / size.height)
     );
     await page.waitForFunction(() => {
       const instance = window._2J?._9o?.(0) || window._je?._9o?.(0);
-      return !!instance && typeof instance._89 === 'number';
+      return window._YU === 0 && !!instance && typeof instance._89 === 'number';
     }, null, { timeout: 30000 }).catch(async () => {
-      throw new Error('Idlebreakout did not leave rm_start and initialize its global state: ' +
+      throw new Error('Idlebreakout did not enter rm_idle and initialize its global state: ' +
         JSON.stringify(await snapshot(page, evidence)));
     });
 
@@ -309,6 +310,7 @@ async function testIdleBreakout() {
     const state = await page.evaluate(() => ({
       canvasWidth: document.querySelector('#canvas')?.width || 0,
       canvasHeight: document.querySelector('#canvas')?.height || 0,
+      roomIndex: window._YU ?? null,
       clickCount: (window._2J?._9o?.(0) || window._je?._9o?.(0))?._89 ?? null,
       level: (window._2J?._9o?.(0) || window._je?._9o?.(0))?._V8 ?? null
     }));
