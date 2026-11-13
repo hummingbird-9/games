@@ -1,0 +1,11 @@
+{
+  "id": 21,
+  "name": "Turbo Stars",
+  "author": "https://play.google.com/store/apps/details?id=com.turbo.stars",
+  "authorLink": "SayGames",
+  "special": [],
+  "sourceHtml": "21-fix2.html",
+  "sourceCover": "21.png",
+  "assetsCopiedLocally": false,
+  "originalBaseHref": "https://cdn.jsdelivr.net/gh/bubbls/youtube-playables@f86d947cd3a8c7271fc251ae687bb8c9ffd2a170/turbo-stars/"
+}

@@ -1,0 +1,50 @@
+{
+  "games": {
+    "type": "games",
+    "text": "Play {0} games",
+    "values": [10, 50, 100],
+    "cumulative": true,
+    "combo": 1,
+    "imageFrame": ""
+  },
+  "highscore": {
+    "type": "highscore",
+    "text": "Get a score of {0} points.",
+    "values": [200, 500, 1000],
+    "cumulative": false,
+    "combo": 1,
+    "imageFrame": ""
+  },
+  "streak": {
+    "type": "streak",
+    "text": "Score {0} for 3 games in a row.",
+    "values": [250, 500, 750],
+    "cumulative": true,
+    "combo": 3,
+    "imageFrame": ""
+  },
+  "skins": {
+    "type": "skins",
+    "text": "Unlock {0} skin(s).",
+    "values": [1, 6, 11],
+    "cumulative": true,
+    "combo": 1,
+    "imageFrame": ""
+  },
+  "teleporters": {
+    "type": "teleporters",
+    "text": "Use {0} teleporters.",
+    "values": [10, 100, 1000],
+    "cumulative": true,
+    "combo": 1,
+    "imageFrame": ""
+  },
+  "coins": {
+    "type": "coins",
+    "text": "Collect {0} coins in a single game",
+    "values": [50, 100, 150],
+    "cumulative": false,
+    "combo": 1,
+    "imageFrame": ""
+  }
+}

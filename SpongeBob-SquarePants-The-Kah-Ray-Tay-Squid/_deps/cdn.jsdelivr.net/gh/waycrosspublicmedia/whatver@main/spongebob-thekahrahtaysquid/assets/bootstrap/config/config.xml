@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<config>
+
+	<services>
+		<service type="analytics" enabled="false" id="3349812597353278653" />
+	</services>
+	
+	<localization>
+    	<region>en</region>
+    </localization>
+    
+	<packs>
+		
+		<pack id="initial_load"/>
+		<pack id="gameplay_universal">
+	        <flump id="squidward_animation"/>
+	        <flump id="transition_animation"/>
+	    </pack>
+	    
+	</packs>
+	
+    <chunks>
+    	<chunk id="initial">
+    		<pack>initial_load</pack>  		
+    	</chunk>
+    	
+    	<chunk id="gameplay">
+    		<pack>gameplay_universal</pack>  
+    	</chunk>
+        
+        <!-- END OF CHUNKS -->
+    </chunks>
+    	
+</config>

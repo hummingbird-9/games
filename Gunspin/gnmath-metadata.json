@@ -1,0 +1,13 @@
+{
+  "id": 91,
+  "name": "Gunspin",
+  "author": "minijuegos.com",
+  "authorLink": "https://www.minijuegos.com/",
+  "special": [
+    "flash"
+  ],
+  "sourceHtml": "91-fix2.html",
+  "sourceCover": "91.png",
+  "assetsCopiedLocally": false,
+  "originalBaseHref": "https://cdn.jsdelivr.net/gh/bubbls/gunspin/"
+}

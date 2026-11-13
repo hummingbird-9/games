@@ -1,0 +1,11 @@
+{
+  "id": 400,
+  "name": "Money Rush",
+  "author": "Yandex",
+  "authorLink": "https://yandex.com/games",
+  "special": [],
+  "sourceHtml": "400-fix3.html",
+  "sourceCover": "400.png",
+  "assetsCopiedLocally": false,
+  "originalBaseHref": "https://cdn.jsdelivr.net/gh/bubblfan/brainrot@main/money-rush/"
+}

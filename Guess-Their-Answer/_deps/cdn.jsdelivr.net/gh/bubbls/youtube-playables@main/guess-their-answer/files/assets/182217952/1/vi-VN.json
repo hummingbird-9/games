@@ -1,0 +1,81 @@
+{
+    "header": {
+        "version": 1
+    },
+    "data": [
+        {
+            "info": {
+                "locale": "vi-VN"
+            },
+            "messages": {
+                "Nickname": "Biệt danh",
+                "Sound": "Âm thanh",
+                "Vibration": "Rung",
+                "Privacy Policy": "Điều khoản sử dụng & Chính sách bảo mật",
+                "Credits": "Đội ngũ thực hiện",
+                "DOUBLE POINTS": "NHÂN ĐÔI ĐIỂM SỐ",
+                "TRIPLE POINTS": "NHÂN BA ĐIỂM SỐ",
+                "keyboard_go": "Go",
+                "keyboard_space": "space",
+                "Answer...": "Câu trả lời...",
+                "Wrong": "Sai",
+                "Already given": "Đã trả lời rồi",
+                "LEVEL #value#": "MÀN #value#",
+                "TOP 6 ANSWERS": "6 CÂU TRẢ LỜI HÀNG ĐẦU",
+                "TOTAL": "TỔNG",
+                "Winner": "Chiến Thắng",
+                "Round Winner": "Thắng Vòng Đấu",
+                "Tap to continue": "Nhấn để tiếp tục",
+                "Claim your reward": "Nhận phần thưởng của bạn",
+                "Claim your prize": "Nhận giải thưởng của bạn",
+                "RANDOM SKIN": "TRANG PHỤC NGẪU NHIÊN",
+                "NEXT_SKIN_PRICE": "TRANG PHỤC KẾ TIẾP: #value#",
+                "Need some help for the next match?": "Bạn cần trợ giúp cho trận đấu tiếp theo?",
+                "Pick a chest": "Chọn rương",
+                "Best reward": "Phần thưởng tốt nhất",
+                "X KEYS MORE": "#value# THÊM",
+                "No thanks": "Không, cảm ơn",
+                "Daily Challenge": "Thử thách hàng ngày",
+                "Can you guess the most popular answer?": "Liệu bạn có thể đoán câu trả lời phổ biến nhất không?",
+                "PLAY": "CHƠI",
+                "Eliminated": "Bị loại",
+                "Answer faster!": "Hãy trả lời nhanh hơn!",
+                "Try again?": "Thử lại?",
+                "Compete Again?": "Thi đấu lại?",
+                "YES": "CÓ",
+                "NO": "KHÔNG",
+                "QUALIFIER": "VÒNG LOẠI",
+                "Push the buzzer": "Nhấn chuông",
+
+                "ROUND 1" : "VÒNG 1",
+                "ROUND 2" : "VÒNG 2",
+                "ROUND 3" : "VÒNG 3",
+                "VICTORY" : "CHIẾN THẮNG",
+                "REVIVE" : "HỒI SINH",
+                "You ended in position" : "Bạn đã kết thúc ở vị trí",
+                "SEMI FINAL" : "BÁN KẾT",
+                "FINAL" : "CHUNG KẾT",
+                "Searching for opponents..." : "Đang tìm kiếm đối thủ...",
+                "Remaining" : "Còn lại",
+                "Congratulations" : "XIN CHÚC MỪNG",
+                "Best prize" : "Giải thưởng cao nhất",
+                "You won a ticket for the next local tournament" : "Bạn đã giành được vé vào giải đấu địa phương đầu tiên của mình",
+                "Your free Daily Challenge is available" : "Đã có Thử thách hàng ngày miễn phí cho bạn",
+                
+                "Language" : "Ngôn ngữ",
+                "BACK" : "QUAY LẠI",
+                "FREE" : "MIỄN PHÍ",
+                "SELECT" : "CHỌN",
+                "SELECTED" : "ĐÃ CHỌN",
+                "UNLOCK" : "MỞ KHÓA",
+                "GO" : "BẮT ĐẦU",
+                "Enter" : "Nhập",
+                "You don't like the question, skip it!" : "Bạn không thích câu hỏi, hãy bỏ qua!",
+                "JOIN": "THAM GIA",
+
+                "PLAYER_NAMES": "An,Ấn,Ẩn,Áng,Anh,Ánh,Áo,Ba,Bá,Bạ,Bắc,Bạc,Bản,Bàng,Bằng,Bảng,Báo,Bảo,Bạo,Bạt,Bật,Ben,Bến,Bính,Bính,Bình,Bơ,Bộ,Bóng,Bống,Bổng,Bột,Buôn,Ca,Cam,Can,Cang,Cảng,Cha,Chắc,Chăm,Chân,Chắn,Chang,Chát,Chèn,Chi,Chí,Chỉ,Chinh,Chính,Chỉnh,Chóng,Chu,Chú,Chũ,Chủ,Chư,Chung,Chưng,Chừng,Công,Cộng,Cù,Cư,Cừ,Cử,Cung,Củng,Cương,Cường,Ðại,Ðam,Dàn,Ðan,Ðăng,Ðào,Ðạt,Dê,Ðiệp,Ðịnh,Ðô,Ðoan,Ðoàn,Ðôn,Ðông,Ðồng,Du,Dư,Dự,Ðức,Dung,Đường,Dũng,Duy,Duyên,Giang,Giảng,Hà,Hạ,Hải,Hàn,Hân,Hằng,Hạnh,Hào,Hảo,Hạo,Hậu,Hiến,Hiền,Hiển,Hiệp,Hiếu,Hiệu,Hinh,Hồ,Hổ,Hoa,Hoá,Hoà,Hoài,Hoàn,Hoàng,Học,Hồng,Hợp,Huân,Huấn,Huề,Huệ,Hùng,Hưng,Hương,Hường,Hưởng,Hưu,Hữu,Huy,Huyền,Huỳnh,Kết,Kha,Khá,Khả,Khắc,Khải,Khang,Khanh,Khánh,Khê,Khiêm,Khiết,Khoa,Khôi,Khu,Khúc,Khuê,Khương,Khuyến,Kiêm,Kiểm,Kiệm,Kiên,Kiệt,Kiều,Kim,Kinh,Kính,Kỳ,Lai,Lài,Lam,Lâm,Lãm,Lan,Lân,Lang,Lăng,Lanh,Lành,Lập,Lê,Lễ,Lệ,Lịch,Liêm,Liên,Liễu,Linh,Loan,Lộc,Lợi,Long,Lư,Lữ,Lụa,Luân,Luận,Luật,Lục,Lực,Lương,Lượng,Lưu,Lựu,Luỹ,Luyến,Luyện,Ly,Lý,Mai,Mẫn,Mạnh,Mão,Mạo,Mây,Minh,Mít,Mộc,Mưu,Nam,Năm,Năng,Nga,Ngạc,Ngãi,Ngân,Ngạn,Nghĩa,Nghiêm,Ngô,Ngọ,Ngoan,Ngoạn,Ngọc,Ngôn,Ngũ,Ngữ,Nguyên,Nguyệt,Nhã,Nhạc,Nhâm,Nhan,Nhàn,Nhân,Nhẫn,Nhạn,Nhất,Nhật,Nhi,Nhĩ,Nhiệm,Nhiên,Nho,Nhu,Nhuận,Nhuệ,Nhung,Niêm,Niệm,Niên,Ninh,Nội,Nữ,Nương,Oai,Oanh,Oánh,Ơn,Phả,Phái,Phạm,Phan,Phán,Phấn,Phát,Phê,Phi,Phiên,Phiến,Phiệt,Phiêu,Phó,Phô,Phổ,Phồn,Phong,Phóng,Phòng,Phu,Phú,Phủ,Phụ,Phúc,Phục,Phức,Phùng,Phụng,Phước,Phương,Phượng,Quan,Quán,Quân,Quản,Quận,Quang,Quảng,Quế,Quý,Quyên,Quyến,Quyền,Quyết,Quỳnh,Sắc,Sách,Sám,Sâm,San,Sang,Sáng,Sanh,Sảnh,Sao,Sát,Sĩ,Siêu,Sinh,Sinh,Sính,Sở,Soạn,Sơn,Song,Sứ,Sử,Sự,Sung,Sương,Sửu,Tá,Tạ,Tác,Tác,Tài,Tam,Tám,Tâm,Tầm,Tân,Tấn,Tần,Tăng,Tạo,Tập,Tất,Tây,Tế,Thạch,Thaí,Thân,Thận,Thăng,Thắng,Thảng,Thanh,Thành,Thạnh,Thao,Thảo,Thập,Thâu,Thế,Thể,Thi,Thí,Thì,Thị,Thích,Thiên,Thiện,Thiệp,Thiết,Thinh,Thịnh,Thọ,Thoa,Thoả,Thoại,Thu,Thủ,Thư,Thụ,Thứ,Thuấn,Thuần,Thuận,Thuật,Thúc,Thục,Thược,Thương,Thường,Thưởng,Thượng,Thuý,Thuỳ,Thuỷ,Thuỵ,Thuyên,Thuyết,Thy,Tích,Tiêm,Tiềm,Tiên,Tiến,Tiễn,Tiển,Tiếp,Tiết,Tiêu,Tiếu,Tín,Tinh,Tính,Tình,Tĩnh,Tỉnh,Tô,Tố,Tổ,Tộ,Toa,Toan,Toán,Toàn,Toản,Tôn,Tốt,Trà,Trâm,Trân,Trần,Trí,Trì,Triệu,Trinh,Trình,Trịnh,Trọng,Trúc,Trực,Trung,Trương,Trường,Trưởng,Truyền,Tú,Tư,Tứ,Tuân,Tuấn,Túc,Tuệ,Tùng,Tước,Tương,Tường,Tưởng,Tuyên,Tuyến,Tuyền,Tuyển,Tuyết,Tý,Uyên,Vân,Văn,Vệ,Vị,Viễn,Việt,Vinh,Vĩnh,Võ,Vũ,Vui,Vương,Vượng,Vỹ,Xoài,Xuân,Xuyên,Xuyến,Yên,Yến",
+                "CITY_NAMES": "New York,Tokyo,Luân Đôn,Paris,Thượng Hải,Sydney,Rome,Cairo,Bắc Kinh,Mumbai,Los Angeles,Istanbul,Moskva,Buenos Aires,Rio de Janeiro,Toronto,Băng Cốc,Dubai,Thành phố Mexico,Jakarta,Seoul,Barcelona,Madrid,Hồng Kông,Singapore,Berlin,San Francisco,Viên,Milan,Praha,Lisbon,Amsterdam,Melbourne,Copenhagen,Zurich,Helsinki,Stockholm,Brussels,Oslo,Warsaw,Budapest,Boston,Chicago,Athens,Dublin,Hamburg,Munich,Edinburgh,Florence,Vancouver,Montreal,Tel Aviv,Jerusalem,Riyadh,Johannesburg,Cape Town,New Delhi,Manila,Santiago,Caracas,Kuala Lumpur,Auckland,Doha,Lima,Bogotá,Hanoi,Lagos,Nairobi,Addis Ababa,Islamabad,Dhaka,Karachi,Kathmandu,Yangon,Thành phố Hồ Chí Minh,Phnom Penh,Rangoon,Abu Dhabi,Kuwait City,Manama,Muscat,Amman,Beirut,Damascus,Tripoli,Algiers,Tunis,Dakar,Accra,Luanda,Maputo,Harare,Kigali,Mogadishu,Dar es Salaam,Libreville,Kinshasa,Lusaka,Windhoek"
+            }
+        }
+    ]
+}

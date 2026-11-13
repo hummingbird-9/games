@@ -1,0 +1,11 @@
+{
+  "id": 23,
+  "name": "Pou",
+  "author": "Zakeh",
+  "authorLink": "https://play.google.com/store/apps/details?id=me.pou.app",
+  "special": [],
+  "sourceHtml": "23-fix2.html",
+  "sourceCover": "23.png",
+  "assetsCopiedLocally": false,
+  "originalBaseHref": "https://cdn.jsdelivr.net/gh/bubbls/youtube-playables@main/pou/"
+}

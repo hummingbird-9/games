@@ -1,0 +1,81 @@
+{
+    "header": {
+        "version": 1
+    },
+    "data": [
+        {
+            "info": {
+                "locale": "it-IT"
+            },
+            "messages": {
+                "Nickname": "Nome",
+                "Sound": "Suono",
+                "Vibration": "Vibrazione",
+                "Privacy Policy": "Informativa sulla privacy e termini d'uso",
+                "Credits": "Riconoscimenti",
+                "DOUBLE POINTS": "PUNTI DOPPI",
+                "TRIPLE POINTS": "PUNTI TRIPLI",
+                "keyboard_go": "Go",
+                "keyboard_space": "space",
+                "Answer...": "Risposta…",
+                "Wrong": "Errore",
+                "Already given": "Già usata",
+                "LEVEL #value#": "LIVELLO #value#",
+                "TOP 6 ANSWERS": "6 RISPOSTE PIÙ COMUNI",
+                "TOTAL": "TOTALE",
+                "Winner": "Vince",
+                "Round Winner": "Vince il turno",
+                "Tap to continue": "Tocca per continuare",
+                "Claim your reward": "Riscuoti la ricompensa",
+                "Claim your prize": "Riscuoti il tuo premio",
+                "RANDOM SKIN": "SKIN CASUALE",
+                "NEXT_SKIN_PRICE": "PROSSIMA SKIN: #value#",
+                "Need some help for the next match?": "Hai bisogno di aiuto per la prossima sfida?",
+                "Pick a chest": "Scegli un forziere",
+                "Best reward": "Miglior ricompensa",
+                "X KEYS MORE": "ALTRE #value#",
+                "No thanks": "No, grazie",
+                "Daily Challenge": "Sfida giornaliera",
+                "Can you guess the most popular answer?": "Riesci a indovinare la risposta più comune?",
+                "PLAY": "GIOCA",
+                "Eliminated": "Hai perso",
+                "Answer faster!": "Rispondi più velocemente!",
+                "Try again?": "Vuoi riprovare?",
+                "Compete Again?": "Vuoi competere ancora?",
+                "YES": "SÌ",
+                "NO": "NO",
+                "QUALIFIER": "QUALIFICAZIONE",
+                "Push the buzzer": "Premi il pulsante",
+
+                "ROUND 1" : "TURNO 1",
+                "ROUND 2" : "TURNO 2",
+                "ROUND 3" : "TURNO 3",
+                "VICTORY" : "VITTORIA",
+                "REVIVE" : "RIPROVA",
+                "You ended in position" : "La tua posizione finale:",
+                "SEMI FINAL" : "SEMIFINALE",
+                "FINAL" : "FINALE",
+                "Searching for opponents..." : "Ricerca di avversari in corso...",
+                "Remaining" : "Ancora in gioco",
+                "Congratulations" : "COMPLIMENTI",
+                "Best prize" : "Premio migliore",
+                "You won a ticket for the next local tournament" : "Hai vinto un biglietto per il tuo primo torneo locale",
+                "Your free Daily Challenge is available" : "La tua sfida giornaliera è disponibile",
+                
+                "Language" : "Lingua",
+                "BACK" : "INDIETRO",
+                "FREE" : "GRATIS",
+                "SELECT" : "SELEZIONA",
+                "SELECTED" : "SELEZIONATO",
+                "UNLOCK" : "SBLOCCA",
+                "GO" : "VIA",
+                "Enter" : "Inserisci",
+                "You don't like the question, skip it!" : "Non ti piace la domanda? Saltala!",
+                "JOIN": "PARTECIPA",
+
+                "PLAYER_NAMES": "Ada,Adele,Adriana,Agata,Agnese,Alba,Alberta,Alessandra,Alessia,Alex,Alexa,Alexandra,Alexia,Alice,Amalia,Ambra,Amelia,Angela,Angelica,Angi,Anita,Anna,Anna Maria,Annalisa,Annamaria,Antonella,Antonia,Arianna,Asia,Aurora,Azzurra,Barbara,Beatrice,Benedetta,Bianca,Bice,Camilla,Carla,Carlotta,Carmela,Carmen,Carol,Carola,Carolina,Cate,Caterina,Cecilia,Celeste,Chantal,Charlotte,Charlène,Chiara,Chiara Maria,Chloe,Clara,Clarissa,Claudia,Clelia,Cloe,Costanza,Cri,Cristina,Dafne,Dalia,Daniela,Daria,Debora,Deborah,Delia,Denise,Desiree,Desirée,Diana,Diletta,Domenica,Dorotea,Dorothea,Elena,Eleonora,Elettra,Eliana,Elisa,Elisabetta,Elizabeth,Emanuela,Emilia,Emily,Emma,Enrica,Erica,Erika,Ester,Eva,Evelyn,Fabiana,Fatima,Fede,Federica,Flavia,Francesca,Franci,Frida,Gabri,Gabriella,Gaia,Gerda,Giada,Ginevra,Gio,Gioia,Giorgia,Giovanna,Giulia,Giuliana,Giuseppina,Gloria,Grazia,Greta,Ida,Ilaria,Ilenia,Ines,Irene,Isabel,Isabella,Isolde,Jasmine,Jennifer,Jessica,Julia,Karin,Lara,Laura,Lea,Leila,Letizia,Lia,Lidia,Linda,Lisa,Livia,Loredana,Lorenza,Lori,Lucia,Lucrezia,Ludovica,Luigia,Luigina,Luisa,Luna,Maddalena,Maia,Manu,Manuela,Mara,Margherita,Maria,Maria Chiara,Maria Francesca,Maria Grazia,Maria Pia,Maria Sole,Maria Teresa,Maria Vittoria,Marianna,Marica,Marika,Marina,Marta,Martina,Marzia,Matilde,Maya,Melania,Melissa,Mia,Micaela,Michela,Micol,Milena,Miriam,Monica,Morena,Nadia,Naomi,Nicole,Nicoletta,Nives,Noemi,Nora,Olivia,Paola,Paoletta,Patrizia,Penelope,Perla,Petra,Pia,Rachele,Raffa,Raffaella,Rebecca,Rita,Roberta,Robi,Rosa,Rosanna,Rossella,Sabrina,Samantha,Sandra,Sara,Sarah,Selene,Sere,Serena,Silvia,Simona,Sofia,Sole,Sonia,Sophia,Stefania,Stefi,Stella,Susanna,Teresa,Titti,Tiziana,Valentina,Valeria,Vanessa,Vera,Verena,Veronica,Victoria,Vida,Vincenza,Viola,Virginia,Vittoria,Viviana,Ylenia,Yvonne,Zoe,Aaron,Achille,Adelio,Adolfo,Adriano,Agostino,Alberto,Aldo,Alessandro,Alessio,Alfio,Alfredo,Alvaro,Ambrogio,Amedeo,Amos,Andrea,Angelo,Antonello,Antonio,Armando,Armin,Arnaldo,Arnold,Arturo,Attilio,Augusto,Aurelio,Bartolomeo,Battista,Benedetto,Beniamino,Bepi,Bernardo,Biagio,Bruno,Calogero,Camillo,Carlo,Carmelo,Carmine,Cesare,Christian,Christof,Christoph,Claudio,Clemente,Corrado,Cosimo,Costantino,Cristian,Cristiano,Damiano,Dani,Daniel,Daniele,Danilo,Dario,David,Davide,Diego,Dietmar,Dino,Domenico,Dominik,Donato,Edo,Edoardo,Egidio,Elia,Elio,Emanuel,Emanuele,Emiliano,Emilio,Enea,Enrico,Enzo,Ermanno,Ernesto,Eros,Ettore,Eugenio,Ezio,Fabio,Fabrizio,Fausto,Federico,Felice,Ferdinando,Fernando,Filippo,Fiorenzo,Flavio,Fortunato,Francesco,Fulvio,Gabriel,Gabriele,Gaetano,Gaspare,Gennaro,Gerardo,Germano,Giacomo,Gianfranco,Gianluca,Gianluigi,Gianni,Gianpaolo,Gianpiero,Gianpietro,Gianroberto,Gilberto,Gioacchino,Gioele,Giorgio,Giovanni,Girolamo,Giuliano,Giulio,Giuseppe,Graziano,Gregorio,Guglielmo,Guido,Günther,Iacopo,Ignazio,Ilario,Italo,Ivan,Ivano,Ivo,Jacopo,Johann,Josef,Joël,Karl,Kevin,Kurt,Leo,Leonardo,Liam,Livio,Lorenzo,Loris,Luca,Luciano,Lucio,Ludovico,Luigi,Lukas,Manfred,Manuel,Manuele,Marcello,Marco,Mariano,Marino,Mario,Markus,Martino,Massimiliano,Massimo,Matteo,Mattia,Maurilio,Maurizio,Mauro,Michelangelo,Michele,Mirco,Mirko,Moreno,Natale,Nathan,Nic,Niccolò,Nicola,Nicolò,Norbert,Omar,Ondřej,Orazio,Oreste,Orlando,Oscar,Osvaldo,Ottavio,Paolo,Pasquale,Patrick,Patrizio,Paul,Peter,Pierangelo,Piergiorgio,Pierluigi,Piero,Pietro,Pio,Raffaele,Raimondo,Raphael,Remo,Renato,Renzo,Ric,Riccardo,Rob,Roberto,Rocco,Rodolfo,Roland,Rolando,Romano,Romeo,Romolo,Rosario,Ruggero,Salvatore,Salvo,Samuel,Samuele,Sandro,Santo,Saverio,Savino,Sebastiano,Sergio,Silvano,Silvio,Simone,Stefano,Thomas,Tiziano,Tom,Tommaso,Toni,Ubaldo,Ugo,Umberto,Valentino,Valerio,Valter,Vincenzo,Virgilio,Virginio,Vito,Vittorio,Walter,Werner,Yuri,Aureliano,Leopoldo",
+                "CITY_NAMES": "New York,Tokyo,Londra,Parigi,Shanghai,Sydney,Roma,Il Cairo,Pechino,Mumbai,Los Angeles,Istanbul,Mosca,Buenos Aires,Rio de Janeiro,Toronto,Bangkok,Dubai,Città del Messico,Giacarta,Seul,Barcellona,Madrid,Hong Kong,Singapore,Berlino,San Francisco,Vienna,Milano,Praga,Lisbona,Amsterdam,Melbourne,Copenaghen,Zurigo,Helsinki,Stoccolma,Bruxelles,Oslo,Varsavia,Budapest,Boston,Chicago,Atene,Dublino,Amburgo,Monaco,Edimburgo,Firenze,Vancouver,Montreal,Tel Aviv,Gerusalemme,Riyad,Johannesburg,Città del Capo,Nuova Delhi,Manila,Santiago,Caracas,Kuala Lumpur,Auckland,Doha,Lima,Bogotà,Hanoi,Lagos,Nairobi,Addis Abeba,Islamabad,Dhaka,Karachi,Katmandu,Yangon,Ho Chi Minh,Cambogia,Rangoon,Abu Dhabi,Kuwait,Manama,Muscat,Amman,Beirut,Damasco,Tripoli,Algeri,Tunisi,Dakar,Accra,Luanda,Maputo,Harare,Kigali,Mogadiscio,Dar es Salaam,Libreville,Kinshasa,Lusaka,Windhoek"
+            }
+        }
+    ]
+}

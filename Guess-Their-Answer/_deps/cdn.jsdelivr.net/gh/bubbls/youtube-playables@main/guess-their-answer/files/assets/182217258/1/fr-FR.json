@@ -1,0 +1,82 @@
+{
+    "header": {
+        "version": 1
+    },
+    "data": [
+        {
+            "info": {
+                "locale": "fr-FR"
+            },
+            "messages": {
+                "Nickname": "Surnom",
+                "Sound": "Son",
+                "Vibration": "Vibrations",
+                "Privacy Policy": "Politique de confidentialité et Conditions d'utilisation",
+                "Credits": "Crédits",
+                "DOUBLE POINTS": "POINTS DOUBLÉS",
+                "TRIPLE POINTS": "POINTS TRIPLÉS",
+                "keyboard_go": "Go",
+                "keyboard_space": "space",
+                "Answer...": "Réponse...",
+                "Wrong": "Faux",
+                "Already given": "Déjà donné",
+                "LEVEL #value#": "NIVEAU #value#",
+                "TOP 6 ANSWERS": "TOP 6 DES RÉPONSES",
+                "TOTAL": "TOTAL",
+                "Winner": "Vainqueur",
+                "Round Winner": "Vainqueur de la manche",
+                "Tap to continue": "Touche pour continuer",
+                "Claim your reward": "Récupère ta récompense",
+                "Claim your prize": "Récupérer votre prix",
+                "RANDOM SKIN": "SKIN ALÉATOIRE",
+                "NEXT_SKIN_PRICE": "PROCHAIN SKIN: #value#",
+                "Need some help for the next match?": "Besoin d'aide pour la prochaine partie?",
+                "Pick a chest": "Choisis un coffre",
+                "Best reward": "Meilleure récompense",
+                "X KEYS MORE": "#value# AUTRES",
+                "No thanks": "Non merci",
+                "Daily Challenge": "Défi Quotidien",
+                "Can you guess the most popular answer?": "Devineras-tu la réponse la plus courante?",
+                "PLAY": "JOUER",
+                "Eliminated": "Tu as perdu",
+                "Answer faster!": "Réponds plus vite!",
+                "Try again?": "Réessayer?",
+                "Compete Again?": "Participer à nouveau?",
+                "YES": "OUI",
+                "NO": "NON",
+                "QUALIFIER": "QUALIFICATIONS",
+                "Push the buzzer": "Appuie sur le buzzer",
+
+                "ROUND 1" : "MANCHE 1",
+                "ROUND 2" : "MANCHE 2",
+                "ROUND 3" : "MANCHE 3",
+                "VICTORY" : "VICTOIRE",
+                "REVIVE" : "REPRENDRE",
+                "You ended in position" : "Tu as terminé à la position",
+                "SEMI FINAL" : "DEMI-FINALE",
+                "FINAL" : "FINALE",
+                "Searching for opponents..." : "À la recherche d'adversaires...",
+                "Remaining" : "Restant",
+                "Congratulations" : "FÉLICITATIONS",
+                "Best prize" : "Meilleur prix",
+                "You won a ticket for the next local tournament" : "Tu as gagné un ticket pour ton premier tournoi local",
+                "Your free Daily Challenge is available" : "Ton défi journalier est disponible",
+                              
+                "Language" : "Langue",
+                "BACK" : "RETOUR",
+                "FREE" : "GRATUIT",
+                "SELECT" : "SÉLECTIONNER",
+                "SELECTED" : "SÉLECTIONNÉ",
+                "UNLOCK" : "DÉBLOQUER",
+                "GO" : "C'EST PARTI",
+                "Enter" : "Entrer",
+                "You don't like the question, skip it!" : "Tu n'aimes pas la question? Passe-la!",
+                "JOIN": "REJOINDRE",
+
+                "PLAYER_NAMES": "Aaron,Adam,Adèle,Adeline,Adrien,Agathe,Agnès,Alain,Albert,Alex,Alexandra,Alexandre,Alexia,Alexis,Alice,Alicia,Aline,Alix,Amandine,Ambre,Amélie,Amine,Anaëlle,Anaïs,André,Andréa,Andrée,Angélique,Anna,Anne,Anne-Marie,Anne-Sophie,Annick,Annie,Anthony,Antoine,Antonin,Apolline,Arlette,Arnaud,Arthur,Assia,Aude,Audrey,Augustin,Aurélie,Aurélien,Aurore,Axel,Axelle,Aya,Ayoub,Baptiste,Bastien,Béatrice,Bénédicte,Benjamin,Benoît,Bernadette,Bernard,Bertrand,Brigitte,Bruno,Bryan,Camille,Candice,Capucine,Carine,Carla,Carole,Caroline,Cassandra,Catherine,Cathy,Cécile,Cédric,Célia,Céline,Chantal,Charlène,Charles,Charlie,Charlotte,Chloé,Christel,Christelle,Christian,Christiane,Christine,Christophe,Christopher,Cindy,Claire,Clara,Clarisse,Claude,Claudette,Claudine,Clémence,Clément,Clémentine,Colette,Coline,Coralie,Corentin,Corinne,Cyril,Cyrille,Damien,Daniel,Daniele,Danielle,David,Déborah,Delphine,Denis,Denise,Didier,Diego,Dimitri,Dominique,Dorian,Dylan,Eden,Edith,Elena,Eliane,Eliott,Elisa,Elisabeth,Elise,Elodie,Eloïse,Elsa,Emeline,Emile,Emilie,Emma,Emmanuel,Emmanuelle,Emmy,Emy,Enora,Enzo,Eric,Erwan,Esteban,Estelle,Ethan,Etienne,Eva,Evan,Evelyne,Fabien,Fabienne,Fabrice,Fanny,Faustine,Fernand,Flavie,Florence,Florent,Florian,Francine,Francis,Franck,François,Françoise,Frédéric,Frédérique,Gabin,Gabriel,Gabrielle,Gaelle,Gaëtan,Gaspard,Geneviève,Geoffrey,Georges,Gérald,Géraldine,Gérard,Ghislaine,Gilbert,Gilles,Ginette,Gisèle,Giulia,Grégory,Guillaume,Guy,Hélène,Héloïse,Henri,Hervé,Hubert,Hugo,Huguette,Ibrahim,Ilona,Ilyes,Inaya,Inès,Ingrid,Isabelle,Jacky,Jacqueline,Jacques,Jade,Jean,Jean-Baptiste,Jean-Christophe,Jean-Claude,Jean-François,Jean-Jacques,Jean-Louis,Jean-Luc,Jean-Marc,Jean-Marie,Jean-Michel,Jeanne,Jeannine,Jean-Paul,Jean-Philippe,Jean-Pierre,Jean-Yves,Jennifer,Jérémie,Jérémy,Jerôme,Jessica,Jimmy,Jocelyne,Joël,Joëlle,Johan,Johanna,Jonathan,Jordan,José,Joseph,Josette,Josiane,Jules,Julia,Julie,Julien,Juliette,Justine,Kaïs,Karim,Karine,Katia,Kelly,Kenza,Kenzo,Kévin,Killian,Kylian,Laëtitia,Lana,Laura,Laure,Laurence,Laurent,Laurie,Laurine,Léa,Léana,Léane,Léna,Lenny,Léo,Léon,Léonie,Liam,Lila,Lilian,Liliane,Lilou,Lily,Lina,Lionel,Lisa,Lise,Loane,Loïc,Lola,Lorenzo,Lou,Louane,Louis,Louise,Louka,Louna,Luc,Lucas,Lucie,Lucien,Lucile,Ludivine,Ludovic,Luna,Lya,Lydie,Lyna,Madeleine,Maël,Maëlle,Maëlys,Maeva,Magali,Malo,Manon,Manuel,Marc,Marcel,Margaux,Margot,Maria,Marie,Marie-Christine,Marie-Claire,Marie-Claude,Marie-France,Marie-Hélène,Marie-José,Marie-Laure,Marie-Pierre,Marie-Thérèse,Marina,Marine,Marion,Marius,Marjorie,Martial,Martin,Martine,Maryline,Maryse,Maryvonne,Matéo,Mathéo,Mathias,Mathieu,Mathilde,Mathis,Mathys,Mattéo,Matthieu,Maud,Maurice,Max,Maxence,Maxime,Maya,Mehdi,Mélanie,Mélina,Mélissa,Mia,Michael,Michel,Michèle,Micheline,Michelle,Mickaël,Mila,Mireille,Mohamed,Monique,Morgan,Morgane,Muriel,Murielle,Myriam,Nadège,Nadia,Nadine,Naël,Nathalie,Nathan,Nelly,Nicolas,Nicole,Nina,Nino,Noa,Noah,Noam,Noé,Noël,Noémie,Noham,Nolan,Nour,Océane,Odile,Olivia,Olivier,Ophélie,Oscar,Pascal,Pascale,Patrice,Patricia,Patrick,Paul,Paulette,Pauline,Peggy,Philippe,Pierre,Pierrette,Quentin,Rachel,Rafael,Raphaël,Rayan,Raymond,Régine,Regis,Rémi,Rémy,René,Renée,Richard,Robert,Robin,Roger,Roland,Romain,Romane,Rose,Ruben,Ryan,Sabine,Sabrina,Sacha,Salomé,Samuel,Sandra,Sandrine,Sara,Sarah,Sébastien,Serge,Severine,Simon,Simone,Soan,Sofia,Sofiane,Solange,Solène,Sonia,Sophie,Stéphane,Stéphanie,Steven,Suzanne,Sylvain,Sylviane,Sylvie,Théo,Thérèse,Thibault,Thibaut,Thierry,Thomas,Tiago,Timéo,Titouan,Tom,Tony,Tristan,Valentin,Valentine,Valérie,Vanessa,Véronique,Victoire,Victor,Victoria,Vincent,Virginie,Viviane,William,Xavier,Yanis,Yann,Yannick,Yasmine,Yoann,Yolande,Youssef,Yves,Yvette,Yvon,Zoé,Léa,Eugnie,Hélène,Pénélope,Mymy,Laety,Lalou,Papou,Lapinette,Stella,Nina,Lila",
+                "CITY_NAMES": "New York,Tokyo,Londres,Paris,Shanghai,Sydney,Rome,Le Caire,Pékin,Mumbai,Los Angeles,Istanbul,Moscou,Buenos Aires,Rio de Janeiro,Toronto,Bangkok,Dubaï,Mexico,Jakarta,Séoul,Barcelone,Madrid,Hong Kong,Singapour,Berlin,San Francisco,Vienne,Milan,Prague,Lisbonne,Amsterdam,Melbourne,Copenhague,Zurich,Helsinki,Stockholm,Bruxelles,Oslo,Varsovie,Budapest,Boston,Chicago,Athènes,Dublin,Hambourg,Munich,Édimbourg,Florence,Vancouver,Montréal,Tel Aviv,Jérusalem,Riyad,Johannesburg,Le Cap,New Delhi,Manille,Santiago,Caracas,Kuala Lumpur,Auckland,Doha,Lima,Bogota,Hanoï,Lagos,Nairobi,Addis-Abeba,Islamabad,Dacca,Karachi,Kathmandou,Yangon,Hô Chi Minh-Ville,Phnom Penh,Rangoon,Abou Dabi,Koweït,Manama,Mascate,Amman,Beyrouth,Damas,Tripoli,Alger,Tunis,Dakar,Accra,Luanda,Maputo,Harare,Kigali,Mogadiscio,Dar es Salam,Libreville,Kinshasa,Lusaka,Windhoek"
+
+            }
+        }
+    ]
+}

@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<localization>
+	<fonts defaultFont="20_white_pressstart" defaultStyle="default">
+
+		<!-- Font styles
+				Optional attributes: fontName="Arial" fontScale="1" align="center" offsetX="0" offsetY="0" -->
+
+		<style name="default" fontName="20_white_pressstart" align="center"></style>
+		<style name="title" fontName="20_white_pressstart" align="center" offsetY="0"></style>
+
+		<style name="win" fontName="20_white_pressstart" align="left" offsetY="0"></style>
+
+		<style name="16_pink" fontName="16_pink_pressstart" align="center" offsetY="0"></style>
+
+		<style name="20_white" fontName="20_white_pressstart" align="center" offsetY="0"></style>
+		<style name="20_blue" fontName="20_blue_pressstart" align="center" offsetY="0"></style>
+		<style name="20_blue_shadow" fontName="20_blue_shadow_pressstart" align="center" offsetY="0"></style>
+		<style name="20_orange_shadow" fontName="20_orange_shadow_pressstart" align="center" offsetY="0"></style>
+
+		<style name="25_white" fontName="25_white_pressstart" align="center" offsetY="0"></style>
+		<style name="25_white_shadow" fontName="25_white_shadow_pressstart" align="center" offsetY="0"></style>
+
+		<style name="callout" fontName="69_white_shadow_pressstart" align="left" offsetY="0"></style>
+		<style name="callout_yellow" fontName="69_yellow_shadow_pressstart" align="left" offsetY="0"></style>
+
+		<style name="buttons" fontName="20_white_pressstart" fontScale="0.5" align="center" offsetY="0" letterSpacing="2"></style>
+
+	</fonts>
+
+	<strings>
+
+		<!--
+		Optional attributes to customize each string:
+			fontStyle="title"
+
+			or to use font-style attributes directly:
+			fontName="Arial" fontScale="1" offsetX="0" offsetY="0"
+		-->
+
+		<string id="PATRICK">Patrick</string>
+		<string id="SPONGEBOB">SpongeBob</string>
+		<string id="SANDY">Sandy</string>
+
+		<!-- menus -->
+		<!-- Loading -->
+		<string id="loading">LOADING</string>
+		<string id="loading_pc">{{p}} %</string>
+
+		<!-- Title -->
+		<string id="PLAY">CLICK ANYWHERE TO PLAY</string>
+		<string id="PLAY_TOUCH">TAP ANYWHERE TO PLAY</string>
+
+		<!-- HELP -->
+		<string id="SPACEBAR">SPACEBAR</string>
+		<string id="HELP_TITLE_1_1">JUMP</string>
+		<string id="HELP_TITLE_2_1">GOOD!</string>
+		<string id="HELP_TITLE_2_2">BAD!</string>
+		<string id="HELP_TEXT_1">Press the spacebar to jump</string>
+		<string id="HELP_TEXT_1_M">Tap on screen to jump</string>
+		<string id="HELP_TEXT_2"><![CDATA[Pick up & avoid]]></string>
+
+		<!-- Level Selection -->
+		<string id="LEVELS_TITLE">SELECT CHARACTER</string>
+		<string id="HIGHSCORE">High Score</string>
+		<string id="LOCK_TEXT" fontScale="0.9"><![CDATA[{{b}} MORE BURGERS TO UNLOCK]]></string>
+
+		<!-- CALLOUTS -->
+		<string id="CALLOUT_LAND">LAND HO!!!!!</string>
+		<string id="CALLOUT_RECORD">NEW RECORD!</string>
+
+		<!-- CALLOUTS -->
+		<string id="RECORD">Record</string>
+
+		<!-- Pause -->
+		<string id="PAUSE_TITLE">PAUSE</string>
+
+		<!-- Win -->
+		<string id="WIN_TITLE">YOU WIN!</string>
+		<string id="RANK_0">RANK: Plankton</string>
+		<string id="RANK_1">RANK: Anchovy</string>
+		<string id="RANK_2">RANK: Gary</string>
+		<string id="RANK_3">RANK: Flying Dutchman</string>
+		<string id="RANK_4">RANK: King Neptune</string>
+		<string id="RANK_5">RANK: Smitty Werben Man Jensen</string>
+		<string id="WIN_DIST_NUM">{{d}}ft</string>
+		<string id="DISTANCE">Distance</string>
+		<string id="SCORE">Score</string>
+		<string id="WIN_HIGHSCORE">High Score ... {{hs}}</string>
+		<string id="NEW_CHAR">NEW CHARACTER</string>
+		<string id="UNLOCKED">UNLOCKED!</string>
+		<string id="GO">GO!</string>
+
+		<!-- BUTTONS -->
+		<string id="PLAY" fontStyle="buttons">PLAY</string>
+		<string id="QUIT" fontStyle="buttons">QUIT</string>
+		<string id="EDIT" fontStyle="buttons">EDIT</string>
+		<string id="RESET" fontStyle="buttons">RESET</string>
+
+
+	</strings>
+</localization>

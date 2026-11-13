@@ -1,0 +1,81 @@
+{
+    "header": {
+        "version": 1
+    },
+    "data": [
+        {
+            "info": {
+                "locale": "es-ES"
+            },
+            "messages": {
+                "Nickname": "Nombre",
+                "Sound": "Sonido",
+                "Vibration": "Vibración",
+                "Privacy Policy": "Política de privacidad y condiciones de uso",
+                "Credits": "Créditos",
+                "DOUBLE POINTS": "DOBLE DE PUNTOS",
+                "TRIPLE POINTS": "TRIPLE DE PUNTOS",
+                "keyboard_go": "Go",
+                "keyboard_space": "space",
+                "Answer...": "Respuesta...",
+                "Wrong": "Incorrecta",
+                "Already given": "Repetida",
+                "LEVEL #value#": "NIVEL #value#",
+                "TOP 6 ANSWERS": "6 MEJORES RESPUESTAS",
+                "TOTAL": "TOTAL",
+                "Winner": "Gana",
+                "Round Winner": "Gana la ronda",
+                "Tap to continue": "Toca para continuar",
+                "Claim your reward": "Aceptar recompensa",
+                "Claim your prize": "Aceptar premio",
+                "RANDOM SKIN": "ASPECTO AL AZAR",
+                "NEXT_SKIN_PRICE": "PRÓXIMO ASPECTO: #value#",
+                "Need some help for the next match?": "¿Necesitas ayuda para la partida siguiente?",
+                "Pick a chest": "Escoge un cofre",
+                "Best reward": "Mejor recompensa",
+                "X KEYS MORE": "#value# MÁS",
+                "No thanks": "No, gracias",
+                "Daily Challenge": "Desafío diario",
+                "Can you guess the most popular answer?": "¿Podrás adivinar la respuesta más popular?",
+                "PLAY": "JUGAR",
+                "Eliminated": "Pierdes",
+                "Answer faster!": "¡Contesta más rápido!",
+                "Try again?": "¿Volver a intentarlo?",
+                "Compete Again?": "¿Competir otra vez?",
+                "YES": "SÍ",
+                "NO": "NO",
+                "QUALIFIER": "ELIMINATORIA",
+                "Push the buzzer": "Pulsa el botón",
+
+                "ROUND 1" : "RONDA 1",
+                "ROUND 2" : "RONDA 2",
+                "ROUND 3" : "RONDA 3",
+                "VICTORY" : "VICTORIA",
+                "REVIVE" : "REVIVIR",
+                "You ended in position" : "Has quedado en el puesto",
+                "SEMI FINAL" : "SEMIFINAL",
+                "FINAL" : "FINAL",
+                "Searching for opponents..." : "Buscando rivales...",
+                "Remaining" : "Quedan",
+                "Congratulations" : "FELICIDADES",
+                "Best prize" : "Premio gordo",
+                "You won a ticket for the next local tournament" : "Has ganado un tíquet para ir a tu primer torneo local",
+                "Your free Daily Challenge is available" : "Desafío diario gratis disponible",
+
+                "Language" : "Idioma",
+                "BACK" : "ATRÁS",
+                "FREE" : "GRATIS",
+                "SELECT" : "ELEGIR",
+                "SELECTED" : "ELEGIDO",
+                "UNLOCK" : "DESBLOQUEAR",
+                "GO" : "¡YA!",
+                "Enter" : "Enviar",
+                "You don't like the question, skip it!" : "¿No te gusta la pregunta? ¡Omítela!",
+                "JOIN": "UNIRSE",
+                
+                "PLAYER_NAMES": "Adela,Adoración,Adriana,África,Agustina,Aida,Aina,Ainara,Ainhoa,Aitana,Alba,Alejandra,Alexandra,Alicia,Almudena,Amaia,Amalia,Amanda,Amelia,Amparo,Ana,Ana Belén,Ana Isabel,Ana María,Andrea,Ane,Ángela,Ángeles,Anna,Antonia,Araceli,Aranzazu,Ariadna,Aroa,Ascensión,Asunción,Aurora,Bárbara,Beatriz,Begoña,Belén,Berta,Blanca,Candela,Carla,Carlota,Carmen,Carmen María,Carolina,Catalina,Cecilia,Celia,Clara,Claudia,Concepción,Consuelo,Cristina,Daniela,Diana,Dolores,Elena,Elisa,Elisabet,Elisabeth,Elsa,Elvira,Emilia,Emma,Encarnación,Enriqueta,Erika,Esperanza,Estefanía,Estela,Ester,Esther,Estrella,Eugenia,Eulalia,Eva,Eva María,Fátima,Felisa,Florentina,Francisca,Gabriela,Gema,Gemma,Gloria,Guadalupe,Helena,Herminia,Inés,Inmaculada,Irene,Iria,Iris,Isabel,Isabel Maria,Itziar,Jennifer,Jessica,Jimena,Joana,Joaquina,Josefa,Josefina,Juana,Juana María,Judit,Judith,Julia,Juliana,Khadija,Laia,Lara,Laura,Leire,Leonor,Leticia,Leyre,Lidia,Lola,Lorena,Lourdes,Lucia,Luisa,Macarena,Magdalena,Maite,Manuela,Mar,Margarita,María,María Amparo,María Ángeles,María Antonia,Maria Aranzazu,María Asunción,María Begoña,María Belén,María Carmen,María Concepción,María Consuelo,María Cristina,María Cruz,María Dolores,María Elena,María Encarnación,María Esperanza,María Esther,María Eugenia,María Francisca,María Gloria,María Inmaculada,María Isabel,María Jesús,María José,María Josefa,María Lourdes,María Luisa,María Luz,María Magdalena,María Mar,María Dolores,María Milagros,María Monserrat,María Nives,María Paz,María Pilar,María Remedios,María Reyes,María Rocío,María Rosa,María Rosario,María Soledad,María Teresa,María Trinidad,María Victoria,María Yolanda,Mariana,Marina,Marta,Martina,Matilde,Mercedes,Milagros,Mireia,Miriam,Mirian,Mónica,Montserrat,Nadia,Naiara,Natalia,Natividad,Nerea,Nieves,Noa,Noelia,Noemí,Nora,Nuria,Olga,Olivia,Paloma,Paola,Patricia,Paula,Petra,Piedad,Pilar,Purificaicón,Rafaela,Ramona,Raquel,Rebeca,Remedios,Rocío,Rosa,Rosa María,Rosalía,Rosario,Ruth,Sandra,Sara,Saray,Sheila,Silvia,Sofia,Soledad,Sonia,Soraya,Susana,Tamara,Tania,Tatiana,Teresa,Trinidad,Valentina,Valeria,Vanesa,Vanessa,Vera,Verónica,Vicenta,Victoria,Virginia,Yaiza,Yolanda,Aaron,Abel,Abraham,Adam,Adolfo,Adriá,Adrían,Agustín,Ahmed,Aitor,Albert,Alberto,Aleix,Alejandro,Alex,Alexander,Alfonso,Alfredo,Ali,Alonso,Álvaro,Ander,Andrés,Ángel,Ángel Luis,Antoni,Antonio,Antonio Jesús,Antonio José,Antonio Manuel,Armando,Arnau,Arturo,Asier,Aurelio,Bartolomé,Benito,Benjamín,Bernardo,Blas,Borja,Bruno,Cándido,Carles,Carlos,Carlos Alberto,Carlos Javier,Carmelo,César,Christian,Cristian,Cristóbal,Damián,Daniel,Dario,David,Diego,Dionisio,Domingo,Edgar,Eduard,Eduardo,Elías,Eloy,Emiliano,Emilio,Eneko,Enric,Enrique,Enzo,Eric,Erik,Ernesto,Esteban,Eugenio,Eusebio,Federico,Felipe,Félix,Fermín,Fernando,Ferrán,Florencio,Francesc,Francisco,Francisco Antonio,Francisco Javier,Francisco Jesús,Francisco José,Francisco Manuel,Gabriel,Gerard,Gerardo,Germán,Ginés,Gonzalo,Gorka,Gregorio,Guillem,Guillermo,Gustavo,Héctor,Hugo,Ian,Ignacio,Íker,Iñaki,Íñigo,Isaac,Isidoro,Isidro,Ismael,Israel,Iván,Izan,Jacinto,Jaime,Jairo,Jan,Jaume,Javier,Jerónimo,Jesús,Jesús Manuel,Jesús María,Joan,Joaquín,Joel,Jon,Jonatan,Jonathan,Jordi,Jorge,Jose,Jose Alberto,Jose Ángel,Jose Antonio,Jose Carlos,Jose David,Jose Enrique,Jose Francisco,Jose Ignacio,Jose Javier,Jose Joaquín,Jose Juan,Jose Luis,Jose Manuel,Jose María,Jose Miguel,Jose Ramón,Jose Vicente,Josep,Josep Maria,Juan,Juan Antonio,Juan Bautista,Juan Carlos,Juan Francisco,Juan Ignacio,Juan Jesús,Juan José,Juan Luis,Juan Manuel,Juan María,Juan Miguel,Juan Pablo,Juan Pedro,Juan Ramón,Julen,Julián,Julio,Julio César,Justo,Kevin,Leo,Leonardo,Lluis,Lorenzo,Lucas,Luis,Luis Alberto,Luis Fernando,Luis Manuel,Luis Miguel,Manuel,Manuel Ángel,Manuel Jesús,Marc,Marcelino,Marco,Marco Antonio,Marcos,Mariano,Mario,Marti,Martín,Mateo,Matías,Miguel,Miguel Ángel,Mikel,Miquel,Mohamed,Mohammed,Moisés,Nicolás,Oliver,Omar,Oriol,Óscar,Pablo,Pascual,Pau,Pedro,Pedro Antonio,Pedro José,Pedro Luis,Pere,Pol,Rachid,Rafael,Ramón,Raúl,Ricardo,Roberto,Rodrigo,Roger,Román,Rubén,Said,Salvador,Samuel,Santiago,Santos,Saúl,Sebastián,Sergi,Sergio,Teodoro,Tomás,Unai,Valentín,Vicente,Víctor,Víctor Manuel,Victoriano,Xabier,Xavier,Yeray,Youssef",
+                "CITY_NAMES": "Nueva York,Tokio,Londres,París,Shanghái,Sídney,Roma,El Cairo,Pekín,Mumbai,Los Ángeles,Estambul,Moscú,Buenos Aires,Río de Janeiro,Toronto,Bangkok,Dubái,Ciudad de México,Yakarta,Seúl,Barcelona,Madrid,Hong Kong,Singapur,Berlín,San Francisco,Viena,Milán,Praga,Lisboa,Ámsterdam,Melbourne,Copenhague,Zúrich,Helsinki,Estocolmo,Bruselas,Oslo,Varsovia,Budapest,Boston,Chicago,Atenas,Dublín,Hamburgo,Múnich,Edimburgo,Florencia,Vancouver,Montreal,Tel Aviv,Jerusalén,Riad,Johannesburgo,Ciudad del Cabo,Nueva Delhi,Manila,Santiago,Caracas,Kuala Lumpur,Auckland,Doha,Lima,Bogotá,Hanói,Lagos,Nairobi,Adís Abeba,Islamabad,Daca,Karachi,Katmandú,Rangún,Ciudad Ho Chi Minh,Phnom Penh,Rangún,Abu Dabi,Ciudad de Kuwait,Manama,Mascate,Ammán,Beirut,Damasco,Trípoli,Argel,Túnez,Dakar,Acra,Luanda,Maputo,Harare,Kigali,Mogadiscio,Dar es Salaam,Libreville,Kinshasa,Lusaka,Windhoek"
+            }
+        }
+    ]
+}

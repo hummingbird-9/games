@@ -1,0 +1,81 @@
+{
+    "header": {
+        "version": 1
+    },
+    "data": [
+        {
+            "info": {
+                "locale": "sv-SE"
+            },
+            "messages": {
+                "Nickname": "Smeknamn",
+                "Sound": "Ljud",
+                "Vibration": "Vibration",
+                "Privacy Policy": "Integritetspolicy & användarvillkor",
+                "Credits": "Medverkande",
+                "DOUBLE POINTS": "DUBBLA POÄNG",
+                "TRIPLE POINTS": "TREDUBBLA POÄNG",
+                "keyboard_go": "Go",
+                "keyboard_space": "space",
+                "Answer...": "Svar...",
+                "Wrong": "Fel",
+                "Already given": "Redan angett",
+                "LEVEL #value#": "NIVÅ #value#",
+                "TOP 6 ANSWERS": "6 FRÄMSTA SVAREN",
+                "TOTAL": "TOTALT",
+                "Winner": "Vinnare",
+                "Round Winner": "Rundans vinnare",
+                "Tap to continue": "Tryck för att fortsätta",
+                "Claim your reward": "Hämta din belöning",
+                "Claim your prize": "Hämta ditt pris",
+                "RANDOM SKIN": "SLUMPMÄSSIGT SKIN",
+                "NEXT_SKIN_PRICE": "NÄSTA SKIN: #value#",
+                "Need some help for the next match?": "Behöver du lite hjälp inför nästa match?",
+                "Pick a chest": "Välj en kista",
+                "Best reward": "Bäst belöning",
+                "X KEYS MORE": "#value# TILL",
+                "No thanks": "Nej tack",
+                "Daily Challenge": "Daglig utmaning",
+                "Can you guess the most popular answer?": "Kan du gissa det populäraste svaret?",
+                "PLAY": "SPELA",
+                "Eliminated": "Utslagen",
+                "Answer faster!": "Svara snabbare!",
+                "Try again?": "Försök igen?",
+                "Compete Again?": "Tävla igen?",
+                "YES": "JA",
+                "NO": "NEJ",
+                "QUALIFIER": "KVAL",
+                "Push the buzzer": "Tryck på knappen",
+
+                "ROUND 1" : "RUNDA 1",
+                "ROUND 2" : "RUNDA 2",
+                "ROUND 3" : "RUNDA 3",
+                "VICTORY" : "SEGER",
+                "REVIVE" : "ÅTERUPPLIVA",
+                "You ended in position" : "Du hamnade på plats",
+                "SEMI FINAL" : "SEMIFINAL",
+                "FINAL" : "FINAL",
+                "Searching for opponents..." : "Söker efter motståndare...",
+                "Remaining" : "Kvar",
+                "Congratulations" : "GRATTIS",
+                "Best prize" : "Bästa priset",
+                "You won a ticket for the next local tournament" : "Du vann en biljett till din första lokala turnering",
+                "Your free Daily Challenge is available" : "Din dagliga utmaning är redo",
+                
+                "Language" : "Språk",
+                "BACK" : "TILLBAKA",
+                "FREE" : "GRATIS",
+                "SELECT" : "VÄLJ",
+                "SELECTED" : "VALD",
+                "UNLOCK" : "LÅS UPP",
+                "GO" : "KÖR",
+                "Enter" : "Fyll i",
+                "You don't like the question, skip it!" : "Skippa frågor du inte gillar",
+                "JOIN": "GÅ MED",
+
+                "PLAYER_NAMES": "Lucas,Liam,William,Elias,Noah,Hugo,Oliver,Oscar,Adam,Matteo,Walter,Alexander,Leo,Nils,Alfred,Ludvig,Adrian,Theo,Leon,Elliot,Arvid,Vincent,Theodor,Filip,Axel,Harry,Frans,Charlie,Mohamed,Gabriel,Isak,August,Loui,Benjamin,Sam,Josef,Ebbe,Melvin,Love,Olle,Albin,Henry,Edvin,Elton,Emil,Malte,Vidar,Gustav,Jack,Frank,Viggo,Noel,Sixten,Viktor,Melker,Jacob,Casper,Erik,Tage,Aron,Loke,Otto,Wilmer,Colin,Milo,Sigge,Alvin,Carl,Milton,Wilhelm,Anton,Ivar,Kian,Julian,Max,Elis,Levi,Nicholas,Elvin,Felix,Vilgot,Ali,Omar,Hjalmar,Ture,Samuel,David,Kevin,Joel,Vide,Amir,Ville,Dante,John,Daniel,Algot,Folke,Alve,Ibrahim,Thor,Alice,Olivia,Astrid,Maja,Vera,Ebba,Ella,Wilma,Alma,Lilly,Elsa,Agnes,Freja,Saga,Ellie,Clara,Signe,Alva,Alicia,Selma,Ester,Stella,Julia,Ines,Leah,Ellen,Molly,Iris,Sara,Luna,Isabelle,Nora,Nova,Hedda,Mila,Nellie,Sofia,Lova,Juni,Elvira,Linnéa,Emilia,Sigrid,Celine,Elise,Edith,Emma,Lykke,Liv,Lo,Thea,Meja,Livia,Tuva,Isabella,Sally,Majken,Maria,Leia,Hailey,Tyra,Elin,Amelia,Lovisa,Märta,Rut,Ida,Ingrid,Bianca,Hanna,Ronja,Jasmine,Stina,Svea,Cleo,Melissa,Hilma,Filippa,Hedvig,Julie,Tilde,Lovis,Siri,Felicia,Cornelia,Elina,Elsie,Joline,Hilda,Mira,Moa,Melina,Bonnie,Mariam,Matilda,Wilda,Bella,Millie,My,Amanda,Victoria,William,Liam,Elias,Hugo,Leo,Charlie,Melvin,Benjamin,Love,Melker,Milton,Samuel,Nicolas,John,Jonathan,Daniel,Milian,Maximilian,Lias,Maja,Wilma,Saga,Clara,Ellen,Sigrid,Elvira,Juni,Isabella,Tuva,Thea,Moa,Hilma,Belle,Greta,Maryam,Zoe,Penny,Adam,Isak,Erik,Malte,Noel,Elis,Sebastian,Simon,Maximilian,Neo,Alicia,Ebba,Lilly,Astrid,Freja,Elsa,Selma,Stella,Linnea,Nellie,Emilia,Liv,Livia,Hanna,Felicia,Ida,Amelia,Matilda,Siri,Ronja,Emelie,Mira,Ellinor,Zoey,Idun,Melina,Noomi,Alfred,Leon,Arvid,Valter,Sixten,Jack,Rasmus,Sebastian,Mio,Edward,Nova,Ines,Sofia,Elin,Melissa,My,Linn,Emelie,Adele,Tilda,Emmy,Greta,Nathalie,Novalie,Alexander,Max,Simon,Eddie,Linus,Alex,Klara,Alma,Nathalie,Tindra,Linn,Anna,Neo,Hampus,Svante,Alice,Olivia,Nora,Stina,Filippa,Tilda,Lisa,Minna,Nicole,Elisa,Wilmer,Josef,Louie,Tim,Tor,Vilda,Josefine,Tove,Theo,Alex,Hannes,Svea,Josefin,Lina,Annie,Sofie,Viktoria,Frida,Evelina,Oliver,Nils,Casper,Mohammed,Robin,Fabian,Måns,Marcus,Lea,Minna,Inez,Rebecca,Nicole,Ludvig,Måns,Johannes,Lina,Kajsa,Viggo,Mattias,Jesper,Dennis,Ruben,Molly,Amanda,Rebecka,Iris,Malva,Fanny,Alexandra,Miranda,Johanna,Axel,Gustav,Albin,Edvin,Linus,Olle,Jakob,David,Marcus,Tim,Hannes,Johan,Loke,Dennis,Martin,Sam,Pontus,Christoffer,Emma,Julia,Engla,Anna,Ingrid,Edith,Irma,Ellie,Vendela,Jennifer,Alfons,Herman,Christian,Alva,Klara,Isabelle,Tindra,Tilde,Natalie,Tyra,Frida,Vera,Lisa,Engla,Signe,Rebecka,Lova,Cornelia,Hilda,Elina,Fanny,Kajsa,Johanna,Alexandra,Inez,Märta,Tova,Annie,Sanna,Angelina,Irma,Louise,Tobias,Kalle,Andreas,André,Fredrik,Ella,Emmy,Sandra,Jonna,Filip,Emil,Viktor,Anton,Jonathan,Carl,Kevin,Rasmus,Joel,Elliot,Noah,Robin,Theodor,Alvin,Johan,Ville,Adrian,Vincent,Martin,Fabian,Wilhelm,Mohammed,Andreas,Vilgot,Christoffer,Mattias,Tobias,Kalle,August,Otto,Fredrik,Aron,Eddie,Joakim,Linnéa,Sara,Agnes,Lovisa,Ester,Lea,Jennifer,Meja,Mikaela,Victoria,Sandra,Maria,Hedda,Miranda,Malin,Vendela,Sofie,Leia,Jonna,Sanna,Smilla,Tove",
+                "CITY_NAMES": "New York,Tokyo,London,Paris,Shanghai,Sydney,Rom,Kairo,Peking,Mumbai,Los Angeles,Istanbul,Moskva,Buenos Aires,Rio de Janeiro,Toronto,Bangkok,Dubai,Mexiko City,Jakarta,Seoul,Barcelona,Madrid,Hongkong,Singapore,Berlin,San Francisco,Wien,Milano,Prag,Lissabon,Amsterdam,Melbourne,Köpenhamn,Zürich,Helsingfors,Stockholm,Bryssel,Oslo,Warszawa,Budapest,Boston,Chicago,Aten,Dublin,Hamburg,München,Edinburgh,Florens,Vancouver,Montreal,Tel Aviv,Jerusalem,Riyadh,Johannesburg,Kapstaden,New Delhi,Manila,Santiago,Caracas,Kuala Lumpur,Auckland,Doha,Lima,Bogotá,Hanoi,Lagos,Nairobi,Addis Abeba,Islamabad,Dhaka,Karachi,Katmandu,Yangon,Ho Chi Minh-staden,Phnom Penh,Rangoon,Abu Dhabi,Kuwait City,Manama,Muskat,Amman,Beirut,Damaskus,Tripoli,Alger,Tunis,Dakar,Accra,Luanda,Maputo,Harare,Kigali,Mogadishu,Dar es Salaam,Libreville,Kinshasa,Lusaka,Windhoek"
+            }
+        }
+    ]
+}

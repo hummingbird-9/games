@@ -1,0 +1,46 @@
+{
+	"features": {
+		"highscores": 1,
+		"rewarded": 0
+	},
+	"game_info": {
+		"client_version": "1.0",
+		"api_version": "2.1",
+		"forced_mode": {
+			"state": {
+			},
+			"override": {
+			}
+		},
+		"track_stats": {
+		}
+	},
+	"preview": {
+		"features": {
+			"auto_quality": 0,
+			"credits": 1,
+			"copyright": 0,
+			"external_achievements": 0,
+			"external_leaderboard": 0,
+			"external_mute": 0,
+			"external_pause": 0,
+			"external_start": 0,
+			"forced_mode": 0,
+			"highscores": 1,
+			"leaderboard": 0,
+			"multiplayer": 0,
+			"multiplayer_local": 0,
+			"rewarded": 0,
+			"skip_title": 0,
+			"skip_tutorial": 0,
+			"standalone": 0,
+			"version": 1
+		},
+		"forced_mode": {
+			"state": {
+			},
+			"override": {
+			}
+		}
+	}
+}

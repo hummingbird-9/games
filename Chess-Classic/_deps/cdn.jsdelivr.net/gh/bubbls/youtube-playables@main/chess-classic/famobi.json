@@ -1,0 +1,18 @@
+{
+    "features": {
+        "highscores": 1,
+        "rewarded": 1
+    },
+    "game_i18n" : {
+        "default": {
+            "filename.png"  : "fg_i18n/en/images/filename.png"
+        }
+    },
+    "game_analytics": {
+        "build": "chess_classic_v1",
+        "resource_currencies": [],
+        "resource_item_types": [],
+        "game_key": "",
+        "secret_key": ""
+    }  
+}

@@ -1,0 +1,11 @@
+{
+  "id": 420,
+  "name": "Weapon Scale",
+  "author": "Yandex",
+  "authorLink": "https://yandex.com/games",
+  "special": [],
+  "sourceHtml": "420-fix.html",
+  "sourceCover": "420.png",
+  "assetsCopiedLocally": false,
+  "originalBaseHref": "https://rawcdn.githack.com/genizy/brainrot/main/wheel-scale/"
+}

@@ -1,0 +1,13 @@
+{
+  "id": 458,
+  "name": "The Deadseat",
+  "author": "Curious Fox Sox",
+  "authorLink": "https://store.steampowered.com/app/3667230/The_Deadseat",
+  "special": [
+    "port"
+  ],
+  "sourceHtml": "458-fix2.html",
+  "sourceCover": "458.png",
+  "assetsCopiedLocally": false,
+  "originalBaseHref": "https://cdn.jsdelivr.net/gh/giorgirick2-gif/game-webports-onawebsite@main/deadseat/"
+}

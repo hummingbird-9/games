@@ -1,0 +1,81 @@
+{
+    "header": {
+        "version": 1
+    },
+    "data": [
+        {
+            "info": {
+                "locale": "tr-TR"
+            },
+            "messages": {
+                "Nickname": "Takma ad",
+                "Sound": "Ses",
+                "Vibration": "Titreşim",
+                "Privacy Policy": "Gizlilik Politikası ve Kullanım Koşulları",
+                "Credits": "Jenerik",
+                "DOUBLE POINTS": "İKI KAT PUAN",
+                "TRIPLE POINTS": "ÜÇ KAT PUAN",
+                "keyboard_go": "Go",
+                "keyboard_space": "space",
+                "Answer...": "Cevap...",
+                "Wrong": "Yanlış",
+                "Already given": "Zaten verildi",
+                "LEVEL #value#": "SEVİYE #value#",
+                "TOP 6 ANSWERS": "EN IYI 6 CEVAP",
+                "TOTAL": "TOPLAM",
+                "Winner": "Kazanan",
+                "Round Winner": "Tur Kazananı",
+                "Tap to continue": "Devam etmek için dokun",
+                "Claim your reward": "Ödülünü al",
+                "Claim your prize": "Ödülünü al",
+                "RANDOM SKIN": "RASTGELE KOSTÜM",
+                "NEXT_SKIN_PRICE": "SONRAKİ KOSTÜM: #value#",
+                "Need some help for the next match?": "Sıradaki karşılaşmada yardıma mı ihtiyacın var?",
+                "Pick a chest": "Bir sandık seç",
+                "Best reward": "En iyi ödül",
+                "X KEYS MORE": "#value# TANE DAHA",
+                "No thanks": "Hayır, teşekkürler",
+                "Daily Challenge": "Günlük Meydan Okuma",
+                "Can you guess the most popular answer?": "En popüler cevabı tahmin edebilir misin?",
+                "PLAY": "OYNA",
+                "Eliminated": "Elendi",
+                "Answer faster!": "Daha çabuk cevap ver!",
+                "Try again?": "Tekrar denemek ister misin?",
+                "Compete Again?": "Tekrar yarışmak ister misin?",
+                "YES": "EVET",
+                "NO": "HAYIR",
+                "QUALIFIER": "NİTELEYİCİ",
+                "Push the buzzer": "Zile bas",
+
+                "ROUND 1" : "1. TUR",
+                "ROUND 2" : "2. TUR",
+                "ROUND 3" : "3. TUR",
+                "VICTORY" : "ZAFER",
+                "REVIVE" : "TAZELE",
+                "You ended in position" : "Şu pozisyonda bitirdin:",
+                "SEMI FINAL" : "YARI FİNAL",
+                "FINAL" : "FİNAL",
+                "Searching for opponents..." : "Rakipler aranıyor...",
+                "Remaining" : "Kalan",
+                "Congratulations" : "TEBRİKLER",
+                "Best prize" : "En İyi Ödül",
+                "You won a ticket for the next local tournament" : "İlk yerel turnuvan için bir bilet kazandın",
+                "Your free Daily Challenge is available" : "Ücretsiz Günlük Meydan Okuma hakkın kullanılabilir",
+                
+                "Language" : "Dil",
+                "BACK" : "GERI",
+                "FREE" : "ÜCRETSİZ",
+                "SELECT" : "SEÇ",
+                "SELECTED" : "SEÇILDI",
+                "UNLOCK" : "AÇ",
+                "GO" : "BAŞLA",
+                "Enter" : "Gir",
+                "You don't like the question, skip it!" : "Soruyu beğenmediysen geç!",
+                "JOIN": "KATIL",
+                
+                "PLAYER_NAMES": "Abbas,Abdülkadir,Abdullah,Abdurrahman,Abuzettin,Açelya,Adnan,Agah,Ahmet,Ahsen,Ahu,Ajda,Akif,Akın,Alev,Ali,Alp,Alparslan,Alpay,Alper,Alperen,Alphan,Alya,Amil,Aras,Arda,Arif,Arzu,Asaf,Asena,Asil,Aslı,Aslıhan,Aslım,Asu,Asuman,Asya,Ata,Ataberk,Atakan,Ateş,Atilla,Atıl,Atılgan,Aybars,Aybüke,Ayça,Aycan,Aydan,Aydın,Ayhan,Aykan,Aykut,Ayla,Aynur,Ayşe,Ayşegül,Aysu,Aysun,Ayten,Aziz,Azize,Azra,Bahadır,Bahar,Bahariye,Bahir,Barış,Bartu,Başak,Battal,Batu,Batuhan,Bedir,Bedrettin,Behçet,Behiye,Behlül,Bekir,Belgin,Belkız,Belma,Bengü,Berat,Beril,Berk,Berkcan,Berna,Berrin,Bertuğ,Beşir,Beste,Beyaz,Beyazıt,Beyza,Bihter,Bilal,Bilçin,Bilge,Bilkan,Binali,Binnaz,Binnur,Birgen,Birkan,Birsen,Birsu,Buğra,Buket,Bükre,Bülent,Bulut,Burak,Burçin,Burcu,Buse,Büşra,Cafer,Cahit,Can,Canberk,Candan,Caner,Cansu,Cavide,Cavit,Celal,Celalettin,Çelik,Cem,Cemal,Cemalettin,Cemil,Cemre,Cenk,Ceren,Çetin,Cevahir,Cevdet,Ceyda,Ceyhun,Ceylin,Cihan,Coşkun,Cumali,Cüneyt,Davut,Demir,Deniz,Derya,Dicle,Didem,Dilara,Dilay,Dilber,Dilek,Dilşah,Dinçer,Doğa,Doğan,Doğu,Doğukan,Doğuş,Doruk,Dumrul,Durmuş,Dursun,Duru,Ebru,Ece,Eda,Efe,Efsun,Ege,Elçin,Elif,Elmas,Emel,Emine,Emir,Emre,Enes,Engin,Engür,Ensar,Enver,Ercan,Erdal,Erdem,Erkin,Erkunt,Erkut,Erol,Ersin,Ertuğrul,Ertunç,Esat,Esen,Eser,Esra,Eylem,Eylül,Eymen,Eyşan,Eyüp,Ezgi,Fahri,Faik,Faruk,Fatih,Fatma,Fazıl,Ferdi,Ferhan,Feride,Ferit,Feyza,Fidan,Figen,Fikret,Filiz,Firdevs,Firuze,Fırat,Funda,Furkan,Gamze,Gizem,Gökberk,Gökçe,Gökhan,Göksu,Göksun,Göktuğ,Gonca,Görkem,Gözde,Gül,Gülçin,Gülden,Gülin,Gülru,Gülseren,Gülsu,Gülten,Gürsel,Güzide,Habibe,Habil,Hacer,Hafize,Hakan,Hakkı,Haluk,Handan,Hande,Hasan,Hasret,Hatice,Havva,Hayal,Hazal,Hediye,Helin,Hülya,Hüseyin,Hüsniye,İbrahim,Ilgız,İlker,İmge,İpek,İrem,Irmak,Işıl,Işılay,İsmail,İsmet,Itır,Jale,Janset,Kader,Kadir,Kamil,Karanfil,Kardelen,Kasım,Kemal,Kenan,Kerem,Kerim,Kezban,Kibariye,Kıvıldım,Köksal,Koray,Kübra,Lale,Lana,Lara,Leman,Lerzan,Levent,Leyla,Lütfiye,Lütfü,Mahir,Mahmut,Mahsun,Mazhar,Mecnun,Mehlika,Mehmet,Melih,Melike,Melis,Meltem,Memati,Menderes,Menekşe,Mert,Mertcan,Merve,Mete,Metehan,Miraç,Mirkelam,Mücahit,Muhammed,Muhammet,Muharrem,Muhittin,Muhsin,Mümtaz,Murat,Mürsel,Müslüm,Mustafa,Nadide,Nadir,Nadire,Nadiye,Nalan,Narin,Naz,Nazan,Nazlı,Nazlıhan,Necdet,Necla,Nehir,Nejat,Nermin,Neşe,Nezih,Nigar,Nihal,Nihat,Nil,Nilay,Nilgün,Nilüfer,Nisan,Nur,Nurcan,Nurçin,Nurdan,Nuri,Nurullah,Oğuz,Oğuzhan,Okan,Okşan,Olcan,Ömer,Önder,Onur,Orcan,Orçun,Orhan,Orkun,Oruç,Osman,Oya,Oylum,Ozan,Özer,Özkan,Özlem,Pakize,Pars,Pelin,Pembe,Perihan,Pınar,Polat,Ramazan,Rana,Recep,Reyhan,Ruhsar,Rüya,Sabri,Sahra,Sait,Şakir,Saliha,Salim,Sanem,Sare,Seçil,Seda,Seher,Selda,Selen,Selin,Selvi,Sema,Sena,Serap,Serhat,Şerife,Sertap,Seval,Sevcan,Sevgi,Sevim,Sevinç,Simge,Sinan,Sinem,Sıla,Su,Sude,Şükrü,Sultan,Sumru,Tahir,Tahsin,Talat,Talip,Taner,Tansu,Tarık,Tarkan,Tatar,Tayfun,Tayfur,Tayyar,Tayyibe,Tayyip,Tekin,Temel,Teoman,Tevfik,Tibet,Tijen,Tilbe,Tolga,Tonguç,Tuba,Tufan,Tuğberk,Tuğçe,Tülay,Tülin,Tunç,Tuncer,Turgut,Turhan,Türkan,Tutku,Utku,Vahide,Vedat,Vicdan,Vildan,Vuslat,Yağmur,Yalçın,Yaprak,Yasemin,Yavuz,Yeşim,Yıldırım,Yıldız,Yılmaz,Yonca,Yüksel,Yunus,Zahide,Zarife,Zehra,Zeki,Zekiye,Zeliha,Zeynep,Zühre,Zülfü,Zümra",
+                "CITY_NAMES": "New York,Tokyo,Londra,Paris,Şanghay,Sidney,Roma,Kahire,Pekin,Mumbai,Los Angeles,İstanbul,Moskova,Buenos Aires,Rio de Janeiro,Toronto,Bangkok,Dubai,Meksiko Şehri,Jakarta,Seul,Barcelona,Madrid,Hong Kong,Singapur,Berlin,San Francisco,Viyana,Milano,Prag,Lizbon,Amsterdam,Melbourne,Kopenhag,Zurih,Helsinki,Stockholm,Brüksel,Oslo,Varşova,Budapeşte,Boston,Chicago,Atina,Dublin,Hamburg,Münih,Edinburgh,Floransa,Vancouver,Montreal,Tel Aviv,Kudüs,Riyad,Yohannesburg,Kap Town,New Delhi,Manila,Santiago,Caracas,Kuala Lumpur,Auckland,Doha,Lima,Bogota,Hanoi,Lagos,Nairobi,Addis Ababa,İslamabad,Dakka,Karachi,Katmandu,Yangon,Ho Chi Minh Şehri,Phnom Penh,Rangoon,Abu Dhabi,Kuveyt Şehri,Manama,Maskat,Amman,Beirut,Şam,Trablus,Cezayir,Tunus,Dakar,Accra,Luanda,Maputo,Harare,Kigali,Mogadişu,Darüsselam,Libreville,Kinşasa,Lusaka,Windhoek"
+            }
+        }
+    ]
+}

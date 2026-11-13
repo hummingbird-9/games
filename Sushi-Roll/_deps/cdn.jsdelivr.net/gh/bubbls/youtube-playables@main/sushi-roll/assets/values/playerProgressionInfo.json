@@ -1,0 +1,302 @@
+[
+  {
+    "xpPerLevel": 0,
+    "xpCumulative": 0,
+    "levelKey": 1,
+    "levelTitle": "Nigiri Newbie"
+  },
+  {
+    "xpPerLevel": 55,
+    "xpCumulative": 55,
+    "levelKey": 2,
+    "levelTitle": "Sushi Trainee"
+  },
+  {
+    "xpPerLevel": 139,
+    "xpCumulative": 194,
+    "levelKey": 3,
+    "levelTitle": "Maki Maker"
+  },
+  {
+    "xpPerLevel": 238,
+    "xpCumulative": 432,
+    "levelKey": 4,
+    "levelTitle": "Soy Boy"
+  },
+  {
+    "xpPerLevel": 350,
+    "xpCumulative": 782,
+    "levelKey": 5,
+    "levelTitle": "Wasabee"
+  },
+  {
+    "xpPerLevel": 472,
+    "xpCumulative": 1254,
+    "levelKey": 6,
+    "levelTitle": "Noodle Dude"
+  },
+  {
+    "xpPerLevel": 602,
+    "xpCumulative": 1856,
+    "levelKey": 7,
+    "levelTitle": "Mr. Rice Guy"
+  },
+  {
+    "xpPerLevel": 740,
+    "xpCumulative": 2596,
+    "levelKey": 8,
+    "levelTitle": "Weeb"
+  },
+  {
+    "xpPerLevel": 885,
+    "xpCumulative": 3481,
+    "levelKey": 9,
+    "levelTitle": "Sushi Farmer"
+  },
+  {
+    "xpPerLevel": 1036,
+    "xpCumulative": 4517,
+    "levelKey": 10,
+    "levelTitle": "Super Sake"
+  },
+  {
+    "xpPerLevel": 1193,
+    "xpCumulative": 5710,
+    "levelKey": 11,
+    "levelTitle": "Sushi Carrier"
+  },
+  {
+    "xpPerLevel": 1355,
+    "xpCumulative": 7065,
+    "levelKey": 12,
+    "levelTitle": "Edemame Popper"
+  },
+  {
+    "xpPerLevel": 1522,
+    "xpCumulative": 8587,
+    "levelKey": 13,
+    "levelTitle": "Miso Slurper"
+  },
+  {
+    "xpPerLevel": 1694,
+    "xpCumulative": 10281,
+    "levelKey": 14,
+    "levelTitle": "Japan Stan"
+  },
+  {
+    "xpPerLevel": 1870,
+    "xpCumulative": 12151,
+    "levelKey": 15,
+    "levelTitle": "5u5h1 r0ll3r"
+  },
+  {
+    "xpPerLevel": 2051,
+    "xpCumulative": 14202,
+    "levelKey": 16,
+    "levelTitle": "Sushi Exporter"
+  },
+  {
+    "xpPerLevel": 2236,
+    "xpCumulative": 16438,
+    "levelKey": 17,
+    "levelTitle": "High Roller"
+  },
+  {
+    "xpPerLevel": 2424,
+    "xpCumulative": 18862,
+    "levelKey": 18,
+    "levelTitle": "Chopstick Runner"
+  },
+  {
+    "xpPerLevel": 2617,
+    "xpCumulative": 21479,
+    "levelKey": 19,
+    "levelTitle": "Speed Seaweed"
+  },
+  {
+    "xpPerLevel": 2813,
+    "xpCumulative": 24292,
+    "levelKey": 20,
+    "levelTitle": "Temaki Trainer"
+  },
+  {
+    "xpPerLevel": 3013,
+    "xpCumulative": 27305,
+    "levelKey": 21,
+    "levelTitle": "Spice Guy"
+  },
+  {
+    "xpPerLevel": 3216,
+    "xpCumulative": 30521,
+    "levelKey": 22,
+    "levelTitle": "Tamago go go"
+  },
+  {
+    "xpPerLevel": 3422,
+    "xpCumulative": 33943,
+    "levelKey": 23,
+    "levelTitle": "Rolling Thunder"
+  },
+  {
+    "xpPerLevel": 3632,
+    "xpCumulative": 37575,
+    "levelKey": 24,
+    "levelTitle": "Maki Muncher"
+  },
+  {
+    "xpPerLevel": 3844,
+    "xpCumulative": 41419,
+    "levelKey": 25,
+    "levelTitle": "Sushi Ninja"
+  },
+  {
+    "xpPerLevel": 4060,
+    "xpCumulative": 45479,
+    "levelKey": 26,
+    "levelTitle": "Nigiri Nibbler"
+  },
+  {
+    "xpPerLevel": 4279,
+    "xpCumulative": 49758,
+    "levelKey": 27,
+    "levelTitle": "Edge Rider"
+  },
+  {
+    "xpPerLevel": 4500,
+    "xpCumulative": 54258,
+    "levelKey": 28,
+    "levelTitle": "California roll"
+  },
+  {
+    "xpPerLevel": 4724,
+    "xpCumulative": 58982,
+    "levelKey": 29,
+    "levelTitle": "Wise Wasabi"
+  },
+  {
+    "xpPerLevel": 4951,
+    "xpCumulative": 63933,
+    "levelKey": 30,
+    "levelTitle": "Sashimi Samurai"
+  },
+  {
+    "xpPerLevel": 5181,
+    "xpCumulative": 69114,
+    "levelKey": 31,
+    "levelTitle": "Spicy Tuna"
+  },
+  {
+    "xpPerLevel": 5413,
+    "xpCumulative": 74527,
+    "levelKey": 32,
+    "levelTitle": "Pepper Prince"
+  },
+  {
+    "xpPerLevel": 5648,
+    "xpCumulative": 80175,
+    "levelKey": 33,
+    "levelTitle": "Chopper Sticks"
+  },
+  {
+    "xpPerLevel": 5885,
+    "xpCumulative": 86060,
+    "levelKey": 34,
+    "levelTitle": "Temaki Tutor"
+  },
+  {
+    "xpPerLevel": 6124,
+    "xpCumulative": 92184,
+    "levelKey": 35,
+    "levelTitle": "Table Travelor"
+  },
+  {
+    "xpPerLevel": 6366,
+    "xpCumulative": 98550,
+    "levelKey": 36,
+    "levelTitle": "Duke of Daikon"
+  },
+  {
+    "xpPerLevel": 6611,
+    "xpCumulative": 105161,
+    "levelKey": 37,
+    "levelTitle": "Oven Teleporter"
+  },
+  {
+    "xpPerLevel": 6857,
+    "xpCumulative": 112018,
+    "levelKey": 38,
+    "levelTitle": "Cheesy Roller"
+  },
+  {
+    "xpPerLevel": 7106,
+    "xpCumulative": 119124,
+    "levelKey": 39,
+    "levelTitle": "Maki Master"
+  },
+  {
+    "xpPerLevel": 7358,
+    "xpCumulative": 126482,
+    "levelKey": 40,
+    "levelTitle": "Bento Baron"
+  },
+  {
+    "xpPerLevel": 7611,
+    "xpCumulative": 134093,
+    "levelKey": 41,
+    "levelTitle": "Wasabi Warrior"
+  },
+  {
+    "xpPerLevel": 7866,
+    "xpCumulative": 141959,
+    "levelKey": 42,
+    "levelTitle": "Sushi Guru"
+  },
+  {
+    "xpPerLevel": 8124,
+    "xpCumulative": 150083,
+    "levelKey": 43,
+    "levelTitle": "Sushi Expert"
+  },
+  {
+    "xpPerLevel": 8383,
+    "xpCumulative": 158466,
+    "levelKey": 44,
+    "levelTitle": "Kani King"
+  },
+  {
+    "xpPerLevel": 8645,
+    "xpCumulative": 167111,
+    "levelKey": 45,
+    "levelTitle": "Magic Roller"
+  },
+  {
+    "xpPerLevel": 8909,
+    "xpCumulative": 176020,
+    "levelKey": 46,
+    "levelTitle": "Unstoppable Eater"
+  },
+  {
+    "xpPerLevel": 9175,
+    "xpCumulative": 185195,
+    "levelKey": 47,
+    "levelTitle": "Cheater?"
+  },
+  {
+    "xpPerLevel": 9442,
+    "xpCumulative": 194637,
+    "levelKey": 48,
+    "levelTitle": "Ebi Emperor"
+  },
+  {
+    "xpPerLevel": 9712,
+    "xpCumulative": 204349,
+    "levelKey": 49,
+    "levelTitle": "Developer"
+  },
+  {
+    "xpPerLevel": 9983,
+    "xpCumulative": 214332,
+    "levelKey": 50,
+    "levelTitle": "Sushi Shogun"
+  }
+]

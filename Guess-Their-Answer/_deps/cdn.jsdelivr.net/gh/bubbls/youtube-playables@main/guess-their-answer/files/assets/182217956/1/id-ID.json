@@ -1,0 +1,81 @@
+{
+    "header": {
+        "version": 1
+    },
+    "data": [
+        {
+            "info": {
+                "locale": "id-ID"
+            },
+            "messages": {
+                "Nickname": "Nama panggilan",
+                "Sound": "Suara",
+                "Vibration": "Getar",
+                "Privacy Policy": "Kebijakan Privasi & Ketentuan Layanan",
+                "Credits": "Akuan",
+                "DOUBLE POINTS": "POIN GANDA",
+                "TRIPLE POINTS": "POIN TIGA KALI LIPAT",
+                "keyboard_go": "Go",
+                "keyboard_space": "space",
+                "Answer...": "Jawabannya...",
+                "Wrong": "Salah",
+                "Already given": "Sudah diberikan",
+                "LEVEL #value#": "LEVEL #value#",
+                "TOP 6 ANSWERS": "6 JAWABAN TERATAS",
+                "TOTAL": "TOTAL",
+                "Winner": "Pemenang",
+                "Round Winner": "Pemenang Ronde",
+                "Tap to continue": "Ketuk untuk lanjut",
+                "Claim your reward": "Klaim hadiahmu",
+                "Claim your prize": "Klaim hadiahmu",
+                "RANDOM SKIN": "SKIN ACAK",
+                "NEXT_SKIN_PRICE": "SKIN BERIKUTNYA: #value#",
+                "Need some help for the next match?": "Butuh bantuan untuk pertandingan berikutnya?",
+                "Pick a chest": "Pilih peti",
+                "Best reward": "Hadiah terbaik",
+                "X KEYS MORE": "#value# LAGI",
+                "No thanks": "Tidak, terima kasih",
+                "Daily Challenge": "Tantangan Harian",
+                "Can you guess the most popular answer?": "Bisakah kamu tebak jawaban paling populer?",
+                "PLAY": "MAIN",
+                "Eliminated": "Tereliminasi",
+                "Answer faster!": "Jawab lebih cepat!",
+                "Try again?": "Coba lagi?",
+                "Compete Again?": "Tantang lagi?",
+                "YES": "YA",
+                "NO": "TIDAK",
+                "QUALIFIER": "PENYISIHAN",
+                "Push the buzzer": "Tekan bel",
+
+                "ROUND 1" : "RONDE 1",
+                "ROUND 2" : "RONDE 2",
+                "ROUND 3" : "RONDE 3",
+                "VICTORY" : "MENANG",
+                "REVIVE" : "KEMBALI",
+                "You ended in position" : "Kamu berakhir di posisi",
+                "SEMI FINAL" : "SEMI-FINAL",
+                "FINAL" : "FINAL",
+                "Searching for opponents..." : "Mencari lawan...",
+                "Remaining" : "Sisa",
+                "Congratulations" : "SELAMAT",
+                "Best prize" : "Hadiah Utama",
+                "You won a ticket for the next local tournament" : "Kamu berhasil memenangkan tiket untuk turnamen lokal pertama",
+                "Your free Daily Challenge is available" : "Tantangan Harian gratismu sudah tersedia",
+                
+                "Language" : "Bahasa",
+                "BACK" : "KEMBALI",
+                "FREE" : "GRATIS",
+                "SELECT" : "PILIH",
+                "SELECTED" : "TERPILIH",
+                "UNLOCK" : "BUKA",
+                "GO" : "MULAI",
+                "Enter" : "Masukkan",
+                "You don't like the question, skip it!" : "Tidak suka dengan pertanyaan ini, lewati saja!",
+                "JOIN": "GABUNG",
+
+                "PLAYER_NAMES": "Emma,Nollie,Sophia,Ree,Isabella,Merv,Abigail,Airaker,Charlotte,Hal,Madison,Amy,Elizabeth,Crate,Evelyn,Anguristurn,Chloe,Ellen,Grace,Torie,Aubrey,Vannie,Zoey,Asserkup,Lily,Lil,Natalie,Nan,Aria,Lorry,Brooklyn,Babyered,Zoe,Penny,Riley,Lorry,Audrey,Vannie,Allison,Bestonda,Nora,Si,Camila,Anne,Paisley,Arie,Ellie,BlondShun,Claire,Ola,Stella,Brina,Mila,Ella,Lucy,Bootyed,Kennedy,Sally,Madelyn,Lanna,Kaylee,Lynn,Hazel,BradelFaith,Genesis,Chris,Autumn,Pink,Maya,Nels,Serenity,BuddieDr,Mackenzie,Belle,Eva,Tash,Naomi,Sene,Aurora,BuzzSimon,Lydia,Bryan,Ruby,Kathy,Ashley,Alexis,Alice,Carzoism,Julia,Maggie,Faith,Annabelle,Alyssa,Tibbie,Vivian,Chartsi,Quinn,Clarissa,Reagan,Kizza,Alexandra,Gwen,Eliana,Chonery,London,Helen,Kimberly,Barby,Maria,Lucas,Willow,Communiquest,Kinsley,Felty,Kayla,Lil,Andrea,Nap,Lauren,Cornyna,Rylee,Sid,Adalynn,Mamie,Ximena,Jackie,Liliana,CrownSimply,Ivy,Trannie,Josephine,Adalyn,Jocelyn,Em,Adeline,DaysMr,Ariel,Evelina,Lilly,Oswald,Isla,Lyddy,Makayla,DemonXglossy,Emilia,Mur,Kendall,Lodi,Isabel,Ricky,Mckenzie,Doomia,Payton,Maggie,Mariah,Eddy,Athena,Amy,Norah,Entring,Valeria,Sandy,Aliyah,Angelina,Gracie,Rosie,Rachel,FashionMessage,Laila,Brooklynn,Valerie,Alina,Reese,Lisa,Eliza,ForbBrainy,Raelynn,Curg,Catherine,Em,Cecilia,Jean,Daisy,Fusinomy,Vanessa,Adriana,Presley,Beck,Destiny,Hassie,Julianna,Ginoil,Adelyn,Arabella,Summer,Callie,Kaitlyn,Ry,Lila,Goetzma,Arya,Alana,Esther,Delia,Gabrielle,Jessie,Charlie,Gurlen,Tessa,Hallie,Ana,Amaya,Alexandria,Alivia,Nova,Harrayan,Iris,Margy,Fiona,Giselle,Kay,Alayna,Hiroem,Lucia,Julia,Parker,Tash,Sienna,George,Hope,HyperBest,Vivienne,John,Kinley,Dahl,Kylee,Jap,Katelyn,Incaul,Maggie,Margaret,Delaney,Brynlee,Keira,Camille,Leila,IssMunde,Aniyah,Nick,Josie,Jennie,Melissa,Gabe,Allie,Keeperop,Cassidy,Jackie,Brynn,Vannie,Evangeline,John,Paris,Korasoni,Ayla,Belle,Kali,Mc,Gemma,Lil,Raegan,Lipsxmlab,Adelaide,Jos,Adelynn,Alessandra,Kenzie,Randy,Noah,Liam,Mason,Jaap,William,Ethan,James,WirePhreek,Michael,Benjy,Elijah,Dan,Aiden,Logan,Matthew,WalkerSuave,Jackson,Dave,Oliver,Jayden,Joseph,Gabe,Samuel,Untt,Anthony,Jack,Dylan,Lucas,Henry,Andy,Isaac,TrippinKai,Joshua,Wyatt,Sebastian,Owen,Caleb,Nate,Ryan,Toryotok,Hunter,Lee,Christian,Jaxon,Julian,Landon,Grayson,Titlersta,Isaiah,Charlie,Thomas,Aaron,Eli,Connor,Jeremiah,Tickoko,Josiah,Adrian,Colton,Jordan,Brayden,Nick,Robert,Teenzer,Hudson,Link,Evan,Dom,Austin,Gavin,Nolan,Tapwallum,Adam,Chase,Jace,John,Cooper,Easton,Kevin,Suavenuwa,Tyler,Brandon,Asher,Jaxson,Mateo,Jason,Ayden,Sterbust,Carson,Xavier,Leo,Ez,Bentley,Sawyer,Kayden,Speciang,Nathaniel,Ryder,Theodore,Eli,Tristan,Roman,Leonardo,SlaySports,Brody,Luis,Miles,Micah,Vincent,Justus,Greyson,Singletex,Maxwell,Juan,Cole,Damian,Carlos,Max,Harrison,SarenLuda,Brantley,Braxton,Axel,Diego,Abel,Wes,Santiago,Ropyline,Silas,Giovanni,Bryce,Jayce,Bryson,Alex,Everett,Redtava,Eric,John,Emmett,Kaiden,Ashton,King,Jonah,Quickense,Kai,Maddox,Timothy,Zeke,Ryker,Emmanuel,Hayden,Pricerfe,Bennett,Steve,Richard,Jude,Luca,Teddy,Joel,Podim,Miguel,Mally,King,Pate,Kaleb,Bryan,Alan,Pinenho,Preston,Abraham,Calvin,Colin,Bradley,Jeremy,Kyle,Panvisolv,Grant,Jesse,Kaden,Alejandro,Oscar,Jase,Karter,OmahaStunna,Aidan,Tucker,Avery,Amir,Brian,Iker,Matteo,Ninetonar,Zayden,Riley,August,Mark,Maximus,Brady,Kenneth,Nayborse,Jaden,Nicolas,Beau,Dean,Jake,Pete,Xander,Multion,Finn,Derek,Sean,Cayden,Elliott,Jax,Jasper,Mjkrys,Omar,Beckett,Rowan,Gael,Corbin,Waylon,Myles,Mentello,Jorge,Javier,Zion,Andres,Charlie,Paxton,Emiliano,Magicuo,Lea,Eugenie,Helen,Penelope,Mymy,Laety,Laloo,Papoo,Lapinette",
+                "CITY_NAMES": "New York,Tokyo,London,Paris,Shanghai,Sydney,Rome,Cairo,Beijing,Mumbai,Los Angeles,Istanbul,Moscow,Buenos Aires,Rio de Janeiro,Toronto,Bangkok,Dubai,Mexico City,Jakarta,Seoul,Barcelona,Madrid,Hong Kong,Singapore,Berlin,San Francisco,Vienna,Milan,Prague,Lisbon,Amsterdam,Melbourne,Copenhagen,Zurich,Helsinki,Stockholm,Brussels,Oslo,Warsaw,Budapest,Boston,Chicago,Athens,Dublin,Hamburg,Munich,Edinburgh,Florence,Vancouver,Montreal,Tel Aviv,Jerusalem,Riyadh,Johannesburg,Cape Town,New Delhi,Manila,Santiago,Caracas,Kuala Lumpur,Auckland,Doha,Lima,Bogota,Hanoi,Lagos,Nairobi,Addis Ababa,Islamabad,Dhaka,Karachi,Kathmandu,Yangon,Ho Chi Minh City,Phnom Penh,Rangoon,Abu Dhabi,Kuwait City,Manama,Muscat,Amman,Beirut,Damascus,Tripoli,Algiers,Tunis,Dakar,Accra,Luanda,Maputo,Harare,Kigali,Mogadishu,Dar es Salaam,Libreville,Kinshasa,Lusaka,Windhoek"
+            }
+        }
+    ]
+}

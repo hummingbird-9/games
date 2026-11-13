@@ -1,0 +1,101 @@
+[
+  {
+    "id": 0, "type": "empty", "tileBase": "basic", "containsInteractable": false
+  },
+  {
+    "id": 1, "type": "pathTile", "tileBase": "basic", "containsInteractable": false
+  },
+  {
+    "id": 2, "type": "spawnTile", "tileBase": "basic", "containsInteractable": false
+  },
+  {
+    "id": 3, "type": "teleporterIn", "tileBase": "teleport", "teleportNumber": 1, "containsInteractable": true
+  },
+  {
+    "id": 4, "type": "teleporterOut", "tileBase": "teleport", "teleportNumber": 1 , "containsInteractable": true
+  },
+  {
+    "id": 5, "type": "coin", "tileBase": "basic", "containsInteractable": true
+  },
+  {
+    "id": 6, "type": "safeTile", "tileBase": "basic", "containsInteractable": false
+  },
+  {
+    "id": 7, "type": "deadTile", "tileBase": "basic", "containsInteractable": false
+  },
+  {
+    "id": 8, "type": "1x1", "tileBase": "", "containsInteractable": false
+  },
+  {
+    "id": 9, "type": "2x2", "tileBase": "", "containsInteractable": false
+  },
+  {
+    "id": 10, "type": "3x3", "tileBase": "", "containsInteractable": false
+  },
+  {
+    "id": 11, "type": "2x1", "tileBase": "", "containsInteractable": false
+  },
+  {
+    "id": 12, "type": "1x2", "tileBase": "", "containsInteractable": false
+  },
+  {
+    "id": 13, "type": "teleporterIn", "tileBase": "teleport", "teleportNumber": 2, "containsInteractable": true
+  },
+  {
+    "id": 14, "type": "teleporterOut", "tileBase": "teleport", "teleportNumber": 2, "containsInteractable": true
+  },
+  {
+    "id": 15, "type": "teleporterIn", "tileBase": "teleport", "teleportNumber": 3, "containsInteractable": true
+  },
+  {
+    "id": 16, "type": "teleporterOut", "tileBase": "teleport", "teleportNumber": 3, "containsInteractable": true
+  },
+  {
+    "id": 17, "type": "teleporterIn", "tileBase": "teleport", "teleportNumber": 4, "containsInteractable": true
+  },
+  {
+    "id": 18, "type": "teleporterOut", "tileBase": "teleport", "teleportNumber": 4, "containsInteractable": true
+  },
+  {
+    "id": 19, "type": "teleporterIn", "tileBase": "teleport", "teleportNumber": 5, "containsInteractable": true
+  },
+  {
+    "id": 20, "type": "teleporterOut", "tileBase": "teleport", "teleportNumber": 5, "containsInteractable": true
+  },
+  {
+    "id": 21, "type": "teleporterIn", "tileBase": "teleport", "teleportNumber": 6, "containsInteractable": true
+  },
+  {
+    "id": 22, "type": "teleporterOut", "tileBase": "teleport", "teleportNumber": 6, "containsInteractable": true
+  },
+  {
+    "id": 23, "type": "teleporterIn", "tileBase": "teleport", "teleportNumber": 7, "containsInteractable": true
+  },
+  {
+    "id": 24, "type": "teleporterOut", "tileBase": "teleport", "teleportNumber": 7, "containsInteractable": true
+  },
+  {
+    "id": 25, "type": "teleporterIn", "tileBase": "teleport", "teleportNumber": 8, "containsInteractable": true
+  },
+  {
+    "id": 26, "type": "teleporterOut", "tileBase": "teleport", "teleportNumber": 8, "containsInteractable": true
+  },
+  {
+    "id": 27, "type": "teleporterIn", "tileBase": "teleport", "teleportNumber": 9, "containsInteractable": true
+  },
+  {
+    "id": 28, "type": "teleporterOut", "tileBase": "teleport", "teleportNumber": 9, "containsInteractable": true
+  },
+  {
+    "id": 29, "type": "teleporterIn", "tileBase": "teleport", "teleportNumber":10, "containsInteractable": true
+  },
+  {
+    "id": 30, "type": "teleporterOut", "tileBase": "teleport", "teleportNumber":10, "containsInteractable": true
+  },
+  {
+    "id": 31, "type": "teleporterIn", "tileBase": "teleport", "teleportNumber":11, "containsInteractable": true
+  },
+  {
+    "id": 32, "type": "teleporterOut", "tileBase": "teleport", "teleportNumber":11, "containsInteractable": true
+  }
+]

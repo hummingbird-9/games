@@ -1,0 +1,13 @@
+{
+  "id": 645,
+  "name": "Arthur's Nightmare",
+  "author": "Varun R.",
+  "authorLink": "https://varunramesh.itch.io/arthurs-nightmare",
+  "special": [
+    "port"
+  ],
+  "sourceHtml": "645-fix2.html",
+  "sourceCover": "645.png",
+  "assetsCopiedLocally": false,
+  "originalBaseHref": "https://cdn.jsdelivr.net/gh/bubbls/ports@main/arthurs-nightmare/"
+}

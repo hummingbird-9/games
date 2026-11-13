@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TextureAtlas imagePath="difficulty.png">
+    <SubTexture name="brain_1" x="0" y="0" width="256" height="256"/>
+    <SubTexture name="brain_2" x="0" y="256" width="256" height="256"/>
+    <SubTexture name="brain_3" x="0" y="512" width="256" height="256"/>
+    <SubTexture name="brain_4" x="256" y="0" width="256" height="256"/>
+    <SubTexture name="brain_5" x="256" y="256" width="256" height="256"/>
+    <SubTexture name="brain_6" x="256" y="512" width="256" height="256"/>
+</TextureAtlas>

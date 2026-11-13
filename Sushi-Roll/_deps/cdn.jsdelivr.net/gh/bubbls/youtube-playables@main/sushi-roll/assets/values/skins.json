@@ -1,0 +1,15 @@
+[
+  {"id": 0, "name": "random", "frames": 1, "unlocked": true, "face": ""},
+  {"id": 1, "name": "tuna_maki", "frames": 8, "unlocked": true, "face": "normal_face"},
+  {"id": 2, "name": "california_maki", "frames": 8, "unlocked": false, "face": "exited_face"},
+  {"id": 3, "name": "philadelphia_maki", "frames": 8, "unlocked": false, "face": "sleepy_face"},
+  {"id": 4, "name": "sake_wasabi_maki", "frames": 8, "unlocked": false, "face": "happy_face"},
+  {"id": 5, "name": "spicy_wasabi_maki", "frames": 8, "unlocked": false, "face": "angry_face"},
+  {"id": 6, "name": "tori_maki", "frames": 8, "unlocked": false, "face": "OWO_face"},
+  {"id": 7, "name": "kappa_maki", "frames": 8, "unlocked": false, "face": "mustache"},
+  {"id": 8, "name": "michigan_maki", "frames": 8, "unlocked": false, "face": "star"},
+  {"id": 9, "name": "mon_maki", "frames": 8, "unlocked": false, "face": "old_tired"},
+  {"id": 10, "name": "sweet_potato_maki", "frames": 8, "unlocked": false, "face": "happy_bow_tie"},
+  {"id": 11, "name": "tekka_maki", "frames": 8, "unlocked": false, "face": "confused_face"},
+  {"id": 12, "name": "tuna_roll_maki", "frames": 8, "unlocked": false, "face": "kiss_face"}
+]

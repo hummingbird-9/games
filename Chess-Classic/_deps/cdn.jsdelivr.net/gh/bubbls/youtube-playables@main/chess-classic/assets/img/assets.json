@@ -1,0 +1,104 @@
+{
+	"textures": [
+		{
+			"image": "assets-0.png",
+			"format": "RGBA8888",
+			"size": {
+				"w": 512,
+				"h": 1024
+			},
+			"scale": 1,
+			"frames": [
+				{
+					"filename": "tutorial-hand",
+					"rotated": false,
+					"trimmed": false,
+					"sourceSize": {
+						"w": 262,
+						"h": 363
+					},
+					"spriteSourceSize": {
+						"x": 0,
+						"y": 0,
+						"w": 262,
+						"h": 363
+					},
+					"frame": {
+						"x": 1,
+						"y": 1,
+						"w": 262,
+						"h": 363
+					}
+				},
+				{
+					"filename": "button-sound-off",
+					"rotated": false,
+					"trimmed": false,
+					"sourceSize": {
+						"w": 154,
+						"h": 154
+					},
+					"spriteSourceSize": {
+						"x": 0,
+						"y": 0,
+						"w": 154,
+						"h": 154
+					},
+					"frame": {
+						"x": 265,
+						"y": 1,
+						"w": 154,
+						"h": 154
+					}
+				},
+				{
+					"filename": "button-sound-on",
+					"rotated": false,
+					"trimmed": false,
+					"sourceSize": {
+						"w": 154,
+						"h": 154
+					},
+					"spriteSourceSize": {
+						"x": 0,
+						"y": 0,
+						"w": 154,
+						"h": 154
+					},
+					"frame": {
+						"x": 265,
+						"y": 157,
+						"w": 154,
+						"h": 154
+					}
+				},
+				{
+					"filename": "button-replay-video",
+					"rotated": false,
+					"trimmed": false,
+					"sourceSize": {
+						"w": 256,
+						"h": 256
+					},
+					"spriteSourceSize": {
+						"x": 0,
+						"y": 0,
+						"w": 256,
+						"h": 256
+					},
+					"frame": {
+						"x": 1,
+						"y": 366,
+						"w": 256,
+						"h": 256
+					}
+				}
+			]
+		}
+	],
+	"meta": {
+		"app": "https://www.codeandweb.com/texturepacker",
+		"version": "3.0",
+		"smartupdate": "$TexturePacker:SmartUpdate:74d1078ff46e00e5881b45060f5802c1:93c15314ab6df09192f25a9a096724a1:ce25f1323d2ab1f527927b00b2e9d63f$"
+	}
+}

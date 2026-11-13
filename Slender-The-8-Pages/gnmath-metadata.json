@@ -1,0 +1,13 @@
+{
+  "id": 451,
+  "name": "Slender: The 8 Pages",
+  "author": "Parsec Productions",
+  "authorLink": "https://www.indiedb.com/games/slender-the-eight-pages/downloads/slender-v096",
+  "special": [
+    "port"
+  ],
+  "sourceHtml": "451-fix2.html",
+  "sourceCover": "451.png",
+  "assetsCopiedLocally": false,
+  "originalBaseHref": "https://cdn.jsdelivr.net/gh/giorgirick2-gif/game-webports-onawebsite@main/slender/"
+}

@@ -1,0 +1,11 @@
+{
+  "id": 151,
+  "name": "Chess Classic",
+  "author": "Famobi",
+  "authorLink": "https://play.google.com/store/apps/details?id=com.famobi.chessclassic",
+  "special": [],
+  "sourceHtml": "151-fix2.html",
+  "sourceCover": "151.png",
+  "assetsCopiedLocally": false,
+  "originalBaseHref": "https://cdn.jsdelivr.net/gh/bubbls/youtube-playables@main/chess-classic/"
+}

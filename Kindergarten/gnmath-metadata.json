@@ -1,0 +1,13 @@
+{
+  "id": 445,
+  "name": "Kindergarten",
+  "author": "Con Man Games, SmashGames and Sean Young",
+  "authorLink": "https://store.steampowered.com/app/589590/Kindergarten",
+  "special": [
+    "port"
+  ],
+  "sourceHtml": "445-fix2.html",
+  "sourceCover": "445.png",
+  "assetsCopiedLocally": false,
+  "originalBaseHref": "https://cdn.jsdelivr.net/gh/giorgirick2-gif/game-webports-onawebsite@main/kindergarten/1/"
+}

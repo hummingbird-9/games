@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+
+
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
+		<title>Cat Connection - V2</title>
+		<style>
+html, body, #canvas {
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+body {
+	color: white;
+	background-color: black;
+	overflow: hidden;
+	touch-action: none;
+}
+
+#canvas {
+	display: block;
+}
+
+#canvas:focus {
+	outline: none;
+}
+
+#status, #status-splash, #status-progress {
+	position: absolute;
+	left: 0;
+	right: 0;
+}
+
+#status, #status-splash {
+	top: 0;
+	bottom: 0;
+}
+
+#status {
+	background-color: #201d44;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	visibility: hidden;
+}
+
+#status-splash {
+	max-height: 100%;
+	max-width: 100%;
+	margin: auto;
+}
+
+#status-splash.show-image--false {
+	display: none;
+}
+
+#status-splash.fullsize--true {
+	height: 100%;
+	width: 100%;
+	object-fit: contain;
+}
+
+#status-splash.use-filter--false {
+	image-rendering: pixelated;
+}
+
+#status-progress, #status-notice {
+	display: none;
+}
+
+#status-progress {
+	bottom: 10%;
+	width: 50%;
+	margin: 0 auto;
+}
+
+#status-notice {
+	background-color: #5b3943;
+	border-radius: 0.5rem;
+	border: 1px solid #9b3943;
+	color: #e0e0e0;
+	font-family: 'Noto Sans', 'Droid Sans', Arial, sans-serif;
+	line-height: 1.3;
+	margin: 0 2rem;
+	overflow: hidden;
+	padding: 1rem;
+	text-align: center;
+	z-index: 1;
+}
+		</style>
+		<link id="-gd-engine-icon" rel="icon" type="image/png" href="index.icon.png" />
+<link rel="apple-touch-icon" href="index.apple-touch-icon.png"/>
+
+	</head>
+	<body>
+		<canvas id="canvas">
+			Your browser does not support the canvas tag.
+		</canvas>
+
+		<noscript>
+			Your browser does not support JavaScript.
+		</noscript>
+
+		<div id="status">
+			<img id="status-splash" class="show-image--false fullsize--true use-filter--true" src="index.png" alt="">
+			<progress id="status-progress"></progress>
+			<div id="status-notice"></div>
+		</div>
+
+		<!-- File merging and loading script -->
+		<script>
+// Configuration for split files
+const WASM_PARTS = 3; // Change this to match your actual number of parts
+let mergedWasmBlob = null;
+
+// Function to fetch and merge split WASM files
+async function mergeWasmFiles() {
+	try {
+		console.log('Starting WASM file merging...');
+		
+		const buffers = [];
+		
+		// Fetch each part
+		for (let i = 1; i <= WASM_PARTS; i++) {
+			console.log(`Loading WASM part ${i} of ${WASM_PARTS}...`);
+			
+			// Update status
+			updateLoadingText(`Loading game files... (${i}/${WASM_PARTS})`);
+			
+			const response = await fetch(`index.wasm.part${i}`);
+			if (!response.ok) {
+				throw new Error(`Failed to load WASM part ${i}: ${response.status}`);
+			}
+			
+			const buffer = await response.arrayBuffer();
+			buffers.push(buffer);
+			
+			console.log(`WASM part ${i} loaded successfully`);
+		}
+		
+		// Merge all buffers
+		const totalLength = buffers.reduce((total, buf) => total + buf.byteLength, 0);
+		const mergedBuffer = new Uint8Array(totalLength);
+		
+		let offset = 0;
+		for (const buffer of buffers) {
+			mergedBuffer.set(new Uint8Array(buffer), offset);
+			offset += buffer.byteLength;
+		}
+		
+		// Create blob from merged WASM
+		mergedWasmBlob = new Blob([mergedBuffer], { type: 'application/wasm' });
+		console.log('WASM files merged successfully');
+		
+		return mergedWasmBlob;
+	} catch (error) {
+		console.error('Error merging WASM files:', error);
+		throw error;
+	}
+}
+
+// Override fetch to intercept WASM file requests
+function overrideFetchForWasm() {
+	if (!mergedWasmBlob) {
+		console.error('No merged WASM blob available');
+		return;
+	}
+	
+	const originalFetch = window.fetch;
+	
+	window.fetch = function(input, init) {
+		// Intercept requests for index.wasm
+		if (typeof input === 'string' && input.includes('index.wasm')) {
+			console.log('Intercepting fetch request for WASM:', input);
+			
+			// Return the merged blob instead
+			return Promise.resolve(new Response(mergedWasmBlob, {
+				status: 200,
+				statusText: 'OK',
+				headers: {
+					'Content-Type': 'application/wasm',
+					'Content-Length': mergedWasmBlob.size.toString()
+				}
+			}));
+		}
+		
+		// Pass through all other requests
+		return originalFetch.call(this, input, init);
+	};
+	
+	console.log('Fetch override for WASM installed');
+}
+
+// Helper function to update loading text
+function updateLoadingText(message) {
+	const statusNotice = document.getElementById('status-notice');
+	if (statusNotice) {
+		statusNotice.innerHTML = message;
+		statusNotice.style.display = 'block';
+	}
+}
+
+// Main initialization function
+async function initializeGame() {
+	try {
+		console.log('Initializing game with split WASM files...');
+		
+		// Show initial status
+		const status = document.getElementById('status');
+		status.style.visibility = 'visible';
+		updateLoadingText('Loading game files...');
+		
+		// Step 1: Merge WASM files
+		await mergeWasmFiles();
+		
+		// Step 2: Override fetch to use merged blob
+		overrideFetchForWasm();
+		
+		// Step 3: Load the Godot engine script
+		console.log('Loading Godot engine...');
+		updateLoadingText('Loading game engine...');
+		
+		// Load the Godot engine script
+		await loadScript('index.js');
+		
+		console.log('Godot engine loaded successfully');
+		
+		// Step 4: Start the Godot game
+		startGodotGame();
+		
+	} catch (error) {
+		console.error('Game initialization failed:', error);
+		
+		// Display error to user
+		updateLoadingText(`Failed to load game: ${error.message}<br>Please refresh the page or check your connection.`);
+		
+		throw error;
+	}
+}
+
+// Helper function to load scripts
+function loadScript(src) {
+	return new Promise((resolve, reject) => {
+		const script = document.createElement('script');
+		script.src = src;
+		script.onload = () => resolve();
+		script.onerror = (err) => reject(new Error(`Failed to load script: ${src}`));
+		document.head.appendChild(script);
+	});
+}
+
+// Start the Godot game after everything is loaded
+function startGodotGame() {
+	// Check if Engine is loaded
+	if (typeof Engine === 'undefined') {
+		console.error('Godot Engine not loaded yet');
+		setTimeout(startGodotGame, 100);
+		return;
+	}
+	
+	console.log('Starting Godot game...');
+	
+	const GODOT_CONFIG = {
+		"args": [],
+		"canvasResizePolicy": 2,
+		"ensureCrossOriginIsolationHeaders": true,
+		"executable": "index",
+		"experimentalVK": false,
+		"fileSizes": {
+			"index.pck": 2909408,
+			"index.wasm": 43682606
+		},
+		"focusCanvas": true,
+		"gdextensionLibs": []
+	};
+	
+	const GODOT_THREADS_ENABLED = false;
+	const engine = new Engine(GODOT_CONFIG);
+
+	// Original Godot initialization code
+	(function () {
+		const statusOverlay = document.getElementById('status');
+		const statusProgress = document.getElementById('status-progress');
+		const statusNotice = document.getElementById('status-notice');
+
+		let initializing = true;
+		let statusMode = '';
+
+		function setStatusMode(mode) {
+			if (statusMode === mode || !initializing) {
+				return;
+			}
+			if (mode === 'hidden') {
+				statusOverlay.remove();
+				initializing = false;
+				return;
+			}
+			statusOverlay.style.visibility = 'visible';
+			statusProgress.style.display = mode === 'progress' ? 'block' : 'none';
+			statusNotice.style.display = mode === 'notice' ? 'block' : 'none';
+			statusMode = mode;
+		}
+
+		function setStatusNotice(text) {
+			while (statusNotice.lastChild) {
+				statusNotice.removeChild(statusNotice.lastChild);
+			}
+			const lines = text.split('\n');
+			lines.forEach((line) => {
+				statusNotice.appendChild(document.createTextNode(line));
+				statusNotice.appendChild(document.createElement('br'));
+			});
+		}
+
+		function displayFailureNotice(err) {
+			console.error(err);
+			if (err instanceof Error) {
+				setStatusNotice(err.message);
+			} else if (typeof err === 'string') {
+				setStatusNotice(err);
+			} else {
+				setStatusNotice('An unknown error occurred.');
+			}
+			setStatusMode('notice');
+			initializing = false;
+		}
+
+		const missing = Engine.getMissingFeatures({
+			threads: GODOT_THREADS_ENABLED,
+		});
+
+		if (missing.length !== 0) {
+			if (GODOT_CONFIG['serviceWorker'] && GODOT_CONFIG['ensureCrossOriginIsolationHeaders'] && 'serviceWorker' in navigator) {
+				let serviceWorkerRegistrationPromise;
+				try {
+					serviceWorkerRegistrationPromise = navigator.serviceWorker.getRegistration();
+				} catch (err) {
+					serviceWorkerRegistrationPromise = Promise.reject(new Error('Service worker registration failed.'));
+				}
+				Promise.race([
+					serviceWorkerRegistrationPromise.then((registration) => {
+						if (registration != null) {
+							return Promise.reject(new Error('Service worker already exists.'));
+						}
+						return registration;
+					}).then(() => engine.installServiceWorker()),
+					new Promise((resolve) => {
+						setTimeout(() => resolve(), 2000);
+					}),
+				]).then(() => {
+					window.location.reload();
+				}).catch((err) => {
+					console.error('Error while registering service worker:', err);
+				});
+			} else {
+				const missingMsg = 'Error\nThe following features required to run Godot projects on the Web are missing:\n';
+				displayFailureNotice(missingMsg + missing.join('\n'));
+			}
+		} else {
+			setStatusMode('progress');
+			engine.startGame({
+				'onProgress': function (current, total) {
+					if (current > 0 && total > 0) {
+						statusProgress.value = current;
+						statusProgress.max = total;
+					} else {
+						statusProgress.removeAttribute('value');
+						statusProgress.removeAttribute('max');
+					}
+				},
+			}).then(() => {
+				setStatusMode('hidden');
+			}, displayFailureNotice);
+		}
+	}());
+}
+
+// Start initialization when page loads
+document.addEventListener('DOMContentLoaded', async function() {
+	console.log('DOM loaded, starting game initialization...');
+	
+	try {
+		// Initialize the game
+		await initializeGame();
+	} catch (error) {
+		console.error('Failed to initialize game:', error);
+	}
+});
+		</script>
+	</body>
+</html>

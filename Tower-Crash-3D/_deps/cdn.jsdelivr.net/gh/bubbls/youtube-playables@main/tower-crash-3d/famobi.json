@@ -1,0 +1,167 @@
+{
+	"features": {
+  		"highscores": 1,
+  		"rewarded": 1
+  	},
+	"game_i18n" : {
+		"default": {
+			"filename.png" 	: "fg_i18n/en/images/filename.png"
+		}
+	},
+	"game_analytics": {
+        "build": "tower_crash_3d_v1",
+        "resource_currencies": ["Multiball", "Earthquake"],
+        "resource_item_types": ["powerup"],
+        "game_key": "",
+        "secret_key": ""
+    },  
+	"game_info": {
+		"client_version": "3.15.2", 
+		"api_version": "2.3",
+		"power_ups": ["earthquake", "multiball"],
+		"forced_mode": {
+		    "state": {			
+		        "level": {		
+		            "description": "The current level. The best option here is to keep the level number between 1 and 28 (incusive). Levels from 29 to 112 are unique too, but they are sorted randomly, they may be used as well, but in that case please set the num_balls amount to 0 (unlimited). Use -1 to start a infinite mode (next tower is built automatically after completing current one, so the player can not finish the game.)",
+		            "type": "number",
+		            "min": -1,
+		            "max": 28
+				},
+				"coins": {		
+		            "description": "The amount of coins available to player",
+		            "type": "number",
+		            "min": 0,
+		            "max": 10000
+		        }		   		                
+		    },
+		    "override": {
+
+				"hide_ui": {
+		        	"description": "What UI elements should be hidden?",
+					"type": "array",
+					"values": ["coins", "score", "powerups", "combo", "reactions"]
+				},
+
+		        "shots": {
+		            "description": "How many balls are availalbe for that level. Set -1 for unlimited balls",
+		            "type": "number",
+					"min": -1,
+					"max": 99
+				},
+
+				"tower_colors": {
+		            "description": "How many colors appear on the level",
+		            "type": "number",
+					"min": 1,
+					"max": 9
+				},
+
+				"earthquake_powerups": {
+		            "description": "How many earthquake powerups are available to player? Set 0 to disable",
+		            "type": "number",
+					"min": 0,
+					"max": 99
+				},
+
+				"multiball_powerups": {
+		            "description": "How many multiball powerups are available to player? Set 0 to disable",
+		            "type": "number",
+					"min": 0,
+					"max": 99
+				},
+
+				"cannonball_enabled": {
+		            "description": "Is cannonball feature enabled?",
+		            "type": "boolean"
+				},
+
+				"cannonball_special_mode_charges": {
+		            "description": "How many cannonball charges are available to player? Set 0 to disable cannonball special mode",
+		            "type": "number",
+					"min": 0,
+					"max": 99
+				},
+				
+		        "prioritized_color": {
+        			"description": "A color that should be always present on the level.",
+		        	"type": "string",
+		        	"values": ["Navy", "Blue", "Lime", "Purple", "Red", "Orange", "Green", "Yellow" ,"Marine"]
+				}
+		    }
+		},
+		"track_stats": {
+
+			"projectile_shot": {
+                "description": "Player shot a ball of a certain color. Color is optional and is only sent when shot_type=ball",
+                "params": {
+                    "shot_type": {
+                        "type": "string",
+                        "values": ["ball", "cannonball", "colorball"]
+                    },
+                    "color": {
+                        "type": "string",
+                        "values":  ["Navy", "Blue", "Lime", "Purple", "Red", "Orange", "Green", "Yellow", "Marine"]
+                    }
+                }
+            },
+
+            "blocks_destroyed": {
+                "description": "Player destroyed blocks of a certain color.",
+                "params": {
+                    "block_color": {
+                        "type": "string",
+                        "values": ["Navy", "Blue", "Lime", "Purple", "Red", "Orange", "Green", "Yellow", "Marine"]
+                    },
+                    "destruction_type": {
+                        "type": "string",
+                        "values": ["popped", "sunken"]
+					},
+					"destruction_cause": {
+                        "type": "string",
+                        "values": ["ball", "cannonball", "colorball", "earthquake"]
+                    }
+                }
+			},
+			
+			"powerup_used": {
+                "description": "Tracks when any kind of powerup is used.",
+                "params": {
+                    "powerup_type": {
+                        "type": "string",
+                        "values": ["colorball", "earthquake"]
+                    }                    
+                }
+			},
+			
+			"currency_change": {
+                "description": "Tracks when any kind of currency ammount change happens.",
+                "params": {
+                    "currency_type": {
+                        "type": "string",
+                        "values": ["coins"]
+                    },
+                    "change_type": {
+                        "type": "string",
+                        "values": ["increase", "decrease"]
+                    }
+                }
+            },
+
+			"combo_achieved": {
+				"description": "Player achieved a combo",
+				"params": {
+						"combo": {
+						"type": "number",
+						"min": 1,
+						"max": 100
+					}
+				}
+			}, 
+
+			"tower_destroyed": {
+				"description": "The tower has just crashed/destroyed"
+			}
+		}	
+    }
+
+}

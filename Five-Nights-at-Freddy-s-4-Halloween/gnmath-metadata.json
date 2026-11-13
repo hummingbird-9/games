@@ -1,0 +1,13 @@
+{
+  "id": 428,
+  "name": "Five Nights at Freddy's 4: Halloween",
+  "author": "Scott Cawthon",
+  "authorLink": "https://scottgames.com",
+  "special": [
+    "port"
+  ],
+  "sourceHtml": "428-fix2.html",
+  "sourceCover": "428.png",
+  "assetsCopiedLocally": false,
+  "originalBaseHref": "https://cdn.jsdelivr.net/gh/blazerida/fnaf@latest/4-halloween/"
+}

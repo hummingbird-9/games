@@ -1,0 +1,1 @@
+{"frameRate":24,"textureGroups":[{"scaleFactor":1,"atlases":[{"textures":[{"origin":[19,26],"rect":[1,1,41,185],"symbol":"mcHand"}],"file":"atlas0.png"}]}],"md5":"b4513d9b9a9576879c058a5e1d804aa8","movies":[{"id":"player","layers":[{"keyframes":[{"pivot":[20.5,92.5],"tweened":false,"duration":1,"loc":[1.5,66.5],"index":0,"ref":"mcHand"}],"name":"Layer 1"}]}]}

@@ -1,0 +1,83 @@
+{
+    "header": {
+        "version": 1
+    },
+    "data": [
+        {
+            "info": {
+                "locale": "pt-PT"
+            },
+            "messages": {
+                "Nickname": "Apelido",
+                "Sound": "Som",
+                "Vibration": "Vibração",
+                "Privacy Policy": "Política de Privacidade e Termos de Uso",
+                "Credits": "Créditos",
+                "ROUND #value#": "#value#.ª RODADA",
+                "DOUBLE POINTS": "PONTOS DUPLOS",
+                "TRIPLE POINTS": "PONTOS TRIPLOS",
+                "keyboard_go": "Go",
+                "keyboard_space": "space",
+                "Answer...": "Resposta...",
+                "Wrong": "Errada",
+                "Already given": "Resposta repetida",
+                "LEVEL #value#": "NÍVEL #value#",
+                "TOP 6 ANSWERS": "6 PRINCIPAIS RESPOSTAS",
+                "TOTAL": "TOTAL",
+                "Winner": "Vencedor(a)",
+                "Round Winner": "Vencedor(a) da rodada",
+                "Tap to continue": "Toque para continuar",
+                "Claim your reward": "Resgate sua recompensa",
+                "Claim your prize": "Resgate seu prêmio",
+                "RANDOM SKIN": "TEXTURA ALEATÓRIA",
+                "NEXT_SKIN_PRICE": "PRÓXIMA TEXTURA: #value#",
+                "Need some help for the next match?": "Precisa de ajuda para a próxima partida?",
+                "Pick a chest": "Escolha um baú",
+                "Best reward": "Melhor recompensa",
+                "X KEYS MORE": "#value# MAIS",
+                "No thanks": "Não, obrigado",
+                "Daily Challenge": "Desafio Diário",
+                "Can you guess the most popular answer?": "Você consegue adivinhar a resposta mais popular?",
+                "PLAY": "JOGAR",
+                "Eliminated": "Você perdeu",
+                "Answer faster!": "Responda mais rápido!",
+                "Try again?": "Tentar de novo?",
+                "Compete Again?": "Competir de novo?",
+                "YES": "SIM",
+                "NO": "NÃO",
+                "QUALIFIER": "CLASSIFICATÓRIA",
+                "Push the buzzer": "Apertar a campainha",
+
+                "ROUND 1" : "1.ª RODADA",
+                "ROUND 2" : "2.ª RODADA",
+                "ROUND 3" : "3.ª RODADA",
+                "VICTORY" : "VITÓRIA",
+                "REVIVE" : "REVIVER",
+                "You ended in position" : "Você terminou na posição",
+                "SEMI FINAL" : "SEMIFINAL",
+                "FINAL" : "FINAL",
+                "Searching for opponents..." : "Procurando oponentes...",
+                "Remaining" : "Restantes",
+                "Congratulations" : "PARABÉNS",
+                "Best prize" : "Melhor prêmio",
+                "You won a ticket for the next local tournament" : "Você se classificou para o seu primeiro torneio local",
+                "Your free Daily Challenge is available" : "Seu Desafio Diário grátis está disponível",
+                
+                "Language" : "Idioma",
+                "BACK" : "VOLTAR",
+                "FREE" : "GRÁTIS",
+                "SELECT" : "SELECIONAR",
+                "SELECTED" : "SELECIONADO",
+                "UNLOCK" : "LIBERAR",
+                "GO" : "JÁ",
+                "Enter" : "Inserir",
+                "You don't like the question, skip it!" : "Se você não gostar desta pergunta, ignore",
+                "JOIN": "ENTRAR",
+
+                "PLAYER_NAMES": "Abel,Ademir,Adilson,Adriana,Adriano,Agatha,Agnes,Alberto,Alcione,Alessandra,Alessandro,Alex,Alexandre,Alexsandro,Alfredo,Alice,Alícia,Aline,Alissa,Alisson,Allan,Allana,Altair,Álvaro,Amanda,Amélia,Ana,Ana Beatriz,Ana Cecília,Ana Clara,Ana Júlia,Ana Laura,Ana Lívia,Ana Liz,Ana Luiza,Ana Sophia,Ana Vitória,Analu,Anderson,André,Andrei,Andréia,Ane,Angela,Angelica,Anita,Anthony,Anthony Gabriel,Antonella,Antônio,Antônio Carlos,Apolo,Áquila,Ariane,Ariel,Arlete,Arlindo,Armando,Arthur,Arthur Gabriel,Arthur Henrique,Arthur Miguel,Artur,Átila,Augusto,Aurora,Ayla,Bárbara,Bartolomeu,Beatriz,Bella,Benedita,Benício,Benjamin,Bento,Bernardo,Bethania,Bethina,Bianca,Bolívar,Brenda,Breno,Bruna,Bruno,Bryan,Caio,Caíque,Calebe,Camila,Camile,Cândida,Carina,Carla,Carlos,Carlos Eduardo,Carmen,Carol,Carolina,Caroline,Cássia,Cassiano,Cássio,Catarina,Cauã,Cecília,Celeste,César,Charles,Cibele,Cíntia,Clara,Clarice,Claudia,Claudio,Cléber,Conrado,Cristiana,Cristiane,Cristiano,Cristina,Cristine,Daiana,Daiane,Daniel,Daniela,Daniele,Danilo,Darcy,Davi,Davi Lucas,Davi Lucca,Davi Luiz,Davi Miguel,Débora,Deise,Denis,Derick,Diana,Diane,Diego,Dilson,Diogo,Dolores,Dora,Édison,Eduarda,Eduardo,Elaine,Elis,Elisa,Ellem,Eloá,Emanuel,Emanuelly,Emilia,Emilly,Enrico,Enrique,Enzo,Enzo Gabriel,Érica,Erick,Ernesto,Estela,Estevão,Esther,Evelin,Everton,Ezequiel,Fabiana,Fábio,Fabíola,Fabrício,Fátima,Felipe,Félix,Fernanda,Fernando,Flávia,Flor,Flora,Franciele,Francisco,Frederico,Gabriel,Gabriela,Gabrielly,Gael,Gérson,Gilberto,Giovane,Giovanna,Giulia,Glória,Graça,Graziela,Gregório,Greice,Guilherme,Gustavo,Hannah,Heitor,Helena,Hélio,Heloísa,Heloise,Henrique,Henry,Hugo,Ian,Ibrahim,Ícaro,Igor,Inácio,Inês,Ingrid,Iolanda,Ires,Isaac,Isabel,Isabella,Isabelly,Isadora,Isis,Israel,Ivan,Jade,Jair,Jairo,Jaqueline,Jean,Jeferson,Jennifer,Jeovânio,Joana,João,João Gabriel,João Guilherme,João Lucas,João Miguel,João Pedro,João Vitor,Joaquim,Joice,Jonas,José,Joyce,Juca,Júlia,Juliana,Juliete,Júlio,Junior,Jurandir,Juremir,Jussara,Kaique,Karen,Karina,Kátia,Kauê,Kelly,Kevin,Laila,Lair,Laís,Lana,Lara,Larissa,Laura,Lauro,Lavínia,Leandro,Leila,Léo,Leonardo,Leonor,Letícia,Levi,Liana,Lídia,Lílian,Lívia,Liz,Lorena,Lorenzo,Louise,Lourdes,Lourenço,Luan,Luana,Lucas,Lucas Gabriel,Lucca,Luciana,Luciano,Lucio,Luis,Luiz,Luiz Felipe,Luiz Gustavo,Luiz Henrique,Luiz Miguel,Luiz Otávio,Luiza,Luíze,Luna,Magda,Maicosuel,Maitê,Malu,Manuela,Marcel,Marcelo,Marcia,Marcio,Marcos,Marecela,Maria,Maria Alice,Maria Cecília,Maria Clara,Maria Eduarda,Maria Fernanda,Maria Flor,Maria Helena,Maria Heloísa,Maria Júlia,Maria Laura,Maria Luiza,Maria Sophia,Maria Valentina,Maria Vitória,Mariah,Mariana,Marielle,Marília,Marina,Mario,Marta,Martha,Martim,Martina,Matheus,Mathias,Maxwell,Maya,Melina,Melinda,Melissa,Micaela,Miguel,Miguel Henrique,Milena,Milene,Milton,Mirella,Miriam,Moema,Moisés,Murilo,Nadia,Nair,Natasha,Nathalia,Nathan,Neiva,Nestor,Nicolas,Nicole,Nilton,Niressa,Noah,Noeli,Nubia,Ohana,Olavo,Olga,Oliver,Olívia,Oscar,Osvaldo,Otávio,Otto,Pablo,Pamela,Paola,Patrícia,Patrício,Paula,Paulo,Pedro,Pedro Henrique,Pedro Lucas,Pedro Miguel,Pérola,Phelipe,Pierre,Pietra,Pietro,Pricila,Rafael,Rafaela,Raissa,Ramiro,Raquel,Raul,Ravena,Ravi,Rebeca,Renan,Renata,Renato,Ricardo,Rita,Rodolfo,Rodrigo,Roger,Rosa,Ryan,Sabrina,Salim,Samantha,Samara,Sâmila,Samir,Samuel,Sandra,Santiago,Sara,Sarah,Savio,Serena,Sérgio,Sophia,Soraya,Sotelo,Stella,Stephanie,Suélen,Tabatha,Tácio,Tainá,Tális,Talita,Tamara,Tamires,Tatiana,Tauane,Telma,Tenório,Teodora,Teresa,Tereza,Thais,Théo,Theodoro,Thiago,Thomas,Tiago,Tobias,Tom,Tomás,Traciso,Túlio,Vagner,Valdomiro,Valentim,Valentina,Valentine,Valquiria,Vanessa,Vânia,Vânio,Vera,Verene,Verônica,Vicente,Vicenzo,Vinícius,Violeta,Vitor,Vitor Hugo,Vitória,Vivian,Viviane,Wagner,Waldemar,Wallace,Walter,Wendel,Wesley,William,Wilson,Yan,Yasmin,Yngrid,Yohana,Yuri,Zoe",
+                "CITY_NAMES": "Nova Iorque,Tóquio,Londres,Paris,Xangai,Sidney,Roma,Cairo,Pequim,Mumbai,Los Angeles,Istanbul,Moscovo,Buenos Aires,Rio de Janeiro,Toronto,Bangkok,Dubai,Cidade do México,Jacarta,Seul,Barcelona,Madrid,Hong Kong,Singapura,Berlim,San Francisco,Viena,Milão,Praga,Lisboa,Amesterdão,Melbourne,Copenhague,Zurique,Helsínquia,Estocolmo,Bruxelas,Oslo,Varsóvia,Budapeste,Boston,Chicago,Atenas,Dublin,Hamburgo,Munique,Edimburgo,Florença,Vancouver,Montreal,Tel Aviv,Jerusalém,Riad,Johannesburgo,Cidade do Cabo,Nova Délhi,Manila,Santiago,Caracas,Kuala Lumpur,Auckland,Doha,Lima,Bogotá,Hanoí,Lagos,Nairóbi,Adis Abeba,Islamabad,Daca,Carachi,Catmandu,Yangon,Ho Chi Minh,Cambodja,Rangum,Abu Dhabi,Cidade do Kuwait,Manama,Muscat,Amã,Beirute,Damasco,Trípoli,Argél,Túnis,Dacar,Acra,Luanda,Maputo,Harare,Kigali,Mogadíscio,Dar es Salaam,Libreville,Kinshasa,Lusaka,Windhoek"
+
+            }
+        }
+    ]
+}

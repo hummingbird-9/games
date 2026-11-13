@@ -1,0 +1,11 @@
+{
+  "id": 404,
+  "name": "Seat Jam 3D",
+  "author": "Yandex",
+  "authorLink": "https://yandex.com/games",
+  "special": [],
+  "sourceHtml": "404-fix.html",
+  "sourceCover": "404.png",
+  "assetsCopiedLocally": false,
+  "originalBaseHref": "https://rawcdn.githack.com/genizy/brainrot/main/seat-jam-3d/"
+}

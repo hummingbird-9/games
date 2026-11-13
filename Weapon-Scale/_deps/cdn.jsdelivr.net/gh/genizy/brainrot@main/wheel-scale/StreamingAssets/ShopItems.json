@@ -1,0 +1,320 @@
+{
+    "colors": [
+        {
+            "id": 1,
+            "name": "Color 1",
+            "isBought": 1,
+            "hex": "#"
+        },
+        {
+            "id": 2,
+            "name": "Color 2",
+            "isBought": 0,
+            "hex": "#222222"
+        },
+        {
+            "id": 3,
+            "name": "Color 3",
+            "isBought": 0,
+            "hex": "#A1FF23"
+        },
+        {
+            "id": 4,
+            "name": "Color 4",
+            "isBought": 0,
+            "hex": "#826DD4"
+        },
+        {
+            "id": 5,
+            "name": "Color 5",
+            "isBought": 0,
+            "hex": "#13B1D8"
+        },
+        {
+            "id": 6,
+            "name": "Color 6",
+            "isBought": 0,
+            "hex": "#CB39E2"
+        },
+        {
+            "id": 7,
+            "name": "Color 5",
+            "isBought": 0,
+            "hex": "#7D7970"
+        },
+        {
+            "id": 8,
+            "name": "Color 1",
+            "isBought": 0,
+            "hex": "#7EBE68"
+        },
+        {
+            "id": 9,
+            "name": "Color 5",
+            "isBought": 0,
+            "hex": "#4ADCDC"
+        },
+        {
+            "id": 10,
+            "name": "Color 5",
+            "isBought": 0,
+            "hex": "#52C874"
+        },
+        {
+            "id": 11,
+            "name": "Color 5",
+            "isBought": 0,
+            "hex": "#FF2156"
+        },
+        {
+            "id": 12,
+            "name": "Color 4",
+            "isBought": 0,
+            "hex": "#E3E6E7"
+        },
+        {
+            "id": 13,
+            "name": "Color 5",
+            "isBought": 0,
+            "hex": "#0D8FDD"
+        },
+        {
+            "id": 14,
+            "name": "Color 5",
+            "isBought": 0,
+            "hex": "#8286AC"
+        },
+        {
+            "id": 15,
+            "name": "Color 5",
+            "isBought": 0,
+            "hex": "#419478"
+        },
+        {
+            "id": 16,
+            "name": "Color 5",
+            "isBought": 0,
+            "hex": "#5793DB"
+        },
+        {
+            "id": 17,
+            "name": "Color 5",
+            "isBought": 0,
+            "hex": "#464F90"
+        },
+        {
+            "id": 18,
+            "name": "Color 3",
+            "isBought": 0,
+            "hex": "#0F9199"
+        },
+        {
+            "id": 19,
+            "name": "Color 5",
+            "isBought": 0,
+            "hex": "#D3FF56"
+        },
+        {
+            "id": 20,
+            "name": "Color 5",
+            "isBought": 0,
+            "hex": "#822626"
+        },
+        {
+            "id": 21,
+            "name": "Color 5",
+            "isBought": 0,
+            "hex": "#0EB9B0"
+        },
+        {
+            "id": 22,
+            "name": "Color 2",
+            "isBought": 0,
+            "hex": "#82667C"
+        },
+        {
+            "id": 23,
+            "name": "Color 5",
+            "isBought": 0,
+            "hex": "#7EA668"
+        },
+        {
+            "id": 24,
+            "name": "Color 5",
+            "isBought": 0,
+            "hex": "#0F51AF"
+        },
+        {
+            "id": 25,
+            "name": "Color 5",
+            "isBought": 0,
+            "hex": "#6E6AA7"
+        },
+        {
+            "id": 26,
+            "name": "Color 1",
+            "isBought": 0,
+            "hex": "#173CFF"
+        },
+        {
+            "id": 27,
+            "name": "Color 2",
+            "isBought": 0,
+            "hex": "#3C50A9"
+        }
+    ],
+    "wheels": [
+        {
+            "id": 1,
+            "name": "Wheel 1",
+            "isBought": 1
+        },
+        {
+            "id": 2,
+            "name": "Wheel 2",
+            "isBought": 0
+        },
+        {
+            "id": 3,
+            "name": "Wheel 3",
+            "isBought": 0
+        },
+        {
+            "id": 4,
+            "name": "Wheel 4",
+            "isBought": 0
+        },
+        {
+            "id": 5,
+            "name": "Wheel 5",
+            "isBought": 0
+        },
+        {
+            "id": 6,
+            "name": "Wheel 6",
+            "isBought": 0
+        },
+        {
+            "id": 7,
+            "name": "Wheel 7",
+            "isBought": 0
+        },
+        {
+            "id": 8,
+            "name": "Wheel 8",
+            "isBought": 0
+        },
+        {
+            "id": 9,
+            "name": "Wheel 9",
+            "isBought": 0
+        },
+        {
+            "id": 10,
+            "name": "Wheel 10",
+            "isBought": 0
+        },
+        {
+            "id": 11,
+            "name": "Wheel 11",
+            "isBought": 0
+        },
+        {
+            "id": 12,
+            "name": "Wheel 12",
+            "isBought": 0
+        },
+        {
+            "id": 13,
+            "name": "Wheel 13",
+            "isBought": 0
+        },
+        {
+            "id": 14,
+            "name": "Wheel 14",
+            "isBought": 1
+        },
+        {
+            "id": 15,
+            "name": "Wheel 15",
+            "isBought": 1
+        }
+    ],
+    "cars": [
+        {
+            "id": 1,
+            "name": "Car 1",
+            "isBought": 1
+        },
+        {
+            "id": 2,
+            "name": "Car 2",
+            "isBought": 0
+        },
+        {
+            "id": 3,
+            "name": "Car 3",
+            "isBought": 0
+        },
+        {
+            "id": 4,
+            "name": "Car 4",
+            "isBought": 1
+        },
+        {
+            "id": 5,
+            "name": "Car 5",
+            "isBought": 0
+        },
+        {
+            "id": 6,
+            "name": "Car 6",
+            "isBought": 0
+        },
+        {
+            "id": 7,
+            "name": "Car 7",
+            "isBought": 0
+        },
+        {
+            "id": 8,
+            "name": "Car 8",
+            "isBought": 0
+        },
+        {
+            "id": 9,
+            "name": "Car 9",
+            "isBought": 0
+        },
+        {
+            "id": 10,
+            "name": "Car 10",
+            "isBought": 0
+        },
+        {
+            "id": 11,
+            "name": "Car 11",
+            "isBought": 0
+        },
+        {
+            "id": 12,
+            "name": "Car 12",
+            "isBought": 0
+        },
+        {
+            "id": 13,
+            "name": "Car 13",
+            "isBought": 0
+        },
+        {
+            "id": 14,
+            "name": "Car 14",
+            "isBought": 0
+        },
+        {
+            "id": 15,
+            "name": "Car 15",
+            "isBought": 0
+        }
+    ]
+}

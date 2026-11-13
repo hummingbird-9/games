@@ -1,0 +1,82 @@
+{
+    "header": {
+        "version": 1
+    },
+    "data": [
+        {
+            "info": {
+                "locale": "ms-MY"
+            },
+            "messages": {
+                "Nickname": "Nama pendek",
+                "Sound": "Bunyi",
+                "Vibration": "Getaran",
+                "Privacy Policy": "Dasar Privasi & Terma Penggunaan",
+                "Credits": "Penghargaan",
+                "DOUBLE POINTS": "MATA GANDA DUA",
+                "TRIPLE POINTS": "MATA GANDA TIGA",
+                "keyboard_go": "Go",
+                "keyboard_space": "space",
+                "Answer...": "Jawapan...",
+                "Wrong": "Salah",
+                "Already given": "Sudah dijawab",
+                "LEVEL #value#": "TAHAP #value#",
+                "TOP 6 ANSWERS": "6 JAWAPAN POPULAR",
+                "TOTAL": "JUMLAH",
+                "Winner": "Pemenang",
+                "Round Winner": "Pemenang Pusingan",
+                "Tap to continue": "Ketik untuk meneruskan",
+                "Claim your reward": "Tuntut ganjaran anda",
+                "Claim your prize": "Tuntut hadiah anda",
+                "RANDOM SKIN": "KEKULIT RAWAK",
+                "NEXT_SKIN_PRICE": "KEKULIT BERIKUTNYA: #value#",
+                "Need some help for the next match?": "Perlukan bantuan untuk perlawanan seterusnya?",
+                "Pick a chest": "Pilih peti",
+                "Best reward": "Ganjaran terbaik",
+                "X KEYS MORE": "#value# LAGI",
+                "No thanks": "Tidak mengapa",
+                "Daily Challenge": "Cabaran Harian",
+                "Can you guess the most popular answer?": "Bolehkah anda meneka jawapan paling popular?",
+                "PLAY": "MAIN",
+                "Eliminated": "Tersingkir",
+                "Answer faster!": "Jawab dengan lebih cepat!",
+                "Try again?": "Cuba lagi?",
+                "Compete Again?": "Bertanding lagi?",
+                "YES": "YA",
+                "NO": "TIDAK",
+                "QUALIFIER": "PUSINGAN KELAYAKAN",
+                "Push the buzzer": "Tekan pembaz",
+
+                "ROUND 1" : "PUSINGAN 1",
+                "ROUND 2" : "PUSINGAN 2",
+                "ROUND 3" : "PUSINGAN 3",
+                "VICTORY" : "MENANG",
+                "REVIVE" : "MAIN SEMULA",
+                "You ended in position" : "Anda berakhir pada kedudukan",
+                "SEMI FINAL" : "SEPARUH AKHIR",
+                "FINAL" : "AKHIR",
+                "Searching for opponents..." : "Mencari pihak lawan...",
+                "Remaining" : "Berbaki",
+                "Congratulations" : "TAHNIAH",
+                "Best prize" : "Hadiah Terbaik",
+                "You won a ticket for the next local tournament" : "Anda memenangi tiket untuk pertandingan tempatan pertama anda",
+                "Your free Daily Challenge is available" : "Cabaran Harian percuma anda kini tersedia",
+                
+                "Language" : "Bahasa",
+                "BACK" : "KEMBALI",
+                "FREE" : "PERCUMA",
+                "SELECT" : "PILIH",
+                "SELECTED" : "DIPILIH",
+                "UNLOCK" : "BUKA KUNCI",
+                "GO" : "MULA",
+                "Enter" : "Enter",
+                "You don't like the question, skip it!" : "Anda tak suka soalan ini, langkau soalan!",
+                "JOIN": "SERTAI",
+
+                "PLAYER_NAMES": "Atea,Ain,Ali,Aisyah,Aisy,Alif,Aiman,Akif,Ahmad,Azhar,Amir,Ameer,Asma,Asmah,Afif,Afiq,Afnan,Anaqi,Alya,Aleya,Akram,Azim,Azfar,Azrul,Azril,Azri,Adira,Adlina,Aafiyah,Amalina,Athirah,Amirah,Adilah,Afifah,Azwa,Adwa,Afiqah,Aina,Ainan,Aleesa,Amani,Anis,Aqilah,Arissa,Auliya,Azizah,Adeeb,Adlina,Adam,Akmal,Ammar,Amsyar,Anas,Aniq,Anwar,Arif,Ashraf,Atif,Azmil,Azizi,Azman,Fatin,Farid,Fazreen,Faiqah,Farhan,Fateh,Fatima,Fadilah,Faizah,Farah,Fatiha,Fatihin,Faliq,Farhan,Farhana,Farzana,Fathia,Fitrah,Fatihin,Fazli,Fadli,Fairuz,Farhah,Fauziah,Firdaus,Filzah,Fatini,Farisya,Farham,Fayyad,Habib,Hadi,Hadif,Hamzah,Hafiz,Hafiy,Hafizuddin,Haidar,Haikal,Hakeem,Hakim,Hamizan,Hanafi,Hanif,Hanis,Harun,Hariri,Haris,Harith,Hasan,Hashim,Hasnah,Hazim,Hidayah,Hidayat,Helmi,Helmy,Hilman,Hud,Haydar,Husni,Hussien,Huzaifah,Huzair,Hafizah,Hafiya,Hafsya,Hawa,Hamidah,Hamizah,Hana,Hanan,Hanisah,Hanim,Hasanah,Hasna,Hawani,Hayati,Hayfa,Haziq,Haziqah,Hazirah,Huda,Husna,Hafizah,Ikram,Izyan,Iman,Imani,Inani,Insyirah,Izzah,Izreen,Irfan,Ilman,Intan,Isyraf,Idris,Irdina,Izham,Izmeer,Isabella,Irsyad,Idlan,Izz,Inas,Embun,Effendy,Emma,Erna,Erika,Elvina,Eshal,Elyana,Eisha,Eliana,Eliza,Ella,Elyas,Emilia,Jalilah,Jamaliah,Jamaliana,Jannah,Jamila,Azidah,Azra,Junainah,Juwairiyah,Jamil,Jamal,Jamaluddin,Jaafar,Jabir,Jafni,Jais,Jalal,Jarir,Jazman,Jibril,Jihan,Jufri,Junaidi,Julia,Jefri,Juliana,Johari,Khaleef,Karim,Kabir,Kamil,Kamarul,Kamal,Kamarudin,Kamaludin,Kamaruzzaman,Kasyaf,Kazim,Khairi,Khairul,Khairil,Khairy,Khalaf,Khalid,Kaisara,Kausar,Khadijah,Khadeeja,Khaira,Khalida,Khaulah,Laila,Laili,Latifah,Lily,Liyana,Lina,Luthfia,Latifah,Latif,Lazim,Luthfi,Luth,Muhammad,Muiz,Maleeq,Malik,Majid,Manaf,Mohd,Mirza,Mohamed,Muammar,Muaz,Muzammil,Muazzam,Mubin,Muhaimin,Muhsin,Muhyiddin,Muizzudin,Maisarah,Mujahid,Munir,Munzir,Mursyid,Mustafa,Mustaqim,Mutalib,Muzaffar,Maimunah,Maysa,Munirah,Marsya,Maya,Maznah,Mansor,Mikayla,Muneera,Naila,Nadirah,Nadrah,Nazren,Najmi,Nur,Nurul,Nadia,Nadya,Nafisa,Nabila,Nabihah,Naura,Naurfal,Naurah,Najwa,Nazim,Natrah,Naimah,Naim,Nawal,Nayla,Nuha,Nusaibah,Nurain,Nazihah,Nazira,Neelam,Namirah,Ajwad,Nabil,Nubhan,Nawawi,Nawi,Nadhir,Nadzir,Mior,Najib,Najmuddin,Najwan,Naqib,Naqiuddin,Naseer,Nawfal,Nazeem,Nazmi,Nooh,Nuh,Omar,Mukhtar,Osman,Puteri,Putra,Qaleef,Harris,Qayyum,Qaireen,Qairsara,Qairina,QIsya,Qurratun Ain,Qisya,Qhayra,Rawdah,Rafidah,Raihana,Raisha,Ridzuan,Ramli,Rosli,Roslan,Razman,Rahman,Rafiq,Rania,Rashidah,Rozita,Razif,Raqib,Rusyda,Raihan,Rahimah,Rahmah,Razin,Raissa,Ramlah,Radi,Rafi,Rafeek,Rafiq,Rahim,Rahimi,Rais,Rauf,Rashid,Ridhwan,Ruzaini,Rafli,Rustam,Sarah,Saad,Salim,Salman,Shahir,Shahril,Syazwan,Syamil,Syahmi,Asmil,Aslam,Saiful,Saifuddin,Syukur,Syukri,Syazlan,Syazreen,Shafiq,Sazwan,Syarif,Sadiq,Syed,Said,Saif,Aman,Saifullah,Sakinah,Saleem,Samad,Samir,Salleh,Sharif,Solihin,Suhaili,Sulaiman,Syafiq,Syakir,Syamsul,Samsuddin,Syazani,Syawal,Syafii,Sofian,Shuib,Shakir,Sabri,Safri,Sabrina,Safina,Salwa,Salsabila,Shahira,Shakila,Shakira,Sharifah,Siti,Suhaila,Sumaira,Syafiqah,Sayyidah,Suraya,Soraya,Sofia,Sufiah,Saiful,Saleh,Salehah,Soleha,Salma,Sera,Syafiqin,Sharudin,Shahrul,Shakirim,Shamsuri,Shahida,Shuhada,Syakir,Syazana,Taqif,Taufiq,Tengku,Tiara,Talhah,Tajudin,Taqiudin,Tasnim,Umairah,Umi,Ummu,Ummi,Ubaidah,Umar,Umayra,Uzair,Usman,Uthman,Ummul,Wahid,Wahida,Wan,Wafi,Wafiq,Wafiy,Wahab,Wajdi,Wazir,Wafa,Wajihah,Yong,Yulfa,Yasmeen,Yusri,Yahya,Yaaqub,Yasin,Yazid,Yusuf,Zahir,Zakwan,Zamri",
+                "CITY_NAMES": "New York,Tokyo,London,Paris,Shanghai,Sydney,Roma,Kaherah,Beijing,Mumbai,Los Angeles,Istanbul,Moscow,Buenos Aires,Rio de Janeiro,Toronto,Bangkok,Dubai,Kota Mexico,Jakarta,Seoul,Barcelona,Madrid,Hong Kong,Singapura,Berlin,San Francisco,Vienna,Milan,Prague,Lisbon,Amsterdam,Melbourne,Kopenhagen,Zurich,Helsinki,Stockholm,Brussels,Oslo,Warsaw,Budapest,Boston,Chicago,Athens,Dublin,Hamburg,Munich,Edinburgh,Florence,Vancouver,Montreal,Tel Aviv,Jerusalem,Riyadh,Johannesburg,Cape Town,New Delhi,Manila,Santiago,Caracas,Kuala Lumpur,Auckland,Doha,Lima,Bogotá,Hanoi,Lagos,Nairobi,Addis Ababa,Islamabad,Dhaka,Karachi,Katmandu,Yangon,Ho Chi Minh City,Phnom Penh,Rangoon,Abu Dhabi,Kuwait City,Manama,Muscat,Amman,Beirut,Damascus,Tripoli,Algiers,Tunis,Dakar,Accra,Luanda,Maputo,Harare,Kigali,Mogadishu,Daressalam,Libreville,Kinshasa,Lusaka,Windhoek"
+
+            }
+        }
+    ]
+}

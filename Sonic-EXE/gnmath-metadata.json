@@ -1,0 +1,13 @@
+{
+  "id": 598,
+  "name": "Sonic.EXE",
+  "author": " Cinossu",
+  "authorLink": "https://info.sonicretro.org/An_Ordinary_Sonic_ROM_Hack",
+  "special": [
+    "emulator"
+  ],
+  "sourceHtml": "598-fix2.html",
+  "sourceCover": "598.png",
+  "assetsCopiedLocally": false,
+  "originalBaseHref": "https://cdn.jsdelivr.net/gh/bubblfan/web-port@latest/sonic.exe/"
+}
