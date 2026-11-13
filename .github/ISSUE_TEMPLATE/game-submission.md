@@ -6,13 +6,14 @@ title: "Game submission: "
 
 ## Game details
 
-Add the game name and description.
+Add the game name and short description (50 characters maximum).
 
 ## Files to attach
 
-- Attach the prepared game ZIP archive (maximum 25 MB).
-- Attach the cover image (maximum 10 MB).
+- Attach the single prepared ZIP archive (maximum 25 MB).
+- The selected cover image is already included in the ZIP as community-cover.
+- The ZIP must contain index.html at its root and all local game assets.
 
 ## Review
 
-Submissions are reviewed before anything is added to the public games library. Please do not include copyrighted or harmful material.
+A submission remains pending until it is approved. Approved games are automatically validated and added to the games repository. Please do not include copyrighted or harmful material.
