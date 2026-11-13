@@ -1,0 +1,66 @@
+name: Review community game submissions
+
+on:
+  issues:
+    types: [opened, labeled]
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: community-game-approval
+  cancel-in-progress: false
+
+jobs:
+  mark-submission:
+    if: >-
+      github.event.action == 'opened' &&
+      startsWith(github.event.issue.title, 'Game submission:')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add review labels
+        env:
+          GH_TOKEN: ${ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${ github.event.issue.number }}
+        run: |
+          gh label create game-submission --color 0e8a16 --description "Community game waiting for review" || true
+          gh label create approved --color 1f6feb --description "Approved for the public games library" || true
+          gh issue edit "$ISSUE_NUMBER" --add-label "game-submission"
+
+  import-approved-game:
+    if: >-
+      github.event.action == 'labeled' &&
+      github.event.label.name == 'approved' &&
+      startsWith(github.event.issue.title, 'Game submission:') &&
+      contains(github.event.issue.labels.*.name, 'game-submission')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out only the repository tools
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: .github
+
+      - name: Validate and unpack the submitted game
+        id: import
+        env:
+          ISSUE_TITLE: ${ github.event.issue.title }}
+          ISSUE_BODY: ${ github.event.issue.body }}
+        run: python3 .github/scripts/import-approved-game.py
+
+      - name: Add the approved game to the repository
+        env:
+          GH_TOKEN: ${ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${ github.event.issue.number }}
+          GAME_SLUG: ${ steps.import.outputs.game_slug }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add --sparse -- "$GAME_SLUG"
+          git commit -m "Add approved community game: $GAME_SLUG"
+          git push origin HEAD:main
+          gh issue comment "$ISSUE_NUMBER" --body "Approved and added to the games repository as $GAME_SLUG."
+          gh issue close "$ISSUE_NUMBER" --reason completed
