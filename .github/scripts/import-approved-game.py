@@ -101,10 +101,10 @@ def extract_game(data: bytes, destination: Path) -> None:
             fail("The ZIP must contain index.html at its root.")
         if not any(
             len(parts) == 1 and Path(parts[0]).suffix.lower() in ALLOWED_COVER_EXTENSIONS
-            and parts[0].lower().startswith("cover.")
+            and parts[0].lower().startswith("community-cover.")
             for _, parts in normalized
         ):
-            fail("The ZIP must include the selected cover image as cover.<extension> at its root.")
+            fail("The ZIP must include the selected cover image as community-cover.<extension> at its root.")
 
         destination.mkdir(parents=False, exist_ok=False)
         try:
