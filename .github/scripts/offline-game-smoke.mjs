@@ -80,8 +80,14 @@ async function snapshot(page, evidence) {
       resourceKeys: Object.keys(window.PIXI?.loader?.resources || {}),
       gameMakerInit: typeof window.GameMaker_Init,
       canvasSize: canvas ? { width: canvas.width, height: canvas.height } : null,
-      idleClicks: typeof window._E7 === 'function' ? window._E7(0)?._89 ?? null : null,
-      idleLevel: typeof window._E7 === 'function' ? window._E7(0)?._V8 ?? null : null
+      idleClicks: (() => {
+        const instance = window._2J?._9o?.(0) || window._je?._9o?.(0);
+        return instance?._89 ?? null;
+      })(),
+      idleLevel: (() => {
+        const instance = window._2J?._9o?.(0) || window._je?._9o?.(0);
+        return instance?._V8 ?? null;
+      })()
     };
   }).catch(error => ({ diagnosticError: error.message }));
   return { state, evidence };
@@ -190,18 +196,10 @@ async function testIdleBreakout() {
     await page.waitForFunction(() =>
       typeof window.GameMaker_Init === 'function' &&
       typeof window._E7 === 'function' &&
-      typeof window._T7 === 'function' &&
-      !!window._E7(0) &&
-      typeof window._E7(0)._89 === 'number',
+      typeof window._T7 === 'function',
       null,
       { timeout: 30000 }
-    ).catch(async () => {
-      throw new Error('Idlebreakout GameMaker state did not initialize: ' +
-        JSON.stringify(await snapshot(page, evidence)));
-    });
-
-    await page.waitForTimeout(7000);
-    assertOffline('Idlebreakout', evidence);
+    );
 
     const canvas = page.locator('#canvas');
     const bounds = await canvas.boundingBox();
@@ -209,7 +207,29 @@ async function testIdleBreakout() {
     const size = await canvas.evaluate(el => ({ width: el.width, height: el.height }));
     if (!size.width || !size.height) throw new Error('Idlebreakout canvas has zero dimensions');
 
-    const before = await page.evaluate(() => window._E7(0)._89);
+    // The source starts in rm_start. Its Play button is an instance at (416, 352);
+    // the global game-state instance with ID 0 is created only after entering rm_idle.
+    await page.waitForTimeout(1000);
+    await page.mouse.click(
+      bounds.x + bounds.width * (416 / size.width),
+      bounds.y + bounds.height * (352 / size.height)
+    );
+    await page.waitForFunction(() => {
+      const instance = window._2J?._9o?.(0) || window._je?._9o?.(0);
+      return !!instance && typeof instance._89 === 'number';
+    }, null, { timeout: 30000 }).catch(async () => {
+      throw new Error('Idlebreakout did not leave rm_start and initialize its global state: ' +
+        JSON.stringify(await snapshot(page, evidence)));
+    });
+
+    await page.waitForTimeout(1500);
+    assertOffline('Idlebreakout', evidence);
+
+    const before = await page.evaluate(() => {
+      const instance = window._2J?._9o?.(0) || window._je?._9o?.(0);
+      return instance?._89 ?? null;
+    });
+    if (typeof before !== 'number') throw new Error('Idlebreakout click counter was not available after start');
     const brickPositions = [
       [464, 80], [560, 80], [656, 80], [752, 80], [848, 80],
       [944, 80], [80, 80], [176, 80], [272, 80], [368, 80]
@@ -221,7 +241,10 @@ async function testIdleBreakout() {
         bounds.y + bounds.height * (y / size.height)
       );
       await page.waitForTimeout(180);
-      const clicks = await page.evaluate(() => window._E7(0)._89);
+      const clicks = await page.evaluate(() => {
+        const instance = window._2J?._9o?.(0) || window._je?._9o?.(0);
+        return instance?._89 ?? null;
+      });
       if (clicks > before) {
         interaction = { x, y, clicksBefore: before, clicksAfter: clicks };
         break;
@@ -231,7 +254,10 @@ async function testIdleBreakout() {
       throw new Error('Idlebreakout did not register a click on any known starting-room brick: ' +
         JSON.stringify({
           before,
-          after: await page.evaluate(() => window._E7(0)._89),
+          after: await page.evaluate(() => {
+            const instance = window._2J?._9o?.(0) || window._je?._9o?.(0);
+            return instance?._89 ?? null;
+          }),
           attemptedBrickPositions: brickPositions,
           diagnostic: await snapshot(page, evidence)
         }));
@@ -241,7 +267,7 @@ async function testIdleBreakout() {
     const state = await page.evaluate(() => ({
       canvasWidth: document.querySelector('#canvas')?.width || 0,
       canvasHeight: document.querySelector('#canvas')?.height || 0,
-      clickCount: window._E7(0)._89,
+      clickCount: (window._2J?._9o?.(0) || window._je?._9o?.(0))?._89 ?? null,
       level: window._E7(0)._V8
     }));
     assertOffline('Idlebreakout', evidence);

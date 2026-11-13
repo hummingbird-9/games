@@ -822,3 +822,8 @@ var textStrings_TR = {
 	// (quote0004.png)
 	"misatrributed": "(yanlış bir şekilde ona atfedilir)",
 };
+
+
+// The upstream source defines translations but never selects a default dictionary.
+// Use the English strings for this self-contained offline build.
+var textStrings = textStrings_EN;
