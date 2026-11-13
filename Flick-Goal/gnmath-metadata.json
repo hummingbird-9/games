@@ -1,0 +1,11 @@
+{
+  "id": 391,
+  "name": "Flick Goal",
+  "author": "Yandex",
+  "authorLink": "https://yandex.com/games",
+  "special": [],
+  "sourceHtml": "391-fix.html",
+  "sourceCover": "391.png",
+  "assetsCopiedLocally": false,
+  "originalBaseHref": "https://rawcdn.githack.com/genizy/brainrot/main/flick-goal/"
+}

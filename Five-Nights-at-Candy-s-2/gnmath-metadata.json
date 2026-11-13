@@ -1,0 +1,13 @@
+{
+  "id": 504,
+  "name": "Five Nights at Candy's 2",
+  "author": "Emil \"Ace\" Macko",
+  "authorLink": "https://gamejolt.com/games/five-nights-at-candy-s-2-official/110234",
+  "special": [
+    "port"
+  ],
+  "sourceHtml": "504-fix.html",
+  "sourceCover": "504.png",
+  "assetsCopiedLocally": false,
+  "originalBaseHref": "https://cdn.jsdelivr.net/gh/web-ports/fnac/2/"
+}

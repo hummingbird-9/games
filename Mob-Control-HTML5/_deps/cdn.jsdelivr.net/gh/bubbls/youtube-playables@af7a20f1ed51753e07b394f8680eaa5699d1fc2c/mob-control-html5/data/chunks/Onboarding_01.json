@@ -1,0 +1,40 @@
+{
+    "platform": "PlatformBasic",
+    "overrideAverageMultiplier": 0,
+    "overrideDefaultAverageMultiplier": 1,
+    "overrideMaxXMovement": 0,
+    "overrideMaxXMovementValue": 0,
+    "entities": [
+        {
+            "type": "Gate",
+            "x": 3,
+            "z": 15.75,
+            "r": 0,
+            "sx": 1,
+            "sy": 1,
+            "sz": 1,
+            "multiplier": 2
+        },
+        {
+            "type": "Opponent",
+            "x": 0,
+            "z": 34,
+            "r": 0,
+            "sx": 1,
+            "sy": 1,
+            "sz": 1,
+            "life": 50,
+            "spawnPriority": 0
+        },
+        {
+            "type": "Gate",
+            "x": -3,
+            "z": 15.75,
+            "r": 0,
+            "sx": 1,
+            "sy": 1,
+            "sz": 1,
+            "multiplier": 6
+        }
+    ]
+}

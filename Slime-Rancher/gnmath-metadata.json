@@ -1,0 +1,13 @@
+{
+  "id": 591,
+  "name": "Slime Rancher",
+  "author": "Monomi Park, Ported by Snubby.top",
+  "authorLink": "https://monomipark.com/",
+  "special": [
+    "port"
+  ],
+  "sourceHtml": "591-fix2.html",
+  "sourceCover": "591.png",
+  "assetsCopiedLocally": false,
+  "originalBaseHref": "https://cdn.jsdelivr.net/gh/web-ports/slime-ranchers@f0c5856ac43cf0cfbab4c58139282fc75f9b1861/"
+}

@@ -1,0 +1,13 @@
+{
+    "menu": [
+        {"level": 1, "available": ["Menu01", "Menu02", "Menu03"] },
+        {"level": 6, "available": ["Menu01", "Menu02", "Menu03", "Menu10" ] },
+		{"level": 11, "available": ["Menu01", "Menu02", "Menu03", "Menu10", "Menu05"] },
+		{"level": 14, "available": ["Menu01", "Menu02", "Menu03", "Menu10", "Menu05", "Menu04"] },
+		{"level": 17, "available": ["Menu01", "Menu02", "Menu03", "Menu10", "Menu05", "Menu04", "Menu06"] },
+		{"level": 21, "available": ["Menu01", "Menu02", "Menu03", "Menu10", "Menu05", "Menu04", "Menu06", "Menu07"] },
+		{"level": 25, "available": ["Menu01", "Menu02", "Menu03", "Menu10", "Menu05", "Menu04", "Menu06", "Menu07", "Menu09"] },
+		{"level": 30, "available": ["Menu01", "Menu02", "Menu03", "Menu10", "Menu05", "Menu04", "Menu06", "Menu07", "Menu09", "Menu08"] },
+		{"level": 35, "available": ["Menu01", "Menu02", "Menu03", "Menu10", "Menu05", "Menu04", "Menu06", "Menu07", "Menu09", "Menu08", "Menu11"] }
+    ]
+}

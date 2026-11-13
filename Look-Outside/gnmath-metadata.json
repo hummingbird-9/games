@@ -1,0 +1,13 @@
+{
+  "id": 649,
+  "name": "Look Outside",
+  "author": "Francis Coulombe",
+  "authorLink": "https://store.steampowered.com/app/3373660/Look_Outside/",
+  "special": [
+    "port"
+  ],
+  "sourceHtml": "649-fix.html",
+  "sourceCover": "649.png",
+  "assetsCopiedLocally": false,
+  "originalBaseHref": "https://cdn.jsdelivr.net/gh/web-ports/look-outside@main/"
+}

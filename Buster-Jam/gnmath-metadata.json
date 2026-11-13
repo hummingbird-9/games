@@ -1,0 +1,13 @@
+{
+  "id": 646,
+  "name": "Buster Jam",
+  "author": "TALL GLASS",
+  "authorLink": "https://www.tallglassgames.com/",
+  "special": [
+    "port"
+  ],
+  "sourceHtml": "646-fix2.html",
+  "sourceCover": "646.png",
+  "assetsCopiedLocally": false,
+  "originalBaseHref": "https://cdn.jsdelivr.net/gh/web-ports/buster-jam@7a9737da466721600bbecdb63e870a9eb7d5bcc6/"
+}

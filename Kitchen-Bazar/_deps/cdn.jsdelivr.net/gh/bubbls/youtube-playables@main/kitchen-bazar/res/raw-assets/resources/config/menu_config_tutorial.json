@@ -1,0 +1,13 @@
+{
+   "Menu01": ["m1_0_orange-juice", "m1_1_strawberry-juice", "m1_2_orange-freeze", "m1_3_strawberry-freeze"],
+   "Menu02": ["m02_0_raspberry-pie", "m02_1_raspberry-turnover", "m02_2_pineapple-yogurt", "m02_3_smoothie-bicolor"],
+   "Menu03": ["m03_0_smoked-sausage", "m03_1_fried-onion-sausage", "m03_2_hotdog-1", "m03_3_hotdog-2", "m03_4_hotdog-3"],
+   "Menu04": ["m04_0_watermelon-freeze", "m04_1_apple-freeze", "m04_2_cherry-freeze", "m04_3_watermelon-cocktail", "m04_4_apple-cocktail"],
+   "Menu05": ["m05_0_lettuce-burger", "m05_1_tomato-burger", "m05_2_cheese-burger", "m05_3_big-burger", "m05_4_double-burger"],
+   "Menu06": ["m06_0_chocolate-ice-cream", "m06_1_lemon-ice-cream", "m06_2_strawberry-ice-cream", "m06_3_lemon-strawberry-ice-cream", "m06_4_chocolate-strawberry-ice-cream", "m06_5_chocolate-ice-cream-topping", "m06_6_lemon-ice-cream-topping", "m06_7_strawberry-ice-cream-topping", "m06_8_lemon-strawberry-ice-cream-topping", "m06_9_chocolate-strawberry-ice-cream-topping"],
+   "Menu07": ["m07_0_classic-bagel", "m07_1_morning-bagel", "m07_2_lunch-bagel", "m07_3_super-bagel-1", "m07_4_super-bagel-2"],
+   "Menu08": ["m08_0_vegan-pizza", "m08_1_4cheese-pizza", "m08_2_beef-pizza", "m08_3_meat-lover", "m08_4_ny-special"],
+   "Menu09": ["m09_0_strawberry-waffles", "m09_1_apricot-waffles", "m09_2_chocolate-waffles", "m09_3_black-white-waffles", "m09_4_waffles-1", "m09_5_waffles-2", "m09_6_waffles-3"],
+   "Menu10": ["m10_0_sushi", "m10_1_fish-maki", "m10_2_onirigi", "m10_3_rice-bowl", "m10_4_cucumber-maki"],
+   "Menu11": ["m11_0_white-donut", "m11_1_blue-donut", "m11_2_pink-donut", "m11_3_white-donut-sprinkles", "m11_4_blue-donut-sprinkles","m11_5_pink-donut-sprinkles", "m11_6_Duo-Donut-1", "m11_7_Duo-Donut-2", "m11_8_Duo-Donut-3", "m11_9_Duo-Sprinkles-Donut-1", "m11_10_Duo-Sprinkles-Donut-2", "m11_11_Duo-Sprinkles-Donut-3", "m11_12_Triple-Donut", "m11_13_Triple-Sprinkles-Donut"]
+}

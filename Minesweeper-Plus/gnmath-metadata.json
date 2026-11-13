@@ -1,0 +1,13 @@
+{
+  "id": 604,
+  "name": "Minesweeper Plus",
+  "author": "Jorel Simpson",
+  "authorLink": "https://jorel-simpson.itch.io/minesweeper-plus",
+  "special": [
+    "port"
+  ],
+  "sourceHtml": "604-fix2.html",
+  "sourceCover": "604.png",
+  "assetsCopiedLocally": false,
+  "originalBaseHref": "https://cdn.jsdelivr.net/gh/bubbls/ports@main/minesweeper-plus-2.1/"
+}

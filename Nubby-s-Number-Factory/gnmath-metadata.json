@@ -1,0 +1,13 @@
+{
+  "id": 517,
+  "name": "Nubby's Number Factory",
+  "author": "MogDogBlog Productions",
+  "authorLink": "https://mogdogblog-productions.itch.io/nubbys-number-factory",
+  "special": [
+    "port"
+  ],
+  "sourceHtml": "517-fix2.html",
+  "sourceCover": "517.png",
+  "assetsCopiedLocally": false,
+  "originalBaseHref": "https://cdn.jsdelivr.net/gh/bubblfan/biologyexams@main/nubbys-number-factory/"
+}

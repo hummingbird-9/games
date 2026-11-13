@@ -1,0 +1,11 @@
+{
+  "id": 24,
+  "name": "Crossy Road",
+  "author": "Hipster Whale",
+  "authorLink": "https://www.hipsterwhale.com",
+  "special": [],
+  "sourceHtml": "24-fix2.html",
+  "sourceCover": "24.png",
+  "assetsCopiedLocally": false,
+  "originalBaseHref": "https://cdn.jsdelivr.net/gh/bubbls/youtube-playables@latest/crossy-road/"
+}

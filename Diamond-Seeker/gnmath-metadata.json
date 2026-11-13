@@ -1,0 +1,11 @@
+{
+  "id": 386,
+  "name": "Diamond Seeker",
+  "author": "Yandex",
+  "authorLink": "https://yandex.com/games",
+  "special": [],
+  "sourceHtml": "386-fix.html",
+  "sourceCover": "386.png",
+  "assetsCopiedLocally": false,
+  "originalBaseHref": "https://rawcdn.githack.com/genizy/brainrot/main/diamond-seeker/"
+}

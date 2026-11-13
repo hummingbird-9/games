@@ -1,0 +1,13 @@
+{
+"companyName": "Phantom-GD",
+"productName": "Midnight Shift 1.2",
+"dataUrl": "cool.data.unityweb",
+"asmCodeUrl": "cool.asm.code.unityweb",
+"asmMemoryUrl": "cool.asm.memory.unityweb",
+"asmFrameworkUrl": "cool.asm.framework.unityweb",
+"TOTAL_MEMORY": 209715200,
+"graphicsAPI": ["WebGL 2.0", "WebGL 1.0"],
+"webglContextAttributes": {"preserveDrawingBuffer": false},
+"splashScreenStyle": "Dark",
+"backgroundColor": "#000000"
+}

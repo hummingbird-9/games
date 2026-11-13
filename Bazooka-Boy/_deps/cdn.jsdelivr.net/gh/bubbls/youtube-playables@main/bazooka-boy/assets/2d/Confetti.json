@@ -1,0 +1,311 @@
+{"frames": {
+
+"Confetti1.png":
+{
+	"frame": {"x":1906,"y":1297,"w":16,"h":17},
+	"rotated": true,
+	"trimmed": true,
+	"spriteSourceSize": {"x":237,"y":480,"w":16,"h":17},
+	"sourceSize": {"w":512,"h":512}
+},
+"Confetti2.png":
+{
+	"frame": {"x":386,"y":835,"w":38,"h":46},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":237,"y":460,"w":38,"h":46},
+	"sourceSize": {"w":512,"h":512}
+},
+"Confetti3.png":
+{
+	"frame": {"x":1748,"y":1888,"w":52,"h":77},
+	"rotated": true,
+	"trimmed": true,
+	"spriteSourceSize": {"x":231,"y":424,"w":52,"h":77},
+	"sourceSize": {"w":512,"h":512}
+},
+"Confetti4.png":
+{
+	"frame": {"x":1189,"y":1044,"w":74,"h":103},
+	"rotated": true,
+	"trimmed": true,
+	"spriteSourceSize": {"x":221,"y":392,"w":74,"h":103},
+	"sourceSize": {"w":512,"h":512}
+},
+"Confetti5.png":
+{
+	"frame": {"x":1764,"y":1297,"w":93,"h":142},
+	"rotated": true,
+	"trimmed": true,
+	"spriteSourceSize": {"x":212,"y":359,"w":93,"h":142},
+	"sourceSize": {"w":512,"h":512}
+},
+"Confetti6.png":
+{
+	"frame": {"x":1807,"y":203,"w":110,"h":169},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":202,"y":327,"w":110,"h":169},
+	"sourceSize": {"w":512,"h":512}
+},
+"Confetti7.png":
+{
+	"frame": {"x":1757,"y":393,"w":129,"h":205},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":191,"y":296,"w":129,"h":205},
+	"sourceSize": {"w":512,"h":512}
+},
+"Confetti8.png":
+{
+	"frame": {"x":1764,"y":1064,"w":148,"h":233},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":181,"y":266,"w":148,"h":233},
+	"sourceSize": {"w":512,"h":512}
+},
+"Confetti9.png":
+{
+	"frame": {"x":1748,"y":1631,"w":144,"h":257},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":194,"y":241,"w":144,"h":257},
+	"sourceSize": {"w":512,"h":512}
+},
+"Confetti10.png":
+{
+	"frame": {"x":1595,"y":1140,"w":169,"h":281},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":182,"y":217,"w":169,"h":281},
+	"sourceSize": {"w":512,"h":512}
+},
+"Confetti11.png":
+{
+	"frame": {"x":1714,"y":760,"w":190,"h":304},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":172,"y":192,"w":190,"h":304},
+	"sourceSize": {"w":512,"h":512}
+},
+"Confetti12.png":
+{
+	"frame": {"x":1541,"y":1631,"w":207,"h":315},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":163,"y":170,"w":207,"h":315},
+	"sourceSize": {"w":512,"h":512}
+},
+"Confetti13.png":
+{
+	"frame": {"x":1156,"y":1412,"w":220,"h":345},
+	"rotated": true,
+	"trimmed": true,
+	"spriteSourceSize": {"x":156,"y":146,"w":220,"h":345},
+	"sourceSize": {"w":512,"h":512}
+},
+"Confetti14.png":
+{
+	"frame": {"x":787,"y":1409,"w":232,"h":369},
+	"rotated": true,
+	"trimmed": true,
+	"spriteSourceSize": {"x":150,"y":127,"w":232,"h":369},
+	"sourceSize": {"w":512,"h":512}
+},
+"Confetti15.png":
+{
+	"frame": {"x":386,"y":1011,"w":252,"h":387},
+	"rotated": true,
+	"trimmed": true,
+	"spriteSourceSize": {"x":143,"y":112,"w":252,"h":387},
+	"sourceSize": {"w":512,"h":512}
+},
+"Confetti16.png":
+{
+	"frame": {"x":1189,"y":1140,"w":272,"h":406},
+	"rotated": true,
+	"trimmed": true,
+	"spriteSourceSize": {"x":133,"y":94,"w":272,"h":406},
+	"sourceSize": {"w":512,"h":512}
+},
+"Confetti17.png":
+{
+	"frame": {"x":919,"y":347,"w":288,"h":420},
+	"rotated": true,
+	"trimmed": true,
+	"spriteSourceSize": {"x":126,"y":79,"w":288,"h":420},
+	"sourceSize": {"w":512,"h":512}
+},
+"Confetti18.png":
+{
+	"frame": {"x":0,"y":1716,"w":292,"h":430},
+	"rotated": true,
+	"trimmed": true,
+	"spriteSourceSize": {"x":119,"y":63,"w":292,"h":430},
+	"sourceSize": {"w":512,"h":512}
+},
+"Confetti19.png":
+{
+	"frame": {"x":431,"y":700,"w":311,"h":434},
+	"rotated": true,
+	"trimmed": true,
+	"spriteSourceSize": {"x":109,"y":50,"w":311,"h":434},
+	"sourceSize": {"w":512,"h":512}
+},
+"Confetti20.png":
+{
+	"frame": {"x":451,"y":369,"w":331,"h":441},
+	"rotated": true,
+	"trimmed": true,
+	"spriteSourceSize": {"x":99,"y":42,"w":331,"h":441},
+	"sourceSize": {"w":512,"h":512}
+},
+"Confetti21.png":
+{
+	"frame": {"x":919,"y":0,"w":347,"h":456},
+	"rotated": true,
+	"trimmed": true,
+	"spriteSourceSize": {"x":90,"y":33,"w":347,"h":456},
+	"sourceSize": {"w":512,"h":512}
+},
+"Confetti22.png":
+{
+	"frame": {"x":451,"y":0,"w":369,"h":468},
+	"rotated": true,
+	"trimmed": true,
+	"spriteSourceSize": {"x":79,"y":24,"w":369,"h":468},
+	"sourceSize": {"w":512,"h":512}
+},
+"Confetti23.png":
+{
+	"frame": {"x":0,"y":1280,"w":393,"h":436},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":68,"y":54,"w":393,"h":436},
+	"sourceSize": {"w":512,"h":512}
+},
+"Confetti24.png":
+{
+	"frame": {"x":1375,"y":0,"w":393,"h":432},
+	"rotated": true,
+	"trimmed": true,
+	"spriteSourceSize": {"x":78,"y":47,"w":393,"h":432},
+	"sourceSize": {"w":512,"h":512}
+},
+"Confetti25.png":
+{
+	"frame": {"x":892,"y":635,"w":409,"h":411},
+	"rotated": true,
+	"trimmed": true,
+	"spriteSourceSize": {"x":72,"y":42,"w":409,"h":411},
+	"sourceSize": {"w":512,"h":512}
+},
+"Confetti26.png":
+{
+	"frame": {"x":1303,"y":760,"w":411,"h":380},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":66,"y":37,"w":411,"h":380},
+	"sourceSize": {"w":512,"h":512}
+},
+"Confetti27.png":
+{
+	"frame": {"x":393,"y":1263,"w":416,"h":394},
+	"rotated": true,
+	"trimmed": true,
+	"spriteSourceSize": {"x":69,"y":34,"w":416,"h":394},
+	"sourceSize": {"w":512,"h":512}
+},
+"Confetti28.png":
+{
+	"frame": {"x":0,"y":426,"w":431,"h":409},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":62,"y":31,"w":431,"h":409},
+	"sourceSize": {"w":512,"h":512}
+},
+"Confetti29.png":
+{
+	"frame": {"x":0,"y":0,"w":451,"h":426},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":53,"y":30,"w":451,"h":426},
+	"sourceSize": {"w":512,"h":512}
+},
+"Confetti30.png":
+{
+	"frame": {"x":0,"y":835,"w":386,"h":445},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":53,"y":29,"w":386,"h":445},
+	"sourceSize": {"w":512,"h":512}
+},
+"Confetti31.png":
+{
+	"frame": {"x":787,"y":1044,"w":402,"h":365},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":46,"y":30,"w":402,"h":365},
+	"sourceSize": {"w":512,"h":512}
+},
+"Confetti32.png":
+{
+	"frame": {"x":1339,"y":393,"w":418,"h":367},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":39,"y":37,"w":418,"h":367},
+	"sourceSize": {"w":512,"h":512}
+},
+"Confetti33.png":
+{
+	"frame": {"x":809,"y":1641,"w":394,"h":371},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":70,"y":48,"w":394,"h":371},
+	"sourceSize": {"w":512,"h":512}
+},
+"Confetti34.png":
+{
+	"frame": {"x":430,"y":1679,"w":379,"h":329},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":91,"y":53,"w":379,"h":329},
+	"sourceSize": {"w":512,"h":512}
+},
+"Confetti35.png":
+{
+	"frame": {"x":1203,"y":1632,"w":338,"h":339},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":139,"y":55,"w":338,"h":339},
+	"sourceSize": {"w":512,"h":512}
+},
+"Confetti36.png":
+{
+	"frame": {"x":1501,"y":1421,"w":352,"h":210},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":134,"y":93,"w":352,"h":210},
+	"sourceSize": {"w":512,"h":512}
+},
+"Confetti37.png":
+{
+	"frame": {"x":1807,"y":0,"w":116,"h":203},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":130,"y":98,"w":116,"h":203},
+	"sourceSize": {"w":512,"h":512}
+}},
+"animations": {
+	"Confetti": ["Confetti1.png","Confetti2.png","Confetti3.png","Confetti4.png","Confetti5.png","Confetti6.png","Confetti7.png","Confetti8.png","Confetti9.png","Confetti10.png","Confetti11.png","Confetti12.png","Confetti13.png","Confetti14.png","Confetti15.png","Confetti16.png","Confetti17.png","Confetti18.png","Confetti19.png","Confetti20.png","Confetti21.png","Confetti22.png","Confetti23.png","Confetti24.png","Confetti25.png","Confetti26.png","Confetti27.png","Confetti28.png","Confetti29.png","Confetti30.png","Confetti31.png","Confetti32.png","Confetti33.png","Confetti34.png","Confetti35.png","Confetti36.png","Confetti37.png"]
+},
+"meta": {
+	"app": "https://www.codeandweb.com/texturepacker",
+	"version": "1.0",
+	"image": "Confetti.png",
+	"format": "RGBA8888",
+	"size": {"w":1923,"h":2012},
+	"scale": "0.5",
+	"smartupdate": "$TexturePacker:SmartUpdate:ad232d720cd96123b8b0b99c5975f6e9:0841fd4d663061945c9f6faf2877891a:42d6388b9b8652ad0fc8521576e9133b$"
+}
+}

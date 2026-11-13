@@ -1,0 +1,13 @@
+{
+  "id": 606,
+  "name": "Sonic.EXE (ORIGINAL)",
+  "author": "MY5TCrimson",
+  "authorLink": "https://gamejolt.com/games/sonic-exe-the-game/16239",
+  "special": [
+    "port"
+  ],
+  "sourceHtml": "606-fix2.html",
+  "sourceCover": "606.png",
+  "assetsCopiedLocally": false,
+  "originalBaseHref": "https://cdn.jsdelivr.net/gh/giorgirick2-gif/game-webports-onawebsite@latest/sonic.exe/"
+}

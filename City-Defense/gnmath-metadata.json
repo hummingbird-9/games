@@ -1,0 +1,11 @@
+{
+  "id": 380,
+  "name": "City Defense",
+  "author": "Yandex",
+  "authorLink": "https://yandex.com/games",
+  "special": [],
+  "sourceHtml": "380-fix.html",
+  "sourceCover": "380.png",
+  "assetsCopiedLocally": false,
+  "originalBaseHref": "https://rawcdn.githack.com/genizy/brainrot/main/city-defense/"
+}

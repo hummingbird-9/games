@@ -1,0 +1,13 @@
+{
+  "id": 623,
+  "name": "Celeste",
+  "author": "MaddyMakesGames, Mercury Workshop",
+  "authorLink": "https://store.steampowered.com/app/504230/Celeste/",
+  "special": [
+    "port"
+  ],
+  "sourceHtml": "623-fix2.html",
+  "sourceCover": "623.png",
+  "assetsCopiedLocally": false,
+  "originalBaseHref": "https://cdn.jsdelivr.net/gh/web-ports/celeste@4f043a5ce121b74dc54ce56d74f213a2eeea6b4e/"
+}

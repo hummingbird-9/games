@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<config>
+
+	<!-- SERVICES -->
+    <!-- Enable, disable, and configure services here -->
+    
+	<services>
+		<service type="analytics" enabled="true" id="4097195479307049816" />
+	</services>
+	
+	<!-- LOCALIZATION -->
+	      
+    <localization>
+    	<region>en</region>
+    </localization>
+
+	<!-- Pack Definitions -->
+	<pack id="main_pack">
+        <flump id="anim_player"/>
+    </pack>
+	
+	<!-- Which packs to load automatically after the bootstrap -->
+	<initial>
+		<pack id="main_pack"/>
+	</initial>
+	
+</config>

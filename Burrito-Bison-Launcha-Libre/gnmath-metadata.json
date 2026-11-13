@@ -1,0 +1,13 @@
+{
+  "id": 78,
+  "name": "Burrito Bison: Launcha Libre",
+  "author": "Juicy Beast",
+  "authorLink": "https://juicybeast.com",
+  "special": [
+    "flash"
+  ],
+  "sourceHtml": "78-fix2.html",
+  "sourceCover": "78.png",
+  "assetsCopiedLocally": false,
+  "originalBaseHref": "https://cdn.jsdelivr.net/gh/bubbls/UGS-Assets@main/BurritoBison-main/"
+}

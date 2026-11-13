@@ -1,0 +1,127 @@
+{
+    "platform": "PlatformBasic",
+    "overrideAverageMultiplier": 1.4,
+    "overrideDefaultAverageMultiplier": true,
+    "overrideMaxXMovement": 0,
+    "overrideMaxXMovementValue": 0,
+    "entities": [
+        {
+            "type": "Opponent",
+            "x": 2,
+            "z": 34,
+            "r": 0,
+            "sx": 1,
+            "sy": 1,
+            "sz": 1,
+            "life": 30,
+            "spawnPriority": 0
+        },
+        {
+            "type": "Gate",
+            "x": -2.999999999999998,
+            "z": 17.55,
+            "r": 0,
+            "sx": 1,
+            "sy": 1,
+            "sz": 1,
+            "multiplier": 4,
+            "move": {
+                "start": 0,
+                "end": -6,
+                "speed": 2,
+                "startPosition": 0,
+                "enabled": true
+            }
+        },
+        {
+            "type": "Capsuloid",
+            "x": -5.25,
+            "z": 17.5,
+            "r": 0,
+            "sx": 1,
+            "sy": 1,
+            "sz": 8
+        },
+        {
+            "type": "Capsuloid",
+            "x": 0,
+            "z": 17.5,
+            "r": 0,
+            "sx": 2.5,
+            "sy": 1,
+            "sz": 8
+        },
+        {
+            "type": "Gate",
+            "x": 3.0000000000000027,
+            "z": 20.3,
+            "r": 0,
+            "sx": 1,
+            "sy": 1,
+            "sz": 1,
+            "multiplier": 4,
+            "move": {
+                "start": 0,
+                "end": 6,
+                "speed": 2,
+                "startPosition": 0,
+                "enabled": true
+            }
+        },
+        {
+            "type": "Opponent",
+            "x": -2,
+            "z": 34,
+            "r": 0,
+            "sx": 1,
+            "sy": 1,
+            "sz": 1,
+            "life": 30,
+            "spawnPriority": 0
+        },
+        {
+            "type": "Gate",
+            "x": -3,
+            "z": 11.75,
+            "r": 0,
+            "sx": 1,
+            "sy": 1,
+            "sz": 1,
+            "multiplier": 2,
+            "move": {
+                "start": 0,
+                "end": 0,
+                "speed": 0,
+                "startPosition": 0,
+                "enabled": false
+            }
+        },
+        {
+            "type": "Capsuloid",
+            "x": 5.25,
+            "z": 17.5,
+            "r": 0,
+            "sx": 1,
+            "sy": 1,
+            "sz": 8
+        },
+        {
+            "type": "Gate",
+            "x": 3,
+            "z": 11.75,
+            "r": 0,
+            "sx": 1,
+            "sy": 1,
+            "sz": 1,
+            "multiplier": 2,
+            "move": {
+                "start": 0,
+                "end": 0,
+                "speed": 0,
+                "startPosition": 0,
+                "enabled": false
+            }
+        }
+    ],
+    "physicsPositionIterations": 1
+}

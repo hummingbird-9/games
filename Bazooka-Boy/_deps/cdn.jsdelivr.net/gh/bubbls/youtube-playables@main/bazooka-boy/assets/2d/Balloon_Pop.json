@@ -1,0 +1,175 @@
+{"frames": {
+
+"BallonPop1.png":
+{
+	"frame": {"x":992,"y":542,"w":22,"h":22},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":245,"y":245,"w":22,"h":22},
+	"sourceSize": {"w":512,"h":512}
+},
+"BallonPop2.png":
+{
+	"frame": {"x":992,"y":512,"w":28,"h":28},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":242,"y":242,"w":28,"h":28},
+	"sourceSize": {"w":512,"h":512}
+},
+"BallonPop3.png":
+{
+	"frame": {"x":359,"y":316,"w":32,"h":32},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":240,"y":240,"w":32,"h":32},
+	"sourceSize": {"w":512,"h":512}
+},
+"BallonPop4.png":
+{
+	"frame": {"x":359,"y":276,"w":38,"h":38},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":237,"y":237,"w":38,"h":38},
+	"sourceSize": {"w":512,"h":512}
+},
+"BallonPop5.png":
+{
+	"frame": {"x":978,"y":775,"w":44,"h":44},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":234,"y":234,"w":44,"h":44},
+	"sourceSize": {"w":512,"h":512}
+},
+"BallonPop6.png":
+{
+	"frame": {"x":686,"y":618,"w":62,"h":57},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":225,"y":228,"w":62,"h":57},
+	"sourceSize": {"w":512,"h":512}
+},
+"BallonPop7.png":
+{
+	"frame": {"x":258,"y":626,"w":98,"h":95},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":208,"y":209,"w":98,"h":95},
+	"sourceSize": {"w":512,"h":512}
+},
+"BallonPop8.png":
+{
+	"frame": {"x":201,"y":882,"w":140,"h":134},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":186,"y":189,"w":140,"h":134},
+	"sourceSize": {"w":512,"h":512}
+},
+"BallonPop9.png":
+{
+	"frame": {"x":343,"y":942,"w":174,"h":170},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":169,"y":171,"w":174,"h":170},
+	"sourceSize": {"w":512,"h":512}
+},
+"BallonPop10.png":
+{
+	"frame": {"x":1,"y":882,"w":198,"h":198},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":157,"y":157,"w":198,"h":198},
+	"sourceSize": {"w":512,"h":512}
+},
+"BallonPop11.png":
+{
+	"frame": {"x":790,"y":1,"w":219,"h":218},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":146,"y":147,"w":219,"h":218},
+	"sourceSize": {"w":512,"h":512}
+},
+"BallonPop12.png":
+{
+	"frame": {"x":1,"y":626,"w":255,"h":254},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":128,"y":129,"w":255,"h":254},
+	"sourceSize": {"w":512,"h":512}
+},
+"BallonPop13.png":
+{
+	"frame": {"x":686,"y":775,"w":290,"h":286},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":111,"y":113,"w":290,"h":286},
+	"sourceSize": {"w":512,"h":512}
+},
+"BallonPop14.png":
+{
+	"frame": {"x":359,"y":618,"w":325,"h":322},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":93,"y":95,"w":325,"h":322},
+	"sourceSize": {"w":512,"h":512}
+},
+"BallonPop15.png":
+{
+	"frame": {"x":1,"y":276,"w":356,"h":348},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":78,"y":82,"w":356,"h":348},
+	"sourceSize": {"w":512,"h":512}
+},
+"BallonPop16.png":
+{
+	"frame": {"x":400,"y":265,"w":380,"h":351},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":64,"y":80,"w":380,"h":351},
+	"sourceSize": {"w":512,"h":512}
+},
+"BallonPop17.png":
+{
+	"frame": {"x":1,"y":1,"w":397,"h":273},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":61,"y":119,"w":397,"h":273},
+	"sourceSize": {"w":512,"h":512}
+},
+"BallonPop18.png":
+{
+	"frame": {"x":400,"y":1,"w":388,"h":262},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":62,"y":127,"w":388,"h":262},
+	"sourceSize": {"w":512,"h":512}
+},
+"BallonPop19.png":
+{
+	"frame": {"x":790,"y":221,"w":289,"h":216},
+	"rotated": true,
+	"trimmed": true,
+	"spriteSourceSize": {"x":111,"y":148,"w":289,"h":216},
+	"sourceSize": {"w":512,"h":512}
+},
+"BallonPop20.png":
+{
+	"frame": {"x":782,"y":512,"w":261,"h":208},
+	"rotated": true,
+	"trimmed": true,
+	"spriteSourceSize": {"x":130,"y":152,"w":261,"h":208},
+	"sourceSize": {"w":512,"h":512}
+}},
+"animations": {
+	"BallonPop": ["BallonPop1.png","BallonPop2.png","BallonPop3.png","BallonPop4.png","BallonPop5.png","BallonPop6.png","BallonPop7.png","BallonPop8.png","BallonPop9.png","BallonPop10.png","BallonPop11.png","BallonPop12.png","BallonPop13.png","BallonPop14.png","BallonPop15.png","BallonPop16.png","BallonPop17.png","BallonPop18.png","BallonPop19.png","BallonPop20.png"]
+},
+"meta": {
+	"app": "https://www.codeandweb.com/texturepacker",
+	"version": "1.0",
+	"image": "Balloon_Pop.png",
+	"format": "RGBA8888",
+	"size": {"w":1023,"h":1113},
+	"scale": "1",
+	"smartupdate": "$TexturePacker:SmartUpdate:6ea310e5087d031cc584269fcaffbdf7:6f495c14b90abcd1d793d57a789d4e23:d60837faa2535a440e6949f54178c6ff$"
+}
+}

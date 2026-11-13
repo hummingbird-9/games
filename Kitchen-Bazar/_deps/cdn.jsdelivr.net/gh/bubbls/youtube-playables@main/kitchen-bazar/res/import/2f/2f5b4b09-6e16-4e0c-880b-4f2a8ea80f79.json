@@ -1,0 +1,1 @@
+{"__type__":"cc.AnimationClip","_name":"nextmessage","_duration":0.35,"curveData":{"comps":{"cc.Sprite":{"spriteFrame":[{"frame":0,"value":null},{"frame":0.3333333333333333,"value":null}]}},"props":{"x":[{"frame":0,"value":290},{"frame":0.3333333333333333,"value":285}]}}}

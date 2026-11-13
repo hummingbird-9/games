@@ -1,0 +1,13 @@
+{
+  "id": 190,
+  "name": "Five Nights at Freddy's: World",
+  "author": "Scott Cawthon",
+  "authorLink": "https://scottgames.com",
+  "special": [
+    "port"
+  ],
+  "sourceHtml": "190-fix2.html",
+  "sourceCover": "190.png",
+  "assetsCopiedLocally": false,
+  "originalBaseHref": "https://cdn.jsdelivr.net/gh/blazerida/fnaf@latest/w/"
+}

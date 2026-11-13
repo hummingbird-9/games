@@ -1,0 +1,16 @@
+Character_Skinned.png
+size:1043,516
+filter:Linear,Linear
+pma:true
+Bazooka
+bounds:936,21,204,69
+rotate:90
+Body_Enemy
+bounds:2,2,512,465
+rotate:90
+Body_Player
+bounds:469,2,512,465
+rotate:90
+Enemy_Weapon
+bounds:936,227,287,105
+rotate:90

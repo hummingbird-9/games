@@ -1,0 +1,13 @@
+{
+  "id": 669,
+  "name": "Terraria",
+  "author": "Re-Logic, Mercury Workshop",
+  "authorLink": "https://terraria.org/",
+  "special": [
+    "port"
+  ],
+  "sourceHtml": "669-fix.html",
+  "sourceCover": "669.png",
+  "assetsCopiedLocally": false,
+  "originalBaseHref": "https://cdn.jsdelivr.net/gh/web-ports/terraria@main/"
+}

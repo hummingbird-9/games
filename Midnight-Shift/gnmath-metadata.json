@@ -1,0 +1,13 @@
+{
+  "id": 658,
+  "name": "Midnight Shift",
+  "author": "Phantom GD",
+  "authorLink": "https://phantom-gd.itch.io/midnight-shift",
+  "special": [
+    "port"
+  ],
+  "sourceHtml": "658-fix.html",
+  "sourceCover": "658.png",
+  "assetsCopiedLocally": false,
+  "originalBaseHref": "https://cdn.jsdelivr.net/gh/bubbls/ports@main/midnight-shift/"
+}

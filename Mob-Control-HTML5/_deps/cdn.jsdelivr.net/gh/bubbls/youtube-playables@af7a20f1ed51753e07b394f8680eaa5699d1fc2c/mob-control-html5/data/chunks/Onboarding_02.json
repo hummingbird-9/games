@@ -1,0 +1,94 @@
+{
+    "platform": "PlatformBasic",
+    "overrideAverageMultiplier": 2.2,
+    "overrideDefaultAverageMultiplier": 1,
+    "overrideMaxXMovement": 0,
+    "overrideMaxXMovementValue": 0,
+    "entities": [
+        {
+            "type": "Triangle",
+            "x": -5.5,
+            "z": 26.75,
+            "r": -4.71238898038469,
+            "sx": 5.7,
+            "sy": 1,
+            "sz": 5.7
+        },
+        {
+            "type": "Triangle",
+            "x": 5.5,
+            "z": 11.75,
+            "r": -1.5707963267948966,
+            "sx": 5.7,
+            "sy": 1,
+            "sz": 5.7
+        },
+        {
+            "type": "Triangle",
+            "x": 5.5,
+            "z": 26.75,
+            "r": -1.5707963267948966,
+            "sx": 5.7,
+            "sy": 1,
+            "sz": 5.7
+        },
+        {
+            "type": "Block",
+            "x": -3.625,
+            "z": 19.25,
+            "r": 0,
+            "sx": 3.75,
+            "sy": 0.74,
+            "sz": 15
+        },
+        {
+            "type": "Triangle",
+            "x": -5.5,
+            "z": 11.75,
+            "r": -4.71238898038469,
+            "sx": 5.7,
+            "sy": 1,
+            "sz": 5.7
+        },
+        {
+            "type": "Gate",
+            "x": 0,
+            "z": 19,
+            "r": 0,
+            "sx": 1,
+            "sy": 1,
+            "sz": 1,
+            "multiplier": 2
+        },
+        {
+            "type": "Opponent",
+            "x": 0,
+            "z": 34,
+            "r": 0,
+            "sx": 1,
+            "sy": 1,
+            "sz": 1,
+            "life": 50,
+            "spawnPriority": 0
+        },
+        {
+            "type": "Block",
+            "x": 3.625,
+            "z": 19.25,
+            "r": 0,
+            "sx": 3.75,
+            "sy": 0.74,
+            "sz": 15
+        },
+        {
+            "type": "Gate",
+            "x": 0,
+            "z": 12.25,
+            "r": 0,
+            "sx": 1,
+            "sy": 1,
+            "sz": 1,
+            "multiplier": 4
+        }
+    ]
+}

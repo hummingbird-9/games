@@ -1,0 +1,112 @@
+{
+    "features": {
+        "highscores": 1,
+        "rewarded": 1
+    },
+    "game_i18n" : {
+        "default": {
+            "filename.png"  : "fg_i18n/en/images/filename.png"
+        }
+    },
+    "game_analytics": {
+        "build": "cannon_balls_3d_v1",
+        "resource_currencies": ["bomb_ball"],
+        "resource_item_types": ["powerup"],
+        "game_key": "",
+        "secret_key": ""
+    },  
+    "game_info": {
+        "client_version": "2.11.0", 
+        "api_version": "2.3",
+        "power_ups": ["bomb"],
+        "forced_mode": {
+            "state": {    
+                 "level": {     
+                    "description": "The current level. Use with or without 'sublevel' state (see 'sublevel's description)",
+                    "type": "number",
+                    "min": 1,
+                    "max": 64
+                },
+
+                "sublevel": {     
+                    "description": "A sublevel of current level. For example, level #1 contains of 5 sublevels (stages). If sublevel is not set, the whole level (all the 5 stages) is loaded. If sublevel is set, only the current stage is loaded (e.g. set [level=1, sublevel=4] to load the only 4th stage of the first level)",
+                    "type": "number",
+                    "min": 1
+                },
+
+                "endless_mode": {     
+                    "description": "If set to true, the endless mode is activated. After completing the level, a next one will be started immediately. The player won't be able to win at all. Useful for 'time attack' missions (e.g. destroy X objects in Y seconds). Recommended to use with unlimited balls ( 'shots' override is set to -1)",
+                    "type": "boolean"
+                },
+
+                "theme": {
+                    "description": "A background/theme used in the current level",
+					"type": "string",
+					"values": ["Desert", "Field", "Snow"]
+                },
+
+                "powerup_bomb": {
+                    "description": "Set to false to completely disable the bomb powerup",
+                    "type": "boolean"
+                }               
+            },
+            "override": {
+
+                
+                "hide_ui": {
+		        	"description": "What UI elements should be hidden?",
+					"type": "array",
+					"values": ["level_progress", "score_counter", "floating_score_points"]
+				},
+
+
+                "shots": {      
+                    "description": "Amount of balls(shots) available at current level/stage. If set to -1, player has unlimited amount of balls. If not set at all, the original game's amount of balls is used.",
+                    "type": "number",
+                    "min": -1,
+                    "max": 1000
+                },
+
+                "infinite_shots_at_boss_stage": {
+                    "description": "By default, the last 'boss' stage (sublevel) of each level has an unlimited amount of balls. Set to false to disable this feature (so the balls amount on the bos stage is limited).",
+                    "type": "boolean"
+                },   
+
+                "bombs_only": {
+                    "description": "If set to true, bombs (exploding balls) will be used instead of regular balls. Set the amount of bombs via 'shots' override",
+                    "type": "boolean"
+                }
+                
+            }
+        },
+        "track_stats": {
+
+
+            "projectile_shot": {
+                "description": "Player shot a ball/bomb",
+                "params": {
+                    "shot_type": {
+                        "type": "string",
+                        "values": ["ball", "bomb"]
+                    }
+                }
+            },
+
+            "item_destroyed": {
+                "description": "Player destroyed a block of a certain type.",
+                "params": {
+                    "item_type": {
+                        "type": "string",
+                        "values": ["wood", "metal", "glass", "explosive"]
+                    }
+                }
+			},
+
+            "stage_completed" : {
+                "description": "A stage (sublevel) is completed in current session",
+                "type": "number"
+            }
+        }
+    }
+
+}

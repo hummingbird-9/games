@@ -1,0 +1,11 @@
+{
+  "id": 470,
+  "name": "Doodle Jump",
+  "author": "Marko Pusenjak",
+  "authorLink": "https://play.google.com/store/apps/details?id=com.lima.doodlejump&hl=en_US&pli=1",
+  "special": [],
+  "sourceHtml": "470-fix.html",
+  "sourceCover": "470.png",
+  "assetsCopiedLocally": false,
+  "originalBaseHref": "https://cdn.jsdelivr.net/gh/bubbls/UGS-Assets@359c6694a88f2c5eddbb9257f3e1d49c668ce749/doodle jump/"
+}
