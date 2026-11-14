@@ -1,0 +1,30 @@
+name: Repair offline game batch
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/repair_batch_2026_11_14.py'
+      - 'tests/offline-game-smoke.mjs'
+      - '.github/workflows/offline-game-repair.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Playwright in temporary directory
+        run: npm install --prefix /tmp/offline-game-deps playwright@1.55.0
+      - name: Install Chromium
+        run: /tmp/offline-game-deps/node_modules/.bin/playwright install --with-deps chromium
+      - name: Repair, verify, report and commit one batch to main
+        env:
+          PLAYWRIGHT_PATH: /tmp/offline-game-deps/node_modules/playwright
+        run: python3 scripts/repair_batch_2026_11_14.py
