@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - 'scripts/repair_batch_2026_11_14.py'
+      - 'scripts/repair_batch_2026_11_14_batch03.py'
       - 'tests/offline-game-smoke.mjs'
       - '.github/workflows/offline-game-repair.yml'
   workflow_dispatch:
@@ -27,4 +28,4 @@ jobs:
       - name: Repair, verify, report and commit one batch to main
         env:
           PLAYWRIGHT_PATH: /tmp/offline-game-deps/node_modules/playwright
-        run: python3 scripts/repair_batch_2026_11_14.py
+        run: python3 scripts/repair_batch_2026_11_14_batch03.py

@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { createReadStream, statSync } from "node:fs";
-import { extname, join, resolve, sep } from "node:path";
+import { createReadStream, statSync, readFileSync, existsSync } from "node:fs";
+import { dirname, extname, join, relative, resolve, sep } from "node:path";
 import { createRequire } from "node:module";
 import { createHash } from "node:crypto";
 
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_PATH || "playwright");
 const game = process.argv[2];
-const supported = ["2048", "flappy-bird", "tetris", "chess-classic", "idle-breakout"];
+const supported = ["2048", "flappy-bird", "tetris", "chess-classic", "idle-breakout", "n-gon"];
 assert(supported.includes(game), "Pass one supported game folder: " + supported.join(", "));
 const root = process.cwd();
 const mime = {
@@ -37,6 +37,49 @@ const pageErrors=[];
 const failedLocal=[];
 const badResponses=[];
 const shotHash = async locator => createHash("sha256").update(await locator.screenshot()).digest("hex");
+
+function inspectLocalHtmlCssGraph(game) {
+  const gameRoot = resolve(root, game);
+  const missing = [];
+  const cssQueue = [];
+  const visited = new Set();
+  const resolveLocal = (base, ref) => {
+    const clean = decodeURIComponent(ref.split(/[?#]/)[0].trim());
+    if (!clean || /^(https?:|\/\/|data:|blob:|javascript:|mailto:|#)/i.test(clean)) return null;
+    const file = resolve(base, clean.replace(/^\/+/, ""));
+    if (file !== gameRoot && !file.startsWith(gameRoot + sep)) {
+      missing.push("path escapes game folder: " + ref);
+      return null;
+    }
+    return file;
+  };
+  const html = readFileSync(join(gameRoot, "index.html"), "utf8");
+  const refs = [...html.matchAll(/(?:src|href)\s*=\s*["']([^"']+)["']/gi)].map(m => m[1]);
+  for (const ref of refs) {
+    const file = resolveLocal(gameRoot, ref);
+    if (!file) continue;
+    if (!existsSync(file)) missing.push(ref);
+    else if (extname(file).toLowerCase() === ".css") cssQueue.push(file);
+  }
+  while (cssQueue.length) {
+    const cssFile = cssQueue.shift();
+    if (visited.has(cssFile)) continue;
+    visited.add(cssFile);
+    const css = readFileSync(cssFile, "utf8");
+    const cssRefs = [
+      ...[...css.matchAll(/url\(\s*['"]?([^'")]+)['"]?\s*\)/gi)].map(m => m[1].trim()),
+      ...[...css.matchAll(/@import\s+["']([^"']+)["']/gi)].map(m => m[1].trim())
+    ];
+    for (const ref of cssRefs) {
+      const file = resolveLocal(dirname(cssFile), ref);
+      if (!file) continue;
+      if (!existsSync(file)) missing.push(relative(gameRoot, cssFile) + " -> " + ref);
+      else if (extname(file).toLowerCase() === ".css") cssQueue.push(file);
+    }
+  }
+  return { htmlReferences: refs.length, cssFiles: visited.size, missing };
+}
+
 try{
   browser=await chromium.launch({headless:true,args:["--no-sandbox","--disable-dev-shm-usage"]});
   const context=await browser.newContext({serviceWorkers:"block",viewport:{width:1365,height:900}});
@@ -88,6 +131,29 @@ try{
     await page.waitForSelector("#board .sq.sel",{timeout:5000});
     await page.locator("#board .sq").nth(40).click();
     await page.waitForFunction(()=>document.querySelectorAll("#mlist .mrow").length>=1,null,{timeout:5000});
+
+  }else if(game==="n-gon"){
+    const graph=inspectLocalHtmlCssGraph(game);
+    assert.equal(graph.missing.length,0,"n-gon local HTML/CSS asset graph has missing files: "+JSON.stringify(graph.missing));
+    await page.waitForSelector("#canvas",{timeout:15000});
+    await page.waitForFunction(()=>typeof simulation!=="undefined"&&simulation.onTitlePage===true,null,{timeout:15000});
+    await page.waitForTimeout(3600);
+    const canvas=page.locator("#canvas");
+    const beforeTitle=await shotHash(canvas);
+    await page.locator("#start-button").click();
+    await page.waitForFunction(()=>typeof simulation!=="undefined"&&simulation.onTitlePage===false,null,{timeout:15000});
+    await page.waitForFunction(()=>typeof player!=="undefined"&&player&&player.position&&Number.isFinite(player.position.x),null,{timeout:10000});
+    const beforeX=await page.evaluate(()=>player.position.x);
+    await page.keyboard.down("ArrowRight");
+    await page.waitForTimeout(850);
+    await page.keyboard.up("ArrowRight");
+    await page.waitForTimeout(350);
+    const afterX=await page.evaluate(()=>player.position.x);
+    assert(Math.abs(afterX-beforeX)>1,"n-gon player did not move after ArrowRight input");
+    const afterPlay=await shotHash(canvas);
+    assert.notEqual(afterPlay,beforeTitle,"n-gon canvas did not change after starting gameplay");
+    await page.locator("#updates").evaluate(el=>{el.open=true;el.dispatchEvent(new Event("toggle"));});
+    await page.waitForTimeout(150);
   }else if(game==="idle-breakout"){
     await page.waitForSelector("#canvas",{timeout:15000});
     await page.waitForFunction(()=>typeof window.GameMaker_Init==="function",null,{timeout:10000});
