@@ -1,5 +1,0 @@
-Upstream: https://github.com/SoBloxsy/idle-breakout
-Commit: 38210ab1e9cf2ec914c6ab11074ab81a1cb606f3
-License: MIT (upstream LICENSE included)
-Offline patch: disabled remote ad SDK injection, telemetry pingback, and optional ArmorGames external navigation handlers in html5game/Coding_BreakOut1.js.
-The upstream README and LICENSE are preserved.

@@ -1,3 +1,0 @@
-Upstream: https://github.com/ncase/wbwwb
-Commit: 7c68c7e44e66b5be95ebd07d22391de707090397
-The upstream README.md is preserved in this folder with its CC0 statement and third-party sound credits.
