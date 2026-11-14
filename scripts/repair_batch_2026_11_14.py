@@ -98,10 +98,10 @@ def patch_flappy(folder):
     index=folder/"index.html"
     text=index.read_text(encoding="utf-8")
     text,count=re.subn(
-        r'\\s*<link rel="preconnect" href="https://fonts\\.googleapis\\.com">\\s*'
-        r'<link rel="preconnect" href="https://fonts\\.gstatic\\.com" crossorigin>\\s*'
-        r'<link href="https://fonts\\.googleapis\\.com/css2\\?family=Press\\+Start\\+2P&display=swap" rel="stylesheet">\\s*',
-        "\\n",text)
+        r'\s*<link rel="preconnect" href="https://fonts\.googleapis\.com">\s*'
+        r'<link rel="preconnect" href="https://fonts\.gstatic\.com" crossorigin>\s*'
+        r'<link href="https://fonts\.googleapis\.com/css2\?family=Press\+Start\+2P&display=swap" rel="stylesheet">\s*',
+        "\n",text)
     if count!=1:
         raise RuntimeError("Could not remove Flappy Bird Google Fonts block")
     text=text.replace('"Press Start 2P", monospace','ui-monospace, "Courier New", monospace')
@@ -112,7 +112,7 @@ def patch_flappy(folder):
 def patch_chess(folder):
     index=folder/"index.html"
     text=index.read_text(encoding="utf-8")
-    text,_=re.subn(r'<link href="https://fonts\\.googleapis\\.com/css2\\?family=Cinzel[\\s\\S]*?rel="stylesheet">\\s*',"",text)
+    text,_=re.subn(r'<link href="https://fonts\.googleapis\.com/css2\?family=Cinzel[\s\S]*?rel="stylesheet">\s*',"",text)
     text=text.replace("font-family:'Lora',Georgia,serif;","font-family:Georgia,serif;")
     text=text.replace("font-family:'Cinzel Decorative',serif;","font-family:Georgia,serif;")
     text=text.replace("font-family:'Cinzel',serif;","font-family:Georgia,serif;")
@@ -124,13 +124,13 @@ def patch_chess(folder):
 def patch_idle_breakout(folder):
     js=folder/"html5game"/"Coding_BreakOut1.js"
     text=js.read_text(encoding="utf-8")
-    text,n_fb=re.subn(r'function _nB\\(_sq\\) \\{[\\s\\S]*?^\\}',"function _nB(_sq) { return; }",text,flags=re.M)
-    text,n_ad=re.subn(r'var _yZ = \\(function\\(_sq, __f\\) \\{[\\s\\S]*?^\\}\\);',"var _yZ = function() {};",text,flags=re.M)
+    text,n_fb=re.subn(r'function _nB\(_sq\) \{[\s\S]*?^\}',"function _nB(_sq) { return; }",text,flags=re.M)
+    text,n_ad=re.subn(r'var _yZ = \(function\(_sq, __f\) \{[\s\S]*?^\}\);',"var _yZ = function() {};",text,flags=re.M)
     if n_fb!=1 or n_ad!=1 or "_kK(_yW)" not in text:
         raise RuntimeError("Idle Breakout remote SDK/telemetry code not found as expected")
     text=text.replace("_kK(_yW)","/* offline build: telemetry disabled */")
     text=text.replace('var _yW = "https://ping.yoyogames.com/pingback?data=";','var _yW = "";')
-    text,_=re.subn(r'function ads_engagement_launch\\(_uQ, _vQ\\) \\{[\\s\\S]*?^\\}',"function ads_engagement_launch(_uQ, _vQ) { return; }",text,flags=re.M)
+    text,_=re.subn(r'function ads_engagement_launch\(_uQ, _vQ\) \{[\s\S]*?^\}',"function ads_engagement_launch(_uQ, _vQ) { return; }",text,flags=re.M)
     for remote in ["ping.yoyogames.com","jsd.supersonicads.com","a248.e.akamai.net","connect.facebook.net"]:
         if remote in text:
             raise RuntimeError("Idle Breakout still contains remote runtime endpoint: "+remote)
@@ -201,7 +201,7 @@ def main():
     lines += ["","## Removed as unrecoverable or failed verification",""]
     if removed:
         for name,reason in removed:
-            lines.append("- **"+name+"** — "+reason.replace("\\n"," "))
+            lines.append("- **"+name+"** — "+reason.replace("\n"," "))
     else:
         lines.append("- None.")
     lines += ["","## Preserved without overwrite",""]
@@ -221,7 +221,7 @@ def main():
         lines.append("- **"+name+"** — "+reason)
     lines += ["","## Protected games","","- do-not-take-this-cat-home: unchanged (SHA-256 tree comparison passed).","- 20-minutes-till-dawn: unchanged (SHA-256 tree comparison passed).","","## Verification rules","","A game is counted fixed only if the Chromium test passed with zero external requests, zero local asset HTTP errors, zero failed local requests, and zero page exceptions. Candidates whose source could not be fetched are reported unresolved; candidates whose imported build failed verification are removed."]
     REPORT.parent.mkdir(parents=True,exist_ok=True)
-    REPORT.write_text("\\n".join(lines)+"\\n",encoding="utf-8")
+    REPORT.write_text("\n".join(lines)+"\n",encoding="utf-8")
 
     run(["git","config","user.name","github-actions[bot]"],cwd=ROOT)
     run(["git","config","user.email","41898282+github-actions[bot]@users.noreply.github.com"],cwd=ROOT)
