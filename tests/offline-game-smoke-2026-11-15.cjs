@@ -111,7 +111,7 @@ function auditAssetGraph() {
     }
     const attrs = ['src', 'href', 'data', 'poster'];
     for (const attr of attrs) {
-      const re = new RegExp('\\b' + attr + '\\s*=\\s*["\\']([^"\\']+)["\\']', 'i');
+      const re = new RegExp("\\b" + attr + "\\s*=\\s*[\"']([^\"']+)[\"']", "i");
       const m = tag.match(re);
       if (m) addRef(m[1], documentBase, 'index.html', name + '.' + attr);
     }
@@ -157,7 +157,7 @@ function auditAssetGraph() {
       if (rel === 'service-worker.js') {
         for (const m of jsText.matchAll(/['"](\.\/[^'"]+)['"]/g)) addRef(m[1], documentBase, rel, 'service-worker-cache');
       } else {
-        scanJs(jsText, documentBase, rel);
+        scanJs(jsText, new URL(rel, baseOrigin + '/' + game + '/'), rel);
       }
     } else if (ext === '.json' || ext === '.webmanifest') {
       const base = new URL(rel, baseOrigin + '/' + game + '/');

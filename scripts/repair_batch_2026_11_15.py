@@ -90,15 +90,7 @@ SOURCES = {
         "notes": "Built the pinned upstream Vite single-file release locally in CI; bundled HTML includes its JS and CSS.",
         "modifications": "Committed the generated offline dist output plus upstream README and MIT license."
     },
-    "block-blast": {
-        "repo": "FariNoveri/block-blast-clone",
-        "branch": "main",
-        "commit": "9182d0f33d84e8c64b727bd5078fe5da1e9b78a0",
-        "license": "Custom non-commercial sharing terms in LICENSE.md; attribution to Fari Noveri and Illyasviel von Einzbern required; do not sell",
-        "mode": "copy_all",
-        "notes": "Original HTML5 Canvas/JavaScript block puzzle implementation. Its license permits sharing and modification but prohibits sale; attribution retained.",
-        "modifications": "No runtime code changes."
-    },
+
     "breaklock": {
         "repo": "maxwellito/breaklock",
         "branch": "main",
@@ -348,10 +340,10 @@ def research_links(name):
     )
 
 def removal_reason(name):
-    return SPECIAL_NOTES.get(
-        name,
-        "The repository folder contained only a cover and a remote launcher. GitHub repository search and official-source searches did not locate a complete, authorized offline-capable browser build."
-    )
+    note = SPECIAL_NOTES.get(name)
+    if note:
+        return f"Prior source note (not independently revalidated in this run): {note}"
+    return "No candidate-specific source and redistribution review is recorded yet; preserved unchanged pending review."
 
 def run_smoke_test(name):
     test_file = ROOT / "tests" / "offline-game-smoke-2026-11-15.cjs"
@@ -399,15 +391,14 @@ def process_game(name, temp_root):
 
     if name not in SOURCES:
         reason = removal_reason(name)
-        shutil.rmtree(folder)
         gh, web = research_links(name)
         return {
             "game": name,
-            "status": "REMOVED",
+            "status": "UNRESOLVED",
             "reason": reason,
+            "research": [gh, web],
             "original_index_sha256": original_hash,
-            "original_cover": original_cover,
-            "research": [gh, web]
+            "original_cover": original_cover
         }
 
     source = SOURCES[name]
@@ -522,7 +513,8 @@ def render_report(batch_no, results):
     if unresolved:
         lines += ["## Unresolved — left untouched", ""]
         for x in unresolved:
-            lines += [f"- {x['game']}: {x['reason']}"]
+            gh, web = x.get("research", research_links(x["game"]))
+            lines += [f"- **{x['game']}**: {x['reason']} [GitHub search]({gh}) · [web search]({web})"]
         lines.append("")
     if skipped:
         lines += ["## Skipped — left untouched", ""]
