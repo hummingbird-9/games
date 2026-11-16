@@ -15,7 +15,7 @@ async function main(){
  await page.goto(origin+'/Awesome%20Tanks/index.html',{waitUntil:'domcontentloaded'});await page.waitForFunction(()=>document.querySelector('canvas')?.width>300,{timeout:30000});
  const canvas=page.locator('canvas').first(),box=await canvas.boundingBox();if(!box||box.width<300||box.height<200)throw new Error('Canvas bounds unavailable');
  const shot=async name=>{await page.screenshot({path:path.join(out,name+'.png')});steps.push({name,screenshot:name+'.png'});};
- const click=async(name,x,y,wait=1800)=>{await page.mouse.click(box.x+box.width*x,box.y+box.height*y);await page.waitForTimeout(wait);await shot(name);};
+ const click=async(name,x,y,wait=1600)=>{await page.mouse.click(box.x+box.width*x,box.y+box.height*y);await page.waitForTimeout(wait);await shot(name);};
  await page.waitForTimeout(1000);await shot('01-splash');
  await click('02-play-splash',0.50,0.61,2200);
  await click('03-disable-sound',0.58,0.55,1500);
@@ -23,12 +23,13 @@ async function main(){
  await click('05-play-title',0.50,0.84,1600);
  await click('06-select-easy',0.50,0.48,1300);
  await click('07-open-levels',0.72,0.92,2000);
- // First unlocked level is the top-left level button.
- await click('08-select-level-1',0.325,0.405,3500);
- await page.keyboard.down('w');await page.waitForTimeout(900);await page.keyboard.up('w');
+ await click('08-select-level-1',0.325,0.405,2500);
+ // Close the in-game controls tutorial before testing actual play.
+ await click('09-close-controls',0.615,0.28,900);
+ await page.keyboard.down('w');await page.waitForTimeout(1000);await page.keyboard.up('w');
  await page.mouse.click(box.x+box.width*0.68,box.y+box.height*0.50);
  await page.waitForTimeout(1200);
- await shot('09-gameplay-input');
+ await shot('10-gameplay-input');
  const result={steps,external,errors,failed,canvasBounds:box};
  fs.writeFileSync(path.join(out,'diagnostic.json'),JSON.stringify(result,null,2));
  console.log('AWESOME_TANKS_GAMEPLAY_DIAGNOSTIC='+JSON.stringify(result));
