@@ -289,11 +289,19 @@ async function testBowling(browser) {
 
   // The source game menu has a Single Game button centered at approximately 50% x / 44% y.
   await page.mouse.click(box.x + box.width * 0.50, box.y + box.height * 0.44);
-  await page.waitForTimeout(1400);
-  const gameFrame = await canvas.screenshot();
-  const menuTransition = pixelDiff(menuFrame, gameFrame);
+  await page.waitForTimeout(1000);
+  const scoreFrame = await canvas.screenshot();
+  const menuTransition = pixelDiff(menuFrame, scoreFrame);
   assert(menuTransition > 1200, 'Single Game button did not transition away from the menu; pixel change=' + menuTransition);
   await page.screenshot({ path: path.join(artifacts, 'bowling-single-game.png') });
+
+  // The scorecard exposes a Play Frame 1 button near the lower center.
+  await page.mouse.click(box.x + box.width * 0.50, box.y + box.height * 0.83);
+  await page.waitForTimeout(1300);
+  const gameFrame = await canvas.screenshot();
+  const frameTransition = pixelDiff(scoreFrame, gameFrame);
+  assert(frameTransition > 1200, 'Play Frame 1 did not enter the bowling lane; pixel change=' + frameTransition);
+  await page.screenshot({ path: path.join(artifacts, 'bowling-frame-1.png') });
 
   const idleA = gameFrame;
   await page.waitForTimeout(450);

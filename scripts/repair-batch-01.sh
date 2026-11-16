@@ -180,7 +180,10 @@ PY
 echo "=== Commit one batch directly to main ==="
 git config user.name "github-actions[bot]"
 git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-git add -A --   "3D Bowling"   "Baldi's Basics"   "Bowmasters"   "Basketball Stars"   "Bank Robbery"   "Lazy Jumper"   "Racing Limits"   "Slice it All"   repair-reports
+git add -u
+if [[ -d "Baldi's Basics" ]]; then git add -A -- "Baldi's Basics"; fi
+if [[ -d "3D Bowling" ]]; then git add -A -- "3D Bowling"; fi
+git add -A -- repair-reports
 
 if git diff --cached --quiet; then
   echo "No batch changes to commit."
