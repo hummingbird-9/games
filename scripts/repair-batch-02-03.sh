@@ -286,9 +286,9 @@ rm -rf node_modules
 git config user.name "github-actions[bot]"
 git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 if [[ "$BATCH" == "2" ]]; then
-  git add -A -- "1v1.LoL" "8 Ball Pool" "99 Balls" "Achievement Unlocked" "Achievement Unlocked 2" "Adventure Capatalist" "Angry Birds" "Backrooms" "Blocky Snakes" "repair-reports/2026-11-16-batch-02.md"
+  git add -A -- "8 Ball Pool" "Angry Birds" "Backrooms" "Blocky Snakes" "repair-reports/2026-11-16-batch-02.md"
 else
-  git add -A -- "Ages of Conflict" "Angry Birds Showdown" "Aquapark.io" "Attack Hole" "Aviamasters" "Awesome Tanks" "Bank Robbery 2" "Basketball Frvr" "repair-reports/2026-11-16-batch-03.md"
+  git add -A -- "Awesome Tanks" "repair-reports/2026-11-16-batch-03.md"
 fi
 git commit -m "Repair offline game batch ${BATCH} — 2026-11-16"
 git fetch origin main
