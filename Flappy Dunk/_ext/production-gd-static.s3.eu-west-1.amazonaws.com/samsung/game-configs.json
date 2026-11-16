@@ -1,0 +1,25 @@
+{
+	"default":{
+		"ageRating" : 1,
+		"placementIdForInterstital" : "1c4c6b614dfd41f8ac287428cd68187a",
+		"placementIdForRewarded" : "81c9e978ba504a9399cef33892a2807a",
+		"admob_placementIdForInterstital" : "ca-app-pub-2937613396445963/9710367894",
+		"admob_placementIdForRewarded" : "ca-app-pub-2937613396445963/1177233767",
+		"admob_enabled":"1"
+
+	},
+	"games":[
+		{
+			"gameId": "b220fa8dd9534b3bb582ffac892f4881",
+			"placementIdForInterstital" : "1c4c6b614dfd41f8ac287428cd68187a",
+			"placementIdForRewarded" : "81c9e978ba504a9399cef33892a2807a",
+			"admob_enabled" : "1"
+		},
+		{
+			"gameId": "8cc0bbce4d8a4180ac8cc999e77c2db7",
+			"placementIdForInterstital" : "1c4c6b614dfd41f8ac287428cd68187a",
+			"placementIdForRewarded" : "81c9e978ba504a9399cef33892a2807a",
+			"admob_enabled" : "1"
+		}
+	]
+}

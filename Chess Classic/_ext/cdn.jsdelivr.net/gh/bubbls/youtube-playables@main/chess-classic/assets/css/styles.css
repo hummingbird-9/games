@@ -1,0 +1,207 @@
+body {
+    margin: 0;
+    padding: 0;
+    background: url("../img/background.jpg") repeat center;
+    overflow: hidden;
+}
+
+canvas {
+    position: absolute;
+}
+
+
+@font-face {
+    font-family: 'Franklin Gothic';
+    src: url('../fonts/FranklinGothic-Heavy.woff2') format('woff2'),
+    url('../fonts/FranklinGothic-Heavy.woff') format('woff');
+    font-weight: 900;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Calibri GDI';
+    src: url('../fonts/calibri-gdi.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+
+#preloader {
+    display: block;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    z-index: 9999;
+    transform: scale(175%);
+}
+
+
+#loading-text {
+    position: absolute;
+    font-family: 'system-ui';
+    font-size: 14px;
+    text-align: center;
+    font-weight: lighter;
+    color: #ffffff;
+    width: 80px;
+    margin-left: -40px;
+    margin-top: -10px;
+}
+
+
+.lds-default {
+    position: absolute;
+    width: 80px;
+    height: 80px;
+    margin-top: -40px;
+    margin-left: -40px;
+}
+
+.lds-default div {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    background: #fff;
+    border-radius: 50%;
+    animation: lds-default 0.6s linear infinite;
+}
+
+.lds-default div:nth-child(1) {
+    animation-delay: 0s;
+    top: 37px;
+    left: 66px;
+}
+
+.lds-default div:nth-child(2) {
+    animation-delay: -0.05s;
+    top: 22px;
+    left: 62px;
+}
+
+.lds-default div:nth-child(3) {
+    animation-delay: -0.1s;
+    top: 11px;
+    left: 52px;
+}
+
+.lds-default div:nth-child(4) {
+    animation-delay: -0.15s;
+    top: 7px;
+    left: 37px;
+}
+
+.lds-default div:nth-child(5) {
+    animation-delay: -0.2s;
+    top: 11px;
+    left: 22px;
+}
+
+.lds-default div:nth-child(6) {
+    animation-delay: -0.25s;
+    top: 22px;
+    left: 11px;
+}
+
+.lds-default div:nth-child(7) {
+    animation-delay: -0.3s;
+    top: 37px;
+    left: 7px;
+}
+
+.lds-default div:nth-child(8) {
+    animation-delay: -0.35s;
+    top: 52px;
+    left: 11px;
+}
+
+.lds-default div:nth-child(9) {
+    animation-delay: -0.4s;
+    top: 62px;
+    left: 22px;
+}
+
+.lds-default div:nth-child(10) {
+    animation-delay: -0.45s;
+    top: 66px;
+    left: 37px;
+}
+
+.lds-default div:nth-child(11) {
+    animation-delay: -0.5s;
+    top: 62px;
+    left: 52px;
+}
+
+.lds-default div:nth-child(12) {
+    animation-delay: -0.55s;
+    top: 52px;
+    left: 62px;
+}
+
+
+@keyframes lds-default {
+    0%, 20%, 80%, 100% {
+        transform: scale(1);
+        opacity: 25%;
+    }
+    50% {
+        transform: scale(2);
+        opacity: 100%;
+    }
+}
+
+
+/* video player */
+
+
+.video-container {
+    position: absolute;
+    left: 10px;
+    top: 10px;
+    width: 240px;
+    height: 135px;
+    background: #000000;
+    border: 3px solid #000000;
+    box-shadow: 0 10px 20px 0px rgba(0,0,0,0.5);
+    transform: scale(1);
+    transform-origin: top left;
+}
+
+.video-hidden {
+    visibility: hidden;
+}
+
+
+.inline-video {
+    width: inherit;
+    height: inherit;
+}
+
+.overlay-button {
+    position: fixed;
+    z-index: 9999;
+    cursor: pointer;
+    opacity: 85%;
+}
+
+.sound-control {
+
+}
+
+.video-controls-hidden {
+    visibility: hidden;
+}
+
+.sound-control:hover {
+    opacity: 100%;
+}
+
+.button-replay {
+
+}
+
+.button-replay:hover {
+    opacity: 100%;
+}

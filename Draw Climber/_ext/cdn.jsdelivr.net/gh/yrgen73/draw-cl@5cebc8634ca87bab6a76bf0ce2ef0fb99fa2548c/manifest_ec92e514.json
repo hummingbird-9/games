@@ -1,0 +1,16 @@
+{
+	"initial": [
+		"_ext/cdn.jsdelivr.net/gh/yrgen73/draw-cl@8733508d84acdb41f47f102753e570de9f0a9971/js/egret.min_1b571385.js",
+		"_ext/cdn.jsdelivr.net/gh/yrgen73/draw-cl@8733508d84acdb41f47f102753e570de9f0a9971/js/egret.web.min_401f9695.js",
+		"_ext/cdn.jsdelivr.net/gh/yrgen73/draw-cl@8733508d84acdb41f47f102753e570de9f0a9971/js/game.min_16249d0f.js",
+		"_ext/cdn.jsdelivr.net/gh/yrgen73/draw-cl@8733508d84acdb41f47f102753e570de9f0a9971/js/tween.min_6c5a88f9.js",
+		"_ext/cdn.jsdelivr.net/gh/yrgen73/draw-cl@8733508d84acdb41f47f102753e570de9f0a9971/js/assetsmanager.min_52b82f60.js",
+		"_ext/cdn.jsdelivr.net/gh/yrgen73/draw-cl@8733508d84acdb41f47f102753e570de9f0a9971/js/promise.min_83a6a5d.js",
+		"_ext/cdn.jsdelivr.net/gh/yrgen73/draw-cl@8733508d84acdb41f47f102753e570de9f0a9971/js/particle.min_27fe451d.js",
+		"_ext/cdn.jsdelivr.net/gh/yrgen73/draw-cl@8733508d84acdb41f47f102753e570de9f0a9971/js/Box2dweb.min_bed73707.js",
+		"_ext/cdn.jsdelivr.net/gh/yrgen73/draw-cl@8733508d84acdb41f47f102753e570de9f0a9971/js/vconsole.min_314a0209.js"
+	],
+	"game": [
+		"_ext/cdn.jsdelivr.net/gh/yrgen73/draw-cl@717b46cbc2a375190d2ae87772703e69124338a9/js/main.min_c7454720.js"
+	]
+}
