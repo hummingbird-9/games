@@ -1,0 +1,69 @@
+name: Offline game repair batch 01
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/offline-repair-batch-01.yml"
+      - "scripts/repair-batch-01.sh"
+      - "scripts/verify-batch-01.mjs"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: offline-game-repair
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out only the candidate folders and repair tooling
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: |
+            3D Bowling
+            Baldi's Basics
+            Bowmasters
+            Basketball Stars
+            Bank Robbery
+            Lazy Jumper
+            Racing Limits
+            Slice it All
+            repair-reports
+            scripts
+            .github/workflows
+          sparse-checkout-cone-mode: true
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned browser test runtime
+        run: |
+          npm install --no-save playwright@1.55.0 pngjs@7.0.0
+          npx playwright install --with-deps chromium
+
+      - name: Build, verify offline, remove unrecoverable folders, and commit one batch
+        run: bash scripts/repair-batch-01.sh
+
+      - name: Upload offline test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: offline-repair-batch-01-evidence
+          path: artifacts/
+          if-no-files-found: ignore
+          retention-days: 30
