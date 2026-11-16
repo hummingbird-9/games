@@ -76,8 +76,16 @@ if [[ "$BOWLING_OK" != "1" ]]; then
   rm -rf "3D Bowling"
 fi
 
-BALDI_FILES="$(find "Baldi's Basics" -type f 2>/dev/null | wc -l | tr -d ' ')"
-BOWLING_FILES="$(find "3D Bowling" -type f 2>/dev/null | wc -l | tr -d ' ')"
+if [[ -d "Baldi's Basics" ]]; then
+  BALDI_FILES="$(find "Baldi's Basics" -type f | wc -l | tr -d ' ')"
+else
+  BALDI_FILES=0
+fi
+if [[ -d "3D Bowling" ]]; then
+  BOWLING_FILES="$(find "3D Bowling" -type f | wc -l | tr -d ' ')"
+else
+  BOWLING_FILES=0
+fi
 
 python3 - "$TMP/verification.json" "$BALDI_OK" "$BOWLING_OK" "$BALDI_FILES" "$BOWLING_FILES" <<'PY'
 import json, sys

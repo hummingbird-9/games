@@ -55,11 +55,45 @@ const server = http.createServer((req, res) => {
       res.end('not found');
       return;
     }
-    res.writeHead(200, {
+    const size = fs.statSync(file).size;
+    const headers = {
       'Content-Type': mime[path.extname(file).toLowerCase()] || 'application/octet-stream',
       'Cache-Control': 'no-store',
+      'Accept-Ranges': 'bytes',
+      'Content-Length': size,
       'Access-Control-Allow-Origin': '*',
-    });
+    };
+    if (req.method === 'HEAD') {
+      res.writeHead(200, headers);
+      res.end();
+      return;
+    }
+    const range = req.headers.range;
+    if (range) {
+      const match = /^bytes=(\\d*)-(\\d*)$/.exec(range);
+      if (!match) {
+        res.writeHead(416, { 'Content-Range': 'bytes */' + size });
+        res.end();
+        return;
+      }
+      let start = match[1] ? Number(match[1]) : 0;
+      let end = match[2] ? Number(match[2]) : size - 1;
+      if (!match[1] && match[2]) start = Math.max(0, size - Number(match[2]));
+      end = Math.min(end, size - 1);
+      if (start > end || start >= size) {
+        res.writeHead(416, { 'Content-Range': 'bytes */' + size });
+        res.end();
+        return;
+      }
+      res.writeHead(206, {
+        ...headers,
+        'Content-Length': end - start + 1,
+        'Content-Range': 'bytes ' + start + '-' + end + '/' + size,
+      });
+      fs.createReadStream(file, { start, end }).pipe(res);
+      return;
+    }
+    res.writeHead(200, headers);
     fs.createReadStream(file).pipe(res);
   } catch (err) {
     res.writeHead(500);
@@ -95,7 +129,8 @@ function verifyLocalHtmlGraph(folder, requiredFiles = []) {
     const css = fs.readFileSync(cssFile, 'utf8');
     for (const m of css.matchAll(/url\(\s*["']?([^"')]+)["']?\s*\)/gi)) {
       const ref = m[1].trim();
-      if (/^(?:data:|#)/i.test(ref)) continue;
+      const decodedRef = decodeURIComponent(ref);
+      if (/^(?:data:|#)/i.test(decodedRef)) continue;
       assert(!/^(?:https?:)?\/\//i.test(ref), 'external CSS dependency: ' + ref);
       const target = path.resolve(path.dirname(cssFile), decodeURIComponent(ref.split('?')[0]));
       assert(target === folder || target.startsWith(folder + path.sep), 'CSS path escapes game folder: ' + ref);
@@ -119,10 +154,15 @@ function nodeTest(folder, testFile) {
   };
 }
 
-function pageTracker(context, page, target) {
+async function pageTracker(context, page, target) {
+  target.responses = [];
   page.on('pageerror', e => target.errors.push(String(e.message || e)));
   page.on('console', msg => {
-    if (msg.type() === 'error') target.errors.push(msg.text());
+    if (msg.type() === 'error') {
+      const message = msg.text().trim();
+      // libpd prints its bundled Pure Data version banner to stderr during startup.
+      if (message !== 'pd 0.55.0') target.errors.push(message);
+    }
   });
   page.on('requestfailed', req => {
     if (req.url().startsWith(origin)) target.failed.push(req.url() + ' ' + (req.failure()?.errorText || 'failed'));
@@ -131,15 +171,15 @@ function pageTracker(context, page, target) {
     if (!ws.url().startsWith(origin)) target.external.push('WebSocket ' + ws.url());
   });
   page.on('response', resp => {
-    if (resp.url().startsWith(origin) && resp.status() >= 400) {
-      target.failed.push(resp.status() + ' ' + resp.url());
+    if (resp.url().startsWith(origin)) {
+      target.responses.push({ url: new URL(resp.url()).pathname, status: resp.status() });
+      if (resp.status() >= 400) target.failed.push(resp.status() + ' ' + resp.url());
     }
   });
-  context.route('**/*', async route => {
+  await context.route('**/*', async route => {
     const url = new URL(route.request().url());
-    if (url.origin === origin) {
-      await route.continue();
-    } else {
+    if (url.origin === origin) await route.continue();
+    else {
       target.external.push(url.href);
       await route.abort();
     }
@@ -173,7 +213,7 @@ async function testBaldi(browser) {
 
   const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
   const page = await context.newPage();
-  pageTracker(context, page, results.baldi);
+  await pageTracker(context, page, results.baldi);
   await page.goto(origin + "/Baldi%27s%20Basics/index.html", { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => {
     const loading = document.getElementById('loading-screen');
@@ -213,7 +253,7 @@ async function testBowling(browser) {
 
   const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
   const page = await context.newPage();
-  pageTracker(context, page, results.bowling);
+  await pageTracker(context, page, results.bowling);
   await page.addInitScript(() => {
     window.__bowlingRuntimeReady = false;
     window.Module = {
@@ -235,6 +275,9 @@ async function testBowling(browser) {
   });
   assert(loaded.canvas && loaded.width > 0 && loaded.height > 0, 'bowling canvas did not initialize: ' + JSON.stringify(loaded));
   assert(loaded.webgl, 'WebGL context was not created');
+  const dataLoaded = results.bowling.responses.some(x => x.url.endsWith('/BowlingOnline2.data') && (x.status === 200 || x.status === 206));
+  const wasmLoaded = results.bowling.responses.some(x => x.url.endsWith('/BowlingOnline2.wasm') && (x.status === 200 || x.status === 206));
+  assert(dataLoaded && wasmLoaded, 'local data/wasm responses missing: ' + JSON.stringify(results.bowling.responses));
   assert(results.bowling.external.length === 0, 'external requests attempted: ' + results.bowling.external.join(', '));
   assert(results.bowling.errors.length === 0, 'browser errors: ' + results.bowling.errors.join(' | '));
 
