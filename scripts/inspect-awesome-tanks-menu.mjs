@@ -14,17 +14,24 @@ async function main(){
  await context.route('**/*',async route=>{const u=new URL(route.request().url());if(u.origin===origin)await route.continue();else{external.push(u.href);await route.abort();}});
  await page.goto(origin+'/Awesome%20Tanks/index.html',{waitUntil:'domcontentloaded'});await page.waitForFunction(()=>document.querySelector('canvas')?.width>300,{timeout:30000});
  const canvas=page.locator('canvas').first(),box=await canvas.boundingBox();if(!box||box.width<300||box.height<200)throw new Error('Canvas bounds unavailable');
- const shot=async name=>{await page.screenshot({path:path.join(out,name+'.png')});steps.push({name,screenshot:name+'.png',info:await page.evaluate(()=>({canvas:(()=>{const c=document.querySelector('canvas');return c?{width:c.width,height:c.height}:null})(),phaser:!!window.Phaser,bodyText:document.body.innerText.slice(0,200)}))});};
- const click=async(name,x,y,wait=2000)=>{await page.mouse.click(box.x+box.width*x,box.y+box.height*y);await page.waitForTimeout(wait);await shot(name);};
- await page.waitForTimeout(1200);await shot('01-splash');
- await click('02-play-splash',0.50,0.61,2500);
- await click('03-disable-sound',0.58,0.55,1800);
- await click('04-disable-music',0.58,0.55,1800);
- // The title screen is now visible; its Play button is near x=.50, y=.84.
- await click('05-play-title',0.50,0.84,2500);
+ const shot=async name=>{await page.screenshot({path:path.join(out,name+'.png')});steps.push({name,screenshot:name+'.png'});};
+ const click=async(name,x,y,wait=1800)=>{await page.mouse.click(box.x+box.width*x,box.y+box.height*y);await page.waitForTimeout(wait);await shot(name);};
+ await page.waitForTimeout(1000);await shot('01-splash');
+ await click('02-play-splash',0.50,0.61,2300);
+ await click('03-disable-sound',0.58,0.55,1600);
+ await click('04-disable-music',0.58,0.55,1600);
+ await click('05-play-title',0.50,0.84,1800);
+ // Difficulty dialog: Easy is the top button.
+ await click('06-select-easy',0.50,0.48,1400);
+ // Upgrade screen: Play is the rightmost button in the bottom row.
+ await click('07-start-game',0.72,0.92,3500);
+ await page.keyboard.down('w');await page.waitForTimeout(900);await page.keyboard.up('w');
+ await page.mouse.click(box.x+box.width*0.68,box.y+box.height*0.50);
+ await page.waitForTimeout(1200);
+ await shot('08-gameplay-input');
  const result={steps,external,errors,failed,canvasBounds:box};
  fs.writeFileSync(path.join(out,'diagnostic.json'),JSON.stringify(result,null,2));
- console.log('AWESOME_TANKS_DIAGNOSTIC='+JSON.stringify(result));
+ console.log('AWESOME_TANKS_GAMEPLAY_DIAGNOSTIC='+JSON.stringify(result));
  await browser.close();await new Promise(r=>server.close(r));
 }
 main().catch(e=>{fs.writeFileSync(path.join(out,'diagnostic-error.txt'),String(e.stack||e));console.error(e);process.exitCode=1;try{server.close();}catch{}});
