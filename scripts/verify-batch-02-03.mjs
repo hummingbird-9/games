@@ -204,7 +204,7 @@ async function testAngryBirds(browser) {
     assert(box && box.width > 500 && box.height > 300,'p5 canvas has unusable dimensions');
     const initial = await page.evaluate(() => ({
       x:window.bird.body.position.x,y:window.bird.body.position.y,
-      width:window.GAME_WIDTH,height:window.GAME_HEIGHT,launched:window.launched
+      width:GAME_WIDTH,height:GAME_HEIGHT,launched:window.launched
     }));
     const sx = box.x + initial.x/initial.width*box.width;
     const sy = box.y + initial.y/initial.height*box.height;
