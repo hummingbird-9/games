@@ -1,0 +1,75 @@
+name: Daily live game checks
+
+on:
+  schedule:
+    - cron: "0 16 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/daily-live-game-checks.yml"
+      - "scripts/check-daily-live-games.mjs"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-live-game-checks
+  cancel-in-progress: false
+
+jobs:
+  check-games:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - name: Check out the games repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check test script syntax
+        run: node --check scripts/check-daily-live-games.mjs
+
+      - name: Install Playwright and Chromium
+        run: |
+          npm install --no-save --package-lock=false playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Check 15 real CDN game pages three times each
+        env:
+          DAILY_AUDIT_GAMES: "15"
+          DAILY_AUDIT_RUNS: "3"
+          DAILY_AUDIT_WAIT_MS: "8000"
+        run: node scripts/check-daily-live-games.mjs
+
+      - name: Commit daily Markdown report
+        if: always()
+        run: |
+          report_date="$(date -u +%F)"
+          report="repair-reports/daily-game-checks/$report_date.md"
+          if [ -f "$report" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add "$report"
+            if ! git diff --cached --quiet; then
+              git commit -m "Add daily live game check report for $report_date"
+              git fetch origin main
+              git rebase origin/main
+              git push origin HEAD:main
+            fi
+          fi
+
+      - name: Upload raw daily results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-live-game-checks
+          path: artifacts/daily-live-game-checks-*.json
+          if-no-files-found: ignore
+          retention-days: 30
