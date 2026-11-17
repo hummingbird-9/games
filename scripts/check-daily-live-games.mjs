@@ -126,7 +126,7 @@ async function inspectGame(browser, folder, run) {
           });
           const visible = item => item.width > 20 && item.height > 20 &&
             item.display !== 'none' && item.visibility !== 'hidden' && item.opacity !== '0';
-          const bodyText = (document.body?.innerText || '').replace(/\\s+/g, ' ').trim().slice(0, 260);
+          const bodyText = (document.body?.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 260);
           const visibleImages = [...document.images].filter(image => {
             const rect = image.getBoundingClientRect();
             const style = getComputedStyle(image);
@@ -259,7 +259,7 @@ async function main() {
     const http = allAttempts.reduce((n, attempt) => n + attempt.httpErrors.length, 0);
     const failed = allAttempts.reduce((n, attempt) => n + attempt.failedRequests.length, 0);
     const errors = allAttempts.reduce((n, attempt) => n + attempt.pageErrors.length + attempt.consoleErrors.length, 0);
-    lines.push('| ' + entry.game.replace(/\\|/g, '/') + ' | ' + entry.passedRuns + '/' +
+    lines.push('| ' + entry.game.replace(/\|/g, '/') + ' | ' + entry.passedRuns + '/' +
       entry.totalRuns + ' | ' + entry.outcomes.join(', ') + ' | ' + http + ' | ' + failed + ' | ' + errors + ' |');
   }
   lines.push('', '## Attempt details', '');
@@ -275,7 +275,7 @@ async function main() {
     }
     lines.push('');
   }
-  fs.writeFileSync(path.join(reportRoot, day + '.md'), lines.join('\\n'));
+  fs.writeFileSync(path.join(reportRoot, day + '.md'), lines.join('\n'));
   console.log(JSON.stringify({
     dateUTC: day,
     totalCatalogGames: allGames.length,
