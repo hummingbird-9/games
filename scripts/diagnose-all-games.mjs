@@ -220,10 +220,10 @@ async function testGame(browser,folder) {
     await page.setContent('<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden}iframe{display:block;width:100%;height:100%;border:0}</style></head><body><iframe id="audit-game"></iframe></body></html>');
     await page.locator('#audit-game').evaluate((frame,html)=>{frame.srcdoc=html;},gameHtml);
     await page.waitForTimeout(2200);
-    const criticalExt=/\.(?:html?|mjs|js|css|wasm|data|unityweb|swf|json|bin|zip|bundle|part\d+)(?:$|[?#])/i;
+    try { r.iframe=await iframeSnapshot(page); } catch(e) { r.iframe={snapshotError:String(e)}; }
 
     const d=r.direct||{},c=r.iframe?.child||{};
-    const criticalExt=/\\.(?:html?|mjs|js|css|wasm|data|unityweb|swf|json|bin|zip|bundle)(?:$|[?#])/i;
+
     const missingCritical=(r.iframeEvents.missingCachedExternal||[])
       .filter(x=>criticalExt.test(new URL(x).pathname)).length;
 
