@@ -276,7 +276,7 @@ async function main() {
   const lines=['# Full-catalog iframe/load diagnostic — 2026-11-16','',
     'Scanned '+list.length+' game folders as top-level CDN URLs and in a full-size iframe whose src points to the same CDN URL, matching the updated production Games page.',
     'This is a load/embedding smoke test, not a gameplay certification. No game folders were modified or removed.',
-    'The diagnostic server reproduces direct CDN iframe navigation and stubs the missing /game-capture.js helper. Cached game-folder files and each game's _ext cache are served from the checked-out repository.',
+    'The diagnostic server reproduces direct CDN iframe navigation and stubs the missing game-capture helper. Cached game-folder files and each games _ext cache are served from the checked-out repository.',
     '## Summary','','| Result | Games |','|---|---:|'];
   Object.keys(counts).sort((a,b)=>counts[b]-counts[a]).forEach(k=>lines.push('| '+k+' | '+counts[k]+' |'));
   lines.push('','## Per-game results','','| Game | Result | Tab runtime | Iframe runtime | Missing offline dependencies | Local request errors | WebSockets |',
