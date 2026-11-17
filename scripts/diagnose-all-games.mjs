@@ -224,6 +224,7 @@ async function testGame(browser,folder) {
 
     const d=r.direct||{},c=r.iframe?.child||{};
 
+    const criticalExt=/\.(?:html?|mjs|js|css|wasm|data|unityweb|swf|json|bin|zip|bundle|part\d+)(?:$|[?#])/i;
     const missingCritical=(r.iframeEvents.missingCachedExternal||[])
       .filter(x=>criticalExt.test(new URL(x).pathname)).length;
 
