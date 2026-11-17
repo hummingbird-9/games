@@ -78,10 +78,10 @@ function htmlForSiteViewer(folder) {
   const file = path.join(root, folder, 'index.html');
   if (!fs.existsSync(file)) throw new Error(folder + ': index.html missing');
   let html = fs.readFileSync(file, 'utf8');
-  html = html.replace(/<base\\b[^>]*>/ig, '');
+  html = html.replace(/<base\b[^>]*>/ig, '');
   const baseTag = '<base href="https://cdn.jsdelivr.net/gh/hummingbird-9/games@main/' + encodePath(folder) + '/">';
-  if (/<head\\b[^>]*>/i.test(html)) {
-    return html.replace(/<head\\b[^>]*>/i, match => match + baseTag);
+  if (/<head\b[^>]*>/i.test(html)) {
+    return html.replace(/<head\b[^>]*>/i, match => match + baseTag);
   }
   return '<!doctype html><html><head><meta charset="utf-8">' + baseTag + '</head><body>' + html + '</body></html>';
 }
@@ -130,7 +130,7 @@ async function testGame(browser,folder) {
     directEvents:newEvents(),iframeEvents:newEvents()};
   const ctx=await browser.newContext({viewport:{width:1280,height:800},deviceScaleFactor:1,ignoreHTTPSErrors:true});
   let active=r.directEvents;
-  const optional=/google-analytics|googletagmanager|doubleclick|googleadservices|facebook\\.com\\/plugins|platform\\.twitter\\.com|cloudflareinsights|\\/cdn-cgi\\/rum|\\/cdn-cgi\\/challenge-platform/i;
+  const optional=/google-analytics|googletagmanager|doubleclick|googleadservices|facebook\.com\/plugins|platform\.twitter\.com|cloudflareinsights|\/cdn-cgi\/rum|\/cdn-cgi\/challenge-platform/i;
   const repoCdnPrefix='/gh/hummingbird-9/games@main/';
 
   await ctx.route('**/*',async route=>{
@@ -149,7 +149,7 @@ async function testGame(browser,folder) {
     // Map URLs under that base back to the matching checked-out game files.
     let candidate=null;
     if(u.hostname==='cdn.jsdelivr.net' && u.pathname.startsWith(repoCdnPrefix)) {
-      const relative=decodeURIComponent(u.pathname.slice(repoCdnPrefix.length)).replace(/^\\/+/, '');
+      const relative=decodeURIComponent(u.pathname.slice(repoCdnPrefix.length)).replace(/^\/+/, '');
       candidate=path.resolve(root,relative);
     } else if(u.hostname==='cdn.jsdelivr.net' && u.pathname==='/game-capture.js') {
       active.optionalExternal.push(requestUrl);
@@ -157,7 +157,7 @@ async function testGame(browser,folder) {
         body:'/* test-only no-op for the live site's capture helper */'});
       return;
     } else {
-      const rel=decodeURIComponent(u.pathname).replace(/^\\/+/, '');
+      const rel=decodeURIComponent(u.pathname).replace(/^\/+/, '');
       candidate=path.resolve(root,folder,'_ext',u.host,rel);
     }
 
@@ -167,7 +167,7 @@ async function testGame(browser,folder) {
       const contentType=mime[path.extname(candidate).toLowerCase()]||'application/octet-stream';
       const range=request.headers().range;
       if(range) {
-        const match=/^bytes=(\\d*)-(\\d*)$/.exec(range);
+        const match=/^bytes=(\d*)-(\d*)$/.exec(range);
         if(match) {
           let first=match[1]?Number(match[1]):0;
           let last=match[2]?Number(match[2]):buffer.length-1;
@@ -220,7 +220,7 @@ async function testGame(browser,folder) {
     await page.setContent('<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden}iframe{display:block;width:100%;height:100%;border:0}</style></head><body><iframe id="audit-game"></iframe></body></html>');
     await page.locator('#audit-game').evaluate((frame,html)=>{frame.srcdoc=html;},gameHtml);
     await page.waitForTimeout(2200);
-    try { r.iframe=await iframeSnapshot(page); } catch(e) { r.iframe={snapshotError:String(e)}; }
+    const criticalExt=/\.(?:html?|mjs|js|css|wasm|data|unityweb|swf|json|bin|zip|bundle|part\d+)(?:$|[?#])/i;
 
     const d=r.direct||{},c=r.iframe?.child||{};
     const criticalExt=/\\.(?:html?|mjs|js|css|wasm|data|unityweb|swf|json|bin|zip|bundle)(?:$|[?#])/i;
