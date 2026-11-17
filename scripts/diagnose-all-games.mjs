@@ -145,8 +145,7 @@ async function testGame(browser,folder) {
     try { u=new URL(requestUrl); }
     catch { active.missingCachedExternal.push(requestUrl); await route.abort(); return; }
 
-    // The real Games page inserts this CDN base URL and fetches game HTML into iframe.srcdoc.
-    // Map URLs under that base back to the matching checked-out game files.
+    // Mirror the production CDN URL to the checked-out repository files.
     let candidate=null;
     if(u.hostname==='cdn.jsdelivr.net' && u.pathname.startsWith(repoCdnPrefix)) {
       const relative=decodeURIComponent(u.pathname.slice(repoCdnPrefix.length)).replace(/^\/+/, '');
@@ -180,7 +179,7 @@ async function testGame(browser,folder) {
           }
         }
       }
-      await route.fulfill({status:request.method()==='HEAD'?200:200,contentType,body:request.method()==='HEAD'?'':buffer});
+      await route.fulfill({status:200,contentType,body:request.method()==='HEAD'?'':buffer});
       return;
     }
 
@@ -203,32 +202,35 @@ async function testGame(browser,folder) {
   page.on('console',m=>{if(m.type()==='error'&&active.consoleErrors.length<10)active.consoleErrors.push(m.text());});
   page.on('websocket',ws=>active.websockets.push(ws.url()));
 
-  const gameHtml=htmlForSiteViewer(folder);
+  const gameUrl='https://cdn.jsdelivr.net/gh/hummingbird-9/games@main/'+encodePath(folder)+'/index.html';
   try {
-    // First test the same HTML as a top-level document.
-    await page.goto(origin+'/__iframe-audit-parent__.html',{waitUntil:'domcontentloaded',timeout:10000});
-    try {
-      await page.setContent(gameHtml,{waitUntil:'domcontentloaded',timeout:10000});
-    } catch(e) {
-      r.directEvents.pageErrors.push('top-level setContent: '+String(e.message||e).slice(0,140));
-    }
+    // Test the URL as a regular tab.
+    try { await page.goto(gameUrl,{waitUntil:'domcontentloaded',timeout:15000}); }
+    catch(e) { r.directEvents.pageErrors.push('tab navigation: '+String(e.message||e).slice(0,140)); }
     await page.waitForTimeout(1800);
     try { r.direct=await directSnapshot(page); } catch(e) { r.direct={snapshotError:String(e)}; }
 
-    // Then reproduce games.html: same markup assigned to a full-size iframe.srcdoc.
+    // Reproduce the production Games page: a cross-origin iframe pointed at the actual CDN HTML URL.
     active=r.iframeEvents;
-    await page.setContent('<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden}iframe{display:block;width:100%;height:100%;border:0}</style></head><body><iframe id="audit-game"></iframe></body></html>');
-    await page.locator('#audit-game').evaluate((frame,html)=>{frame.srcdoc=html;},gameHtml);
-    await page.waitForTimeout(2200);
-    try { r.iframe=await iframeSnapshot(page); } catch(e) { r.iframe={snapshotError:String(e)}; }
+    try {
+      await page.goto(origin+'/__iframe-audit-parent__.html',{waitUntil:'domcontentloaded',timeout:10000});
+      await page.setContent('<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden}iframe{display:block;width:100%;height:100%;border:0}</style></head><body><iframe id="audit-game"></iframe></body></html>');
+      await page.locator('#audit-game').evaluate((frame,url)=>{frame.src=url;},gameUrl);
+      await page.waitForTimeout(2200);
+      const child=page.frames().find(frame=>frame.parentFrame()===page.mainFrame());
+      try { r.iframe=child?await directSnapshot(child):{snapshotError:'iframe child frame not found'}; }
+      catch(e) { r.iframe={snapshotError:String(e)}; }
+    } catch(e) {
+      r.iframeEvents.pageErrors.push('iframe navigation: '+String(e.message||e).slice(0,140));
+      r.iframe={snapshotError:String(e)};
+    }
 
-    const d=r.direct||{},c=r.iframe?.child||{};
-
+    const d=r.direct||{},c=r.iframe||{};
     const criticalExt=/\.(?:html?|mjs|js|css|wasm|data|unityweb|swf|json|bin|zip|bundle|part\d+)(?:$|[?#])/i;
     const missingCritical=(r.iframeEvents.missingCachedExternal||[])
       .filter(x=>criticalExt.test(new URL(x).pathname)).length;
 
-    if((d.runtimeVisible||0)>0&&(c.runtimeVisible||0)===0&&missingCritical===0) r.classification='possible-iframe-block-or-content-collapse';
+    if((d.runtimeVisible||0)>0&&(c.runtimeVisible||0)===0&&missingCritical===0) r.classification='iframe-only-block-or-collapse';
     else if(missingCritical>0) r.classification='offline-game-assets-missing';
     else if((r.iframeEvents.missingCachedExternal||[]).length>0) r.classification='uncached-external-dependency';
     else if((r.iframeEvents.websockets||[]).length>0) r.classification='remote-websocket-service';
@@ -272,9 +274,9 @@ async function main() {
     counts,results};
   fs.writeFileSync(path.join(outDir,'full-catalog-iframe-audit.json'),JSON.stringify(report,null,2));
   const lines=['# Full-catalog iframe/load diagnostic — 2026-11-16','',
-    'Scanned '+list.length+' game folders in a top-level tab and in iframe.srcdoc, reproducing the production Games page injected jsDelivr base URL.',
+    'Scanned '+list.length+' game folders as top-level CDN URLs and in a full-size iframe whose src points to the same CDN URL, matching the updated production Games page.',
     'This is a load/embedding smoke test, not a gameplay certification. No game folders were modified or removed.',
-    'The diagnostic server reproduces the production Games page iframe.srcdoc/base URL behavior and stubs its missing /game-capture.js helper. Cached jsDelivr game-folder files and each game _ext cache are served from the checked-out repository.',
+    'The diagnostic server reproduces direct CDN iframe navigation and stubs the missing /game-capture.js helper. Cached game-folder files and each game's _ext cache are served from the checked-out repository.',
     '## Summary','','| Result | Games |','|---|---:|'];
   Object.keys(counts).sort((a,b)=>counts[b]-counts[a]).forEach(k=>lines.push('| '+k+' | '+counts[k]+' |'));
   lines.push('','## Per-game results','','| Game | Result | Tab runtime | Iframe runtime | Missing offline dependencies | Local request errors | WebSockets |',
@@ -287,7 +289,7 @@ async function main() {
       (c.runtimeVisible??'—')+' | '+missing+' | '+local+' | '+(x.iframeEvents?.websockets?.length||0)+' |');
   }
   lines.push('','## Interpretation','',
-    '- possible-iframe-block-or-content-collapse: a runtime-like element appeared as a tab but not in iframe.srcdoc; inspect the source and live page before changing it.',
+    '- iframe-only-block-or-collapse: a runtime-like element appeared in a tab but not in the direct-URL iframe; inspect the source and live page before changing it.',
     '- user-confirmed-working: the user has confirmed this game works on the live site; it is not counted as broken by this offline audit.',
     '- iframe-caused-parent-navigation: likely frame-busting or redirect behavior.',
     '- offline-game-assets-missing: key scripts, loaders, JSON/data, WASM, SWF or equivalent assets are absent from the folder and its cached _ext files.',
