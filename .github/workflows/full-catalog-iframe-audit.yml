@@ -44,7 +44,9 @@ jobs:
             git add repair-reports/2026-11-16-full-catalog-iframe-audit.md
             if ! git diff --cached --quiet; then
               git commit -m "Add full catalog iframe diagnostic report"
-              git push origin main
+              git fetch origin main
+              git rebase origin/main
+              git push origin HEAD:main
             fi
           fi
       - name: Upload raw results
