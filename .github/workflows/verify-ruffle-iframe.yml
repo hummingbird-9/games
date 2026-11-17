@@ -8,6 +8,18 @@ on:
       - "Bloons TD 2/**"
       - "Bloons TD 4/**"
       - "Learn to Fly 2/**"
+      - "Duck Life/**"
+      - "Duck Life 2/**"
+      - "Learn to Fly/**"
+      - "Learn to Fly 3/**"
+      - "Plants vs Zombies/**"
+      - "Raft Wars/**"
+      - "Raft Wars 2/**"
+      - "Red Ball/**"
+      - "Run 1/**"
+      - "Super Mario 63/**"
+      - "The World's Hardest Game/**"
+      - "This Is The Only Level/**"
       - ".github/workflows/verify-ruffle-iframe.yml"
 
 permissions:
