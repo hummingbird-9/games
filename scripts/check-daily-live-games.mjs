@@ -29,7 +29,7 @@ function encodePath(value) {
 }
 
 function makeGameUrl(folder) {
-  return 'https://cdn.jsdelivr.net/gh/hummingbird-9/games@main/' + encodePath(folder) + '/index.html';
+  return 'https://ghp.hummingbird.rf.gd/games/' + encodePath(folder) + '/index.html';
 }
 
 const server = http.createServer((req, res) => {
@@ -229,7 +229,7 @@ async function main() {
     runsPerGame,
     totalAttempts: selected.length * runsPerGame,
     selection: selected,
-    note: 'Tests the real public jsDelivr URLs in a real iframe using fresh browser contexts. A visible runtime marker is a load smoke test, not proof that gameplay works. No game files are modified or removed.',
+    note: 'Tests the published GitHub Pages game URLs in a real iframe using fresh browser contexts. A visible runtime marker is a load smoke test, not proof that gameplay works. No game files are modified or removed.',
     counts,
     results
   };
