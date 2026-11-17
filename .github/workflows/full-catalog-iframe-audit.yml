@@ -30,13 +30,17 @@ jobs:
         with:
           node-version: 22
       - name: Check diagnostic script syntax
-        run: node --check scripts/diagnose-all-games.mjs
+        run: |
+          node --check scripts/diagnose-all-games.mjs
+          node --check scripts/test-ruffle-iframe.mjs
       - name: Install Chromium
         run: |
           npm install --no-save --package-lock=false playwright@1.55.0
           npx playwright install --with-deps chromium
       - name: Test all games in a tab and an iframe
         run: node scripts/diagnose-all-games.mjs
+      - name: Compare Ruffle behavior in tabs and iframe.srcdoc
+        run: node scripts/test-ruffle-iframe.mjs
       - name: Commit diagnostic report
         if: always()
         run: |
