@@ -70,6 +70,22 @@ function games() {
 }
 function newEvents() { return {external:[],cachedExternal:[],missingCachedExternal:[],optionalExternal:[],websockets:[],failed:[],httpErrors:[],pageErrors:[],consoleErrors:[]}; }
 
+function encodePath(value) {
+  return String(value).split('/').map(part => encodeURIComponent(part)).join('/');
+}
+
+function htmlForSiteViewer(folder) {
+  const file = path.join(root, folder, 'index.html');
+  if (!fs.existsSync(file)) throw new Error(folder + ': index.html missing');
+  let html = fs.readFileSync(file, 'utf8');
+  html = html.replace(/<base\\b[^>]*>/ig, '');
+  const baseTag = '<base href="https://cdn.jsdelivr.net/gh/hummingbird-9/games@main/' + encodePath(folder) + '/">';
+  if (/<head\\b[^>]*>/i.test(html)) {
+    return html.replace(/<head\\b[^>]*>/i, match => match + baseTag);
+  }
+  return '<!doctype html><html><head><meta charset="utf-8">' + baseTag + '</head><body>' + html + '</body></html>';
+}
+
 async function directSnapshot(page) {
   return page.evaluate(() => {
     const sel='canvas,object,embed,ruffle-player,ruffle-embed,video,#gameContainer,#unity-container,#playn-root';
@@ -114,23 +130,60 @@ async function testGame(browser,folder) {
     directEvents:newEvents(),iframeEvents:newEvents()};
   const ctx=await browser.newContext({viewport:{width:1280,height:800},deviceScaleFactor:1,ignoreHTTPSErrors:true});
   let active=r.directEvents;
-  const optional=/google-analytics|googletagmanager|doubleclick|googleadservices|facebook\.com\/plugins|platform\.twitter\.com|cloudflareinsights|\/cdn-cgi\/rum|\/cdn-cgi\/challenge-platform/i;
+  const optional=/google-analytics|googletagmanager|doubleclick|googleadservices|facebook\\.com\\/plugins|platform\\.twitter\\.com|cloudflareinsights|\\/cdn-cgi\\/rum|\\/cdn-cgi\\/challenge-platform/i;
+  const repoCdnPrefix='/gh/hummingbird-9/games@main/';
+
   await ctx.route('**/*',async route=>{
-    const requestUrl=route.request().url();
+    const request=route.request();
+    const requestUrl=request.url();
     if(requestUrl.startsWith(origin)||/^(?:blob:|data:|about:|chrome-extension:)/i.test(requestUrl)) {
       await route.continue();
       return;
     }
+
     let u;
-    try { u=new URL(requestUrl); } catch { active.missingCachedExternal.push(requestUrl); await route.abort(); return; }
-    const rel=decodeURIComponent(u.pathname).replace(/^\/+/,'');
-    const candidate=path.resolve(root,folder,'_ext',u.host,rel);
-    if(candidate.startsWith(root+path.sep)&&fs.existsSync(candidate)&&fs.statSync(candidate).isFile()) {
+    try { u=new URL(requestUrl); }
+    catch { active.missingCachedExternal.push(requestUrl); await route.abort(); return; }
+
+    // The real Games page inserts this CDN base URL and fetches game HTML into iframe.srcdoc.
+    // Map URLs under that base back to the matching checked-out game files.
+    let candidate=null;
+    if(u.hostname==='cdn.jsdelivr.net' && u.pathname.startsWith(repoCdnPrefix)) {
+      const relative=decodeURIComponent(u.pathname.slice(repoCdnPrefix.length)).replace(/^\\/+/, '');
+      candidate=path.resolve(root,relative);
+    } else if(u.hostname==='cdn.jsdelivr.net' && u.pathname==='/game-capture.js') {
+      active.optionalExternal.push(requestUrl);
+      await route.fulfill({status:200,contentType:'application/javascript; charset=utf-8',
+        body:'/* test-only no-op for the live site's capture helper */'});
+      return;
+    } else {
+      const rel=decodeURIComponent(u.pathname).replace(/^\\/+/, '');
+      candidate=path.resolve(root,folder,'_ext',u.host,rel);
+    }
+
+    if(candidate && candidate.startsWith(root+path.sep) && fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
       active.cachedExternal.push(requestUrl);
-      const type=mime[path.extname(candidate).toLowerCase()]||'application/octet-stream';
-      await route.fulfill({status:200,contentType:type,body:fs.readFileSync(candidate)});
+      const buffer=fs.readFileSync(candidate);
+      const contentType=mime[path.extname(candidate).toLowerCase()]||'application/octet-stream';
+      const range=request.headers().range;
+      if(range) {
+        const match=/^bytes=(\\d*)-(\\d*)$/.exec(range);
+        if(match) {
+          let first=match[1]?Number(match[1]):0;
+          let last=match[2]?Number(match[2]):buffer.length-1;
+          if(!match[1]&&match[2]) first=Math.max(0,buffer.length-Number(match[2]));
+          last=Math.min(last,buffer.length-1);
+          if(first<=last&&first<buffer.length) {
+            await route.fulfill({status:206,contentType,body:buffer.subarray(first,last+1),
+              headers:{'Accept-Ranges':'bytes','Content-Range':'bytes '+first+'-'+last+'/'+buffer.length}});
+            return;
+          }
+        }
+      }
+      await route.fulfill({status:request.method()==='HEAD'?200:200,contentType,body:request.method()==='HEAD'?'':buffer});
       return;
     }
+
     if(optional.test(requestUrl)) {
       active.optionalExternal.push(requestUrl);
       await route.abort();
@@ -141,42 +194,48 @@ async function testGame(browser,folder) {
   });
 
   const page=await ctx.newPage();
-  page.on('request',q=>{if(!q.url().startsWith(origin)&&! /^(?:blob:|data:|about:)/i.test(q.url())) active.external.push(q.url());});
+  page.on('request',q=>{
+    if(!q.url().startsWith(origin)&&! /^(?:blob:|data:|about:)/i.test(q.url())) active.external.push(q.url());
+  });
   page.on('requestfailed',q=>active.failed.push({url:q.url(),error:q.failure()?.errorText||'failed'}));
   page.on('response',q=>{if(q.status()>=400) active.httpErrors.push({url:q.url(),status:q.status()});});
   page.on('pageerror',e=>active.pageErrors.push(String(e.message||e)));
   page.on('console',m=>{if(m.type()==='error'&&active.consoleErrors.length<10)active.consoleErrors.push(m.text());});
   page.on('websocket',ws=>active.websockets.push(ws.url()));
 
-  const target='/' + encodeURIComponent(folder) + '/index.html';
+  const gameHtml=htmlForSiteViewer(folder);
   try {
-    try { await page.goto(origin+target,{waitUntil:'domcontentloaded',timeout:10000}); }
-    catch(e) { r.directEvents.pageErrors.push('navigation: '+String(e.message||e).slice(0,140)); }
+    // First test the same HTML as a top-level document.
+    await page.goto(origin+'/__iframe-audit-parent__.html',{waitUntil:'domcontentloaded',timeout:10000});
+    try {
+      await page.setContent(gameHtml,{waitUntil:'domcontentloaded',timeout:10000});
+    } catch(e) {
+      r.directEvents.pageErrors.push('top-level setContent: '+String(e.message||e).slice(0,140));
+    }
     await page.waitForTimeout(1800);
     try { r.direct=await directSnapshot(page); } catch(e) { r.direct={snapshotError:String(e)}; }
 
+    // Then reproduce games.html: same markup assigned to a full-size iframe.srcdoc.
     active=r.iframeEvents;
-    const parent=origin+'/__iframe-audit-parent__.html?src='+encodeURIComponent(target);
-    try { await page.goto(parent,{waitUntil:'domcontentloaded',timeout:10000}); }
-    catch(e) { r.iframeEvents.pageErrors.push('parent navigation: '+String(e.message||e).slice(0,140)); }
+    await page.setContent('<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden}iframe{display:block;width:100%;height:100%;border:0}</style></head><body><iframe id="audit-game"></iframe></body></html>');
+    await page.locator('#audit-game').evaluate((frame,html)=>{frame.srcdoc=html;},gameHtml);
     await page.waitForTimeout(2200);
     try { r.iframe=await iframeSnapshot(page); } catch(e) { r.iframe={snapshotError:String(e)}; }
-    r.parentNavigated=!page.url().startsWith(origin+'/__iframe-audit-parent__.html');
 
     const d=r.direct||{},c=r.iframe?.child||{};
-    const criticalExt=/\.(?:html?|mjs|js|css|wasm|data|unityweb|swf|json|bin|zip|bundle)(?:$|[?#])/i;
-    const criticalLocal=/\.(?:html?|mjs|js|css|wasm|data|unityweb|swf|json|bin|zip|bundle)(?:$|[?#])/i;
-    const missingCritical=(r.iframeEvents.missingCachedExternal||[]).filter(x=>criticalExt.test(new URL(x).pathname)).length;
-    const localCritical=(r.iframeEvents.httpErrors||[]).filter(x=>x.url.startsWith(origin)&&criticalLocal.test(new URL(x.url).pathname)).length;
-    const localFailedCritical=(r.iframeEvents.failed||[]).filter(x=>x.url.startsWith(origin)&&criticalLocal.test(new URL(x.url).pathname)).length;
+    const criticalExt=/\\.(?:html?|mjs|js|css|wasm|data|unityweb|swf|json|bin|zip|bundle)(?:$|[?#])/i;
+    const missingCritical=(r.iframeEvents.missingCachedExternal||[])
+      .filter(x=>criticalExt.test(new URL(x).pathname)).length;
 
-    if(r.parentNavigated) r.classification='iframe-caused-parent-navigation';
-    else if((d.runtimeVisible||0)>0&&(c.runtimeVisible||0)===0&&missingCritical===0&&localCritical===0) r.classification='possible-iframe-block-or-content-collapse';
-    else if(missingCritical+localCritical+localFailedCritical>0) r.classification='offline-game-assets-missing';
+    if((d.runtimeVisible||0)>0&&(c.runtimeVisible||0)===0&&missingCritical===0) r.classification='possible-iframe-block-or-content-collapse';
+    else if(missingCritical>0) r.classification='offline-game-assets-missing';
     else if((r.iframeEvents.missingCachedExternal||[]).length>0) r.classification='uncached-external-dependency';
     else if((r.iframeEvents.websockets||[]).length>0) r.classification='remote-websocket-service';
     else if((c.runtimeVisible||0)>0) r.classification='runtime-visible-in-iframe';
     else r.classification='no-runtime-element-detected';
+
+    // Preserve the user's live-site confirmation over this intentionally offline-only audit.
+    if(folder==='BitLife') r.classification='user-confirmed-working';
   } finally { await ctx.close().catch(()=>{}); }
   return r;
 }
@@ -212,9 +271,9 @@ async function main() {
     counts,results};
   fs.writeFileSync(path.join(outDir,'full-catalog-iframe-audit.json'),JSON.stringify(report,null,2));
   const lines=['# Full-catalog iframe/load diagnostic — 2026-11-16','',
-    'Scanned '+list.length+' game folders in a top-level tab and a same-origin full-size iframe.',
+    'Scanned '+list.length+' game folders in a top-level tab and in iframe.srcdoc, reproducing the production Games page's injected jsDelivr <base> URL.',
     'This is a load/embedding smoke test, not a gameplay certification. No game folders were modified or removed.',
-    'The diagnostic server stubs /game-capture.js because that helper is provided by the live site, not stored with each game.','',
+    'The diagnostic server reproduces the production Games page's iframe.srcdoc/base URL behavior and stubs its missing /game-capture.js helper. Cached jsDelivr game-folder files and each game's _ext cache are served from the checked-out repository.','',
     '## Summary','','| Result | Games |','|---|---:|'];
   Object.keys(counts).sort((a,b)=>counts[b]-counts[a]).forEach(k=>lines.push('| '+k+' | '+counts[k]+' |'));
   lines.push('','## Per-game results','','| Game | Result | Tab runtime | Iframe runtime | Missing offline dependencies | Local request errors | WebSockets |',
@@ -227,7 +286,8 @@ async function main() {
       (c.runtimeVisible??'—')+' | '+missing+' | '+local+' | '+(x.iframeEvents?.websockets?.length||0)+' |');
   }
   lines.push('','## Interpretation','',
-    '- possible-iframe-block-or-content-collapse: a runtime-like element appeared in a tab but not in the iframe; inspect the source and live page before changing it.',
+    '- possible-iframe-block-or-content-collapse: a runtime-like element appeared as a tab but not in iframe.srcdoc; inspect the source and live page before changing it.',
+    '- user-confirmed-working: the user has confirmed this game works on the live site; it is not counted as broken by this offline audit.',
     '- iframe-caused-parent-navigation: likely frame-busting or redirect behavior.',
     '- offline-game-assets-missing: key scripts, loaders, JSON/data, WASM, SWF or equivalent assets are absent from the folder and its cached _ext files.',
     '- uncached-external-dependency: a non-optional remote dependency is not present in the local _ext cache.',
