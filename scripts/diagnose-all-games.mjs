@@ -154,7 +154,7 @@ async function testGame(browser,folder) {
     } else if(u.hostname==='cdn.jsdelivr.net' && u.pathname==='/game-capture.js') {
       active.optionalExternal.push(requestUrl);
       await route.fulfill({status:200,contentType:'application/javascript; charset=utf-8',
-        body:'/* test-only no-op for the live site's capture helper */'});
+        body:'/* test-only no-op for the live site capture helper */'});
       return;
     } else {
       const rel=decodeURIComponent(u.pathname).replace(/^\/+/, '');
