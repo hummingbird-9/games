@@ -96,7 +96,7 @@ The diagnostic server reproduces the production Games page iframe.srcdoc/base UR
 | Duck Life 2 | offline-game-assets-missing | 0 | 0 | 2 | 0 | 0 |
 | Elastic Man | offline-game-assets-missing | 0 | 0 | 2 | 0 | 0 |
 | Escape Road | offline-game-assets-missing | 2 | 2 | 7 | 0 | 0 |
-| Escape Road 2 | offline-game-assets-missing | 2 | 2 | 2 | 0 | 0 |
+| Escape Road 2 | offline-game-assets-missing | 2 | 2 | 1 | 0 | 0 |
 | Escape Road 3 | offline-game-assets-missing | 0 | 0 | 16 | 0 | 0 |
 | Fallout | offline-game-assets-missing | 0 | 0 | 4 | 0 | 0 |
 | FC 25 | uncached-external-dependency | 0 | 0 | 1 | 0 | 0 |
@@ -137,7 +137,7 @@ The diagnostic server reproduces the production Games page iframe.srcdoc/base UR
 | Gobble | offline-game-assets-missing | 1 | 1 | 6 | 0 | 0 |
 | Google Baseball | offline-game-assets-missing | 1 | 1 | 3 | 0 | 0 |
 | Google Feud | offline-game-assets-missing | 0 | 0 | 4 | 0 | 0 |
-| Google Snake | offline-game-assets-missing | 2 | 2 | 7 | 0 | 0 |
+| Google Snake | offline-game-assets-missing | 2 | 2 | 9 | 0 | 0 |
 | Gorilla Tag | offline-game-assets-missing | 0 | 0 | 10 | 0 | 0 |
 | Growden.io | offline-game-assets-missing | 2 | 2 | 10 | 0 | 0 |
 | Ice Age Baby | offline-game-assets-missing | 1 | 1 | 1 | 0 | 0 |
@@ -173,7 +173,7 @@ The diagnostic server reproduces the production Games page iframe.srcdoc/base UR
 | Raft | offline-game-assets-missing | 0 | 0 | 2 | 0 | 0 |
 | Raft Wars | offline-game-assets-missing | 0 | 0 | 2 | 0 | 0 |
 | Raft Wars 2 | offline-game-assets-missing | 1 | 0 | 2 | 0 | 0 |
-| Ragdoll Archers | offline-game-assets-missing | 2 | 2 | 5 | 0 | 0 |
+| Ragdoll Archers | offline-game-assets-missing | 2 | 2 | 6 | 0 | 0 |
 | Ragdoll Hit | offline-game-assets-missing | 0 | 0 | 2 | 0 | 0 |
 | Recoil | offline-game-assets-missing | 1 | 1 | 5 | 0 | 0 |
 | Red Ball | offline-game-assets-missing | 0 | 0 | 2 | 0 | 0 |
