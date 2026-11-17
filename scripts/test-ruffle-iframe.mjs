@@ -8,7 +8,12 @@ const origin='http://127.0.0.1:4175';
 const out=path.join(root,'artifacts');
 fs.mkdirSync(out,{recursive:true});
 
-const targets=['Learn to Fly 2','Bloons TD 2','Bloons TD 4'];
+const targets=[
+  'Bloons TD 2','Bloons TD 4','Duck Life 2','Duck Life',
+  'Learn to Fly 2','Learn to Fly 3','Learn to Fly',
+  'Plants vs Zombies','Raft Wars 2','Raft Wars','Red Ball','Run 1',
+  'Super Mario 63',"The World's Hardest Game",'This Is The Only Level'
+];
 const mime={
   '.html':'text/html; charset=utf-8','.js':'application/javascript; charset=utf-8',
   '.css':'text/css; charset=utf-8','.json':'application/json','.png':'image/png',
