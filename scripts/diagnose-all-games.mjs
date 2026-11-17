@@ -68,7 +68,7 @@ function games() {
       fs.existsSync(path.join(root,x.name,'index.html')))
     .map(x=>x.name).sort((a,b)=>a.localeCompare(b));
 }
-function newEvents() { return {external:[],failed:[],httpErrors:[],pageErrors:[],consoleErrors:[]}; }
+function newEvents() { return {external:[],cachedExternal:[],missingCachedExternal:[],optionalExternal:[],websockets:[],failed:[],httpErrors:[],pageErrors:[],consoleErrors:[]}; }
 
 async function directSnapshot(page) {
   return page.evaluate(() => {
@@ -113,31 +113,68 @@ async function testGame(browser,folder) {
   const r={game:folder,classification:'unknown',direct:null,iframe:null,
     directEvents:newEvents(),iframeEvents:newEvents()};
   const ctx=await browser.newContext({viewport:{width:1280,height:800},deviceScaleFactor:1,ignoreHTTPSErrors:true});
-  const page=await ctx.newPage();
   let active=r.directEvents;
-  page.on('request',q=>{if(!q.url().startsWith(origin)) active.external.push(q.url());});
+  const optional=/google-analytics|googletagmanager|doubleclick|googleadservices|facebook\.com\/plugins|platform\.twitter\.com|cloudflareinsights|\/cdn-cgi\/rum|\/cdn-cgi\/challenge-platform/i;
+  await ctx.route('**/*',async route=>{
+    const requestUrl=route.request().url();
+    if(requestUrl.startsWith(origin)||/^(?:blob:|data:|about:|chrome-extension:)/i.test(requestUrl)) {
+      await route.continue();
+      return;
+    }
+    let u;
+    try { u=new URL(requestUrl); } catch { active.missingCachedExternal.push(requestUrl); await route.abort(); return; }
+    const rel=decodeURIComponent(u.pathname).replace(/^\/+/,'');
+    const candidate=path.resolve(root,folder,'_ext',u.host,rel);
+    if(candidate.startsWith(root+path.sep)&&fs.existsSync(candidate)&&fs.statSync(candidate).isFile()) {
+      active.cachedExternal.push(requestUrl);
+      const type=mime[path.extname(candidate).toLowerCase()]||'application/octet-stream';
+      await route.fulfill({status:200,contentType:type,body:fs.readFileSync(candidate)});
+      return;
+    }
+    if(optional.test(requestUrl)) {
+      active.optionalExternal.push(requestUrl);
+      await route.abort();
+      return;
+    }
+    active.missingCachedExternal.push(requestUrl);
+    await route.abort();
+  });
+
+  const page=await ctx.newPage();
+  page.on('request',q=>{if(!q.url().startsWith(origin)&&! /^(?:blob:|data:|about:)/i.test(q.url())) active.external.push(q.url());});
   page.on('requestfailed',q=>active.failed.push({url:q.url(),error:q.failure()?.errorText||'failed'}));
   page.on('response',q=>{if(q.status()>=400) active.httpErrors.push({url:q.url(),status:q.status()});});
   page.on('pageerror',e=>active.pageErrors.push(String(e.message||e)));
   page.on('console',m=>{if(m.type()==='error'&&active.consoleErrors.length<10)active.consoleErrors.push(m.text());});
+  page.on('websocket',ws=>active.websockets.push(ws.url()));
+
   const target='/' + encodeURIComponent(folder) + '/index.html';
   try {
     try { await page.goto(origin+target,{waitUntil:'domcontentloaded',timeout:10000}); }
     catch(e) { r.directEvents.pageErrors.push('navigation: '+String(e.message||e).slice(0,140)); }
-    await page.waitForTimeout(900);
+    await page.waitForTimeout(1800);
     try { r.direct=await directSnapshot(page); } catch(e) { r.direct={snapshotError:String(e)}; }
 
     active=r.iframeEvents;
     const parent=origin+'/__iframe-audit-parent__.html?src='+encodeURIComponent(target);
     try { await page.goto(parent,{waitUntil:'domcontentloaded',timeout:10000}); }
     catch(e) { r.iframeEvents.pageErrors.push('parent navigation: '+String(e.message||e).slice(0,140)); }
-    await page.waitForTimeout(1200);
+    await page.waitForTimeout(2200);
     try { r.iframe=await iframeSnapshot(page); } catch(e) { r.iframe={snapshotError:String(e)}; }
     r.parentNavigated=!page.url().startsWith(origin+'/__iframe-audit-parent__.html');
+
     const d=r.direct||{},c=r.iframe?.child||{};
+    const criticalExt=/\.(?:html?|mjs|js|css|wasm|data|unityweb|swf|json|bin|zip|bundle)(?:$|[?#])/i;
+    const criticalLocal=/\.(?:html?|mjs|js|css|wasm|data|unityweb|swf|json|bin|zip|bundle)(?:$|[?#])/i;
+    const missingCritical=(r.iframeEvents.missingCachedExternal||[]).filter(x=>criticalExt.test(new URL(x).pathname)).length;
+    const localCritical=(r.iframeEvents.httpErrors||[]).filter(x=>x.url.startsWith(origin)&&criticalLocal.test(new URL(x.url).pathname)).length;
+    const localFailedCritical=(r.iframeEvents.failed||[]).filter(x=>x.url.startsWith(origin)&&criticalLocal.test(new URL(x.url).pathname)).length;
+
     if(r.parentNavigated) r.classification='iframe-caused-parent-navigation';
-    else if((d.runtimeVisible||0)>0&&(c.runtimeVisible||0)===0) r.classification='possible-iframe-block-or-content-collapse';
-    else if((r.iframeEvents.httpErrors.length+r.iframeEvents.failed.length)>0) r.classification='iframe-resource-errors';
+    else if((d.runtimeVisible||0)>0&&(c.runtimeVisible||0)===0&&missingCritical===0&&localCritical===0) r.classification='possible-iframe-block-or-content-collapse';
+    else if(missingCritical+localCritical+localFailedCritical>0) r.classification='offline-game-assets-missing';
+    else if((r.iframeEvents.missingCachedExternal||[]).length>0) r.classification='uncached-external-dependency';
+    else if((r.iframeEvents.websockets||[]).length>0) r.classification='remote-websocket-service';
     else if((c.runtimeVisible||0)>0) r.classification='runtime-visible-in-iframe';
     else r.classification='no-runtime-element-detected';
   } finally { await ctx.close().catch(()=>{}); }
@@ -180,18 +217,21 @@ async function main() {
     'The diagnostic server stubs /game-capture.js because that helper is provided by the live site, not stored with each game.','',
     '## Summary','','| Result | Games |','|---|---:|'];
   Object.keys(counts).sort((a,b)=>counts[b]-counts[a]).forEach(k=>lines.push('| '+k+' | '+counts[k]+' |'));
-  lines.push('','## Per-game results','','| Game | Result | Tab runtime | Iframe runtime | Iframe HTTP/failures | Iframe external requests |',
-    '|---|---|---:|---:|---:|---:|');
+  lines.push('','## Per-game results','','| Game | Result | Tab runtime | Iframe runtime | Missing offline dependencies | Local request errors | WebSockets |',
+    '|---|---|---:|---:|---:|---:|---:|');
   for(const x of results) {
     const d=x.direct||{},c=x.iframe?.child||{};
-    const errors=(x.iframeEvents?.httpErrors?.length||0)+(x.iframeEvents?.failed?.length||0);
+    const missing=(x.iframeEvents?.missingCachedExternal?.length||0);
+    const local=(x.iframeEvents?.httpErrors||[]).filter(e=>e.url.startsWith(origin)).length+(x.iframeEvents?.failed||[]).filter(e=>e.url.startsWith(origin)).length;
     lines.push('| '+x.game.replace(/\|/g,'/')+' | '+x.classification+' | '+(d.runtimeVisible??'—')+' | '+
-      (c.runtimeVisible??'—')+' | '+errors+' | '+(x.iframeEvents?.external?.length||0)+' |');
+      (c.runtimeVisible??'—')+' | '+missing+' | '+local+' | '+(x.iframeEvents?.websockets?.length||0)+' |');
   }
   lines.push('','## Interpretation','',
     '- possible-iframe-block-or-content-collapse: a runtime-like element appeared in a tab but not in the iframe; inspect the source and live page before changing it.',
     '- iframe-caused-parent-navigation: likely frame-busting or redirect behavior.',
-    '- iframe-resource-errors: missing files or failed requests while embedded.',
+    '- offline-game-assets-missing: key scripts, loaders, JSON/data, WASM, SWF or equivalent assets are absent from the folder and its cached _ext files.',
+    '- uncached-external-dependency: a non-optional remote dependency is not present in the local _ext cache.',
+    '- optional analytics/ad requests are blocked and are reported separately rather than counted as game dependencies.',
     '- runtime-visible-in-iframe: a canvas/player-like element exists in the frame, but gameplay still needs manual input testing.',
     '- no-runtime-element-detected: may be a loader, DOM-only game, or incomplete build; review manually.','');
   fs.writeFileSync(path.join(reportDir,'2026-11-16-full-catalog-iframe-audit.md'),lines.join('\n'));
