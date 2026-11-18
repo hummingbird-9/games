@@ -1,0 +1,54 @@
+name: Offline repair — Google Snake (prebuilt Chromium)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/repair-google-snake-prebuilt.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: offline-google-snake-prebuilt
+  cancel-in-progress: false
+
+jobs:
+  batch3:
+    name: Batch 03 — Google Snake
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    container:
+      image: mcr.microsoft.com/playwright:v1.55.0-noble
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+    steps:
+      - name: Check out latest main and repair tooling
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: |
+            Google Snake
+            repair-reports
+            scripts
+            .github/workflows
+          sparse-checkout-cone-mode: true
+      - name: Check prebuilt browser runtime
+        run: |
+          node --version
+          npm --version
+          git --version
+      - name: Install matching Playwright Node package only
+        run: npm install --no-save --package-lock=false playwright@1.55.0
+      - name: Replace, test offline, report and commit batch 03
+        run: bash scripts/repair-offline-games-2026-11-18.sh 3
+      - name: Upload batch 03 browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: offline-repair-batch-03-prebuilt-evidence
+          path: artifacts/
+          if-no-files-found: ignore
+          retention-days: 30
