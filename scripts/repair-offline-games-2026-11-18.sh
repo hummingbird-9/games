@@ -182,7 +182,7 @@ if old not in s:
     raise SystemExit("Expected parent-directory back link was not found")
 p.write_text(s.replace(old, new))
 PY
-    ;;    ;;
+    ;;
   *)
     echo "Unknown batch: $BATCH" >&2
     exit 2
