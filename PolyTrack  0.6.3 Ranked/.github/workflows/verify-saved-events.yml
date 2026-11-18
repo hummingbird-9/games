@@ -1,0 +1,179 @@
+name: Verify saved event replays offline
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_source_commit:
+        description: Exact tested implementation commit on main
+        required: true
+        type: string
+      snapshot_source_commit:
+        description: Trusted existing published artifact commit, not a capture request
+        required: true
+        type: string
+      snapshot_generation:
+        required: true
+        type: string
+      snapshot_index_sha256:
+        required: true
+        type: string
+      ledger_manifest_sha256:
+        required: true
+        type: string
+      ledger_entries:
+        required: true
+        type: string
+      budget_preset:
+        description: Extended-all requires explicit 10000 jobs, 180 minutes, all scope and fresh-proof warmup; no per-job limit changes
+        required: true
+        type: choice
+        options: ['standard', 'extended-all']
+        default: 'standard'
+      native_job_limit:
+        description: One bounded pass; reruns cannot reset this budget
+        required: true
+        type: choice
+        options: ['256', '512', '1024', '10000']
+        default: '256'
+      native_runtime_minutes:
+        description: Aggregate native allowance only; original per-job CPU and geometry limits remain unchanged
+        required: true
+        type: choice
+        options: ['8', '25', '90', '180']
+        default: '8'
+      target_track_ids:
+        description: Exact target track IDs as a nonempty unique JSON array; no capture or proof imports
+        required: true
+        type: string
+        default: '["b978a8ebb3d822bfcafa592234bfe65d6f09181038a07230ef9acfc17151a22f","fb769ac2ea77e8f19a21a9dd3071742f2342bd49c41e4748d7e8c7903d4f0778"]'
+      target_scope:
+        description: Lane scope; normal retains published events without admitting event proofs
+        required: true
+        type: choice
+        options: ['events', 'all', 'normal']
+        default: 'all'
+      native_workers:
+        description: Native engines in parallel; original per-run limits and aggregate budget still apply
+        required: true
+        type: choice
+        options: ['1', '2']
+        default: '1'
+      warmup_first:
+        description: Gate the remaining same-process pass on one fresh completed proof
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify_saved:
+    if: github.repository == 'StaticQuasar931/PolyTrack-0.6.3-Ranked' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    concurrency:
+      group: polytrack-saved-event-offline-verification
+      cancel-in-progress: false
+    runs-on: ubuntu-24.04
+    timeout-minutes: ${{ inputs.budget_preset == 'extended-all' && 270 || 60 }}
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/public-snapshots*/
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Validate first-attempt bounded source request before setup
+        env:
+          EXPECTED_SOURCE_COMMIT: ${{ inputs.expected_source_commit }}
+          SNAPSHOT_SOURCE_COMMIT: ${{ inputs.snapshot_source_commit }}
+          SNAPSHOT_GENERATION: ${{ inputs.snapshot_generation }}
+          SNAPSHOT_INDEX_SHA256: ${{ inputs.snapshot_index_sha256 }}
+          LEDGER_MANIFEST_SHA256: ${{ inputs.ledger_manifest_sha256 }}
+          LEDGER_ENTRIES: ${{ inputs.ledger_entries }}
+          NATIVE_JOB_LIMIT: ${{ inputs.native_job_limit }}
+          NATIVE_RUNTIME_MINUTES: ${{ inputs.native_runtime_minutes }}
+          SAVED_VERIFICATION_PRESET: ${{ inputs.budget_preset }}
+          TARGET_TRACK_IDS: ${{ inputs.target_track_ids }}
+          NATIVE_TARGET_SCOPE: ${{ inputs.target_scope }}
+          WARMUP_FIRST_INPUT: ${{ inputs.warmup_first }}
+        run: |
+          case "$WARMUP_FIRST_INPUT" in
+            true) export WARMUP_FIRST_PROOF=1 ;;
+            false) unset WARMUP_FIRST_PROOF ;;
+            *) echo 'Invalid warmup_first input' >&2; exit 1 ;;
+          esac
+          node --input-type=module <<'PLAN'
+          import {execFileSync} from 'node:child_process';
+          import {savedEventWorkflowConfig,savedEventSnapshotSparsePatterns} from './tools/verifier/verify-saved-events.mjs';
+          const config=savedEventWorkflowConfig();
+          if(config.plan.budgetPreset!=='extended-all'&&(![256,512,1024].includes(config.plan.maxJobs)||![480000,1500000].includes(config.plan.maxRuntimeMs)))throw Error('Hosted pass requires an explicit bounded native allowance');
+          if(execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()!==config.testedCommit)throw Error('Tested implementation changed');
+          const generation=config.plan.publishedBaseline.generation;
+          execFileSync('git',['cat-file','-e',`HEAD:public-snapshots${generation}/index.json`]);
+          execFileSync('git',['sparse-checkout','set','--no-cone','--stdin'],{input:savedEventSnapshotSparsePatterns(generation)});
+          console.log(JSON.stringify(config));
+          PLAN
+      - name: Test offline authority and saved-event scope before native setup
+        run: node --test --test-concurrency=1 tools/native-verification-ledger.test.mjs tools/native-verification-policy.test.mjs tools/native-event-snapshot.test.mjs tools/verifier/local-snapshot-verification.test.mjs tools/native-snapshot-phase.test.mjs tools/snapshot-native-workflow.test.mjs tools/verifier/saved-event-offline.test.mjs tools/verifier/saved-event-hosted-workflow.test.mjs tools/published-target-retention.test.mjs tools/verifier/native-verification-priority.test.mjs tools/public-offline-verification.test.mjs tools/audited-verifier-compatibility.test.mjs tools/verifier/uplink-reviewed-geometry.test.cjs tools/verifier/validator-lifecycle.test.cjs
+      - name: Install pinned native dependencies
+        run: npm ci --prefix tools/verifier --ignore-scripts
+      - name: Install pinned sandboxed browser
+        working-directory: tools/verifier
+        run: |
+          npx playwright install --with-deps chromium
+          BROWSER="$(node -e "process.stdout.write(require('playwright').chromium.executablePath())")"
+          printf 'abi <abi/4.0>,\ninclude <tunables/global>\nprofile polytrack-verifier "%s" flags=(unconfined) {\n  userns,\n}\n' "$BROWSER" | sudo tee /etc/apparmor.d/polytrack-verifier >/dev/null
+          sudo apparmor_parser -r /etc/apparmor.d/polytrack-verifier
+      - name: Check native worker cleanup after browser setup
+        run: node --test tools/verifier/validator-cleanup.browser.test.mjs
+      - name: Verify and live-compile an audited private candidate without capture or Git publication
+        timeout-minutes: ${{ inputs.budget_preset == 'extended-all' && 260 || 50 }}
+        env:
+          VERIFIER_NATIVE_WORKERS: ${{ inputs.native_workers }}
+          EXPECTED_SOURCE_COMMIT: ${{ inputs.expected_source_commit }}
+          SNAPSHOT_SOURCE_COMMIT: ${{ inputs.snapshot_source_commit }}
+          SNAPSHOT_GENERATION: ${{ inputs.snapshot_generation }}
+          SNAPSHOT_INDEX_SHA256: ${{ inputs.snapshot_index_sha256 }}
+          LEDGER_MANIFEST_SHA256: ${{ inputs.ledger_manifest_sha256 }}
+          LEDGER_ENTRIES: ${{ inputs.ledger_entries }}
+          NATIVE_JOB_LIMIT: ${{ inputs.native_job_limit }}
+          NATIVE_RUNTIME_MINUTES: ${{ inputs.native_runtime_minutes }}
+          SAVED_VERIFICATION_PRESET: ${{ inputs.budget_preset }}
+          TARGET_TRACK_IDS: ${{ inputs.target_track_ids }}
+          NATIVE_TARGET_SCOPE: ${{ inputs.target_scope }}
+          WARMUP_FIRST_INPUT: ${{ inputs.warmup_first }}
+        run: |
+          case "$WARMUP_FIRST_INPUT" in
+            true) export WARMUP_FIRST_PROOF=1 ;;
+            false) unset WARMUP_FIRST_PROOF ;;
+            *) echo 'Invalid warmup_first input' >&2; exit 1 ;;
+          esac
+          node tools/verifier/verify-saved-events.mjs "$GITHUB_WORKSPACE" "$RUNNER_TEMP/saved-event-verification"
+      - name: Retain nonpublishable results and completed proof checkpoints
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: saved-event-offline-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            ${{ runner.temp }}/saved-event-verification/prepared.json
+            ${{ runner.temp }}/saved-event-verification/verified.json
+            ${{ runner.temp }}/saved-event-verification/event-candidate-complete.json
+            ${{ runner.temp }}/saved-event-verification/candidate-blocked-*.json
+            ${{ runner.temp }}/saved-event-verification/public-snapshots*/
+            ${{ runner.temp }}/saved-event-verification/snapshot-current.json
+            ${{ runner.temp }}/saved-event-verification/index.html
+            ${{ runner.temp }}/saved-event-verification/events/public-catalog.json
+            ${{ runner.temp }}/saved-event-verification/verification-ledger-current.json
+            ${{ runner.temp }}/saved-event-verification/verification-ledger/
+            ${{ runner.temp }}/saved-event-verification/first-proof-pass-*.json
+            ${{ runner.temp }}/saved-event-verification/progress-*.json
+            ${{ runner.temp }}/saved-event-verification/failure-checkpoint-*.json
+            ${{ runner.temp }}/saved-event-verification/local-reports/native-proof-checkpoints/

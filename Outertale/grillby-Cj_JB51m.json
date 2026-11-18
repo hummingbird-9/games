@@ -1,0 +1,58 @@
+{ "frames": [
+   {
+    "filename": "0",
+    "frame": { "x": 0, "y": 0, "w": 24, "h": 53 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 24, "h": 53 },
+    "sourceSize": { "w": 24, "h": 53 },
+    "duration": 200
+   },
+   {
+    "filename": "1",
+    "frame": { "x": 26, "y": 0, "w": 24, "h": 53 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 24, "h": 53 },
+    "sourceSize": { "w": 24, "h": 53 },
+    "duration": 150
+   },
+   {
+    "filename": "2",
+    "frame": { "x": 52, "y": 0, "w": 24, "h": 53 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 24, "h": 53 },
+    "sourceSize": { "w": 24, "h": 53 },
+    "duration": 150
+   },
+   {
+    "filename": "3",
+    "frame": { "x": 0, "y": 55, "w": 24, "h": 53 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 24, "h": 53 },
+    "sourceSize": { "w": 24, "h": 53 },
+    "duration": 200
+   },
+   {
+    "filename": "4",
+    "frame": { "x": 26, "y": 55, "w": 24, "h": 53 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 24, "h": 53 },
+    "sourceSize": { "w": 24, "h": 53 },
+    "duration": 150
+   }
+ ],
+ "meta": {
+  "app": "http://www.aseprite.org/",
+  "version": "1.3-rc4-dev",
+  "image": "grillby.png",
+  "format": "RGBA8888",
+  "size": { "w": 76, "h": 108 },
+  "scale": "1",
+  "frameTags": [
+  ]
+ }
+}

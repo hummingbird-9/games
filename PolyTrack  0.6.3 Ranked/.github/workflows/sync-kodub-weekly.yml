@@ -1,0 +1,79 @@
+name: Sync Kodub weekly fallback
+
+on:
+  schedule:
+    # Kodub rotates the weekly track Sundays at 20:00 UTC.
+    # Retry daily as well: a missed Sunday capture must not strand restricted devices.
+    - cron: "3 20 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    # Release this lock before downstream snapshot/CDN jobs wait on their own locks.
+    concurrency:
+      group: public-repository-captures-${{ github.repository }}
+      cancel-in-progress: false
+    outputs:
+      publication_changed: ${{ steps.publication.outputs.changed }}
+    if: github.repository == 'StaticQuasar931/PolyTrack-0.6.3-Ranked' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Test conflict-safe publishing
+        run: node --test tools/push-public-capture.test.mjs tools/workflow-release-contract.test.mjs
+      - name: Check Extra catalog, registry, and pins
+        # Local consistency check; fail before fetching or writing public captures.
+        run: node tools/extra-verification-check.mjs
+      - name: Test canonical archive aliases
+        run: node --test extra-tracks/kodub-archive.test.mjs extra-tracks/kodub-capture-validation.test.mjs tools/kodub-archive-alias.test.mjs
+      - name: Test snapshot integrity and resumable capture
+        # Offline projection safeguards run before any public capture reads.
+        run: node --test --test-concurrency=2 tools/capture-overall-projection.test.mjs tools/overall-projection-bundle.test.mjs tools/offline-overall.test.mjs tools/rebuild-snapshot-overall.test.mjs tools/captured-source-reuse.test.mjs
+      - name: Capture current weekly track
+        run: node tools/sync-kodub-weekly.mjs
+      - name: Refresh canonical archive catalog aliases
+        id: archive_aliases
+        # Catalog-only atomic replacement. An unsupported future import must not discard a valid capture.
+        continue-on-error: true
+        run: node extra-tracks/build-kodub-archive.mjs --write
+      - name: Report deferred archive catalog update
+        if: steps.archive_aliases.outcome == 'failure'
+        run: echo 'Official Kodub capture preserved. Archive catalog update needs manual validation; existing catalog was retained.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Commit changed capture
+        id: publication
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          ARCHIVE_ALIASES_OUTCOME: ${{ steps.archive_aliases.outcome }}
+        run: |
+          # Stage first so new captured assets cannot be mistaken for a no-op.
+          git add events/kodub
+          if [ "$ARCHIVE_ALIASES_OUTCOME" = "success" ]; then
+            git add -- extra-tracks/catalog.json
+          fi
+          if git diff --cached --quiet; then
+            echo "Kodub weekly fallback is current."
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Sync Kodub weekly fallback"
+          node tools/push-public-capture.mjs
+          echo 'changed=true' >> "$GITHUB_OUTPUT"
+
+  publish_cdn_release:
+    needs: sync
+    if: needs.sync.result == 'success' && needs.sync.outputs.publication_changed == 'true'
+    permissions:
+      contents: write
+    uses: ./.github/workflows/publish-cdn-release.yml

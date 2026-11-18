@@ -1,0 +1,17 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Packed snapshot payloads must never undergo text merging or line-ending conversion.
+*.bin binary
+
+# Keep pinned JavaScript and source-extraction checks consistent on Windows and CI.
+*.js text eol=lf
+*.mjs text eol=lf
+*.cjs text eol=lf
+*.yml text eol=lf
+*.track text eol=lf
+
+# These JSON bytes are content-addressed and must hash identically after checkout.
+/verification-ledger/**/*.json text eol=lf
+/verification-ledger-current.json text eol=lf
+/public-snapshots*/**/*.json text eol=lf

@@ -1,0 +1,31 @@
+{ "frames": [
+   {
+    "filename": "0",
+    "frame": { "x": 0, "y": 0, "w": 31, "h": 52 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 31, "h": 52 },
+    "sourceSize": { "w": 31, "h": 52 },
+    "duration": 200
+   },
+   {
+    "filename": "1",
+    "frame": { "x": 33, "y": 0, "w": 31, "h": 52 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 31, "h": 52 },
+    "sourceSize": { "w": 31, "h": 52 },
+    "duration": 200
+   }
+ ],
+ "meta": {
+  "app": "http://www.aseprite.org/",
+  "version": "1.3-beta10-dev",
+  "image": "dateFlex.png",
+  "format": "RGBA8888",
+  "size": { "w": 64, "h": 52 },
+  "scale": "1",
+  "frameTags": [
+  ]
+ }
+}

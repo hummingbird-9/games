@@ -1,0 +1,175 @@
+name: Capture snapshots and verify replays
+on:
+  # Three :50 windows remain; 08:45 follows the :41 Overall publication, without forcing rebuilds.
+  # Snapshot-native authority captures first, then verifies saved replays offline.
+  schedule:
+    - cron: '50 0,12,20 * * *'
+    - cron: '45 8 * * *'
+  workflow_dispatch:
+    inputs:
+      replay_document_limit:
+        description: 'Replay-document read cap for this manual capture; routine runs remain at 100'
+        type: choice
+        options: ['100', '1000']
+        default: '100'
+      catch_up:
+        description: 'Legacy Firestore-authority catch-up only; not used in offline verification'
+        type: boolean
+        default: false
+      overnight_capture:
+        description: 'Prepared one-time capture-first run; no live verifier drain'
+        type: boolean
+        default: false
+      expected_source_commit:
+        description: 'Optional exact tested main commit; required for an overnight kickoff'
+        type: string
+        default: ''
+permissions:
+  contents: read
+jobs:
+  verify:
+    # Release this lock before downstream snapshot/CDN jobs wait on their own locks.
+    concurrency:
+      group: polytrack-run-verifier
+      cancel-in-progress: false
+    outputs:
+      snapshot_needed: ${{ steps.verification.outputs.snapshot_needed }}
+      capture_ready: ${{ steps.verification.outputs.capture_ready }}
+      queue_has_work: ${{ steps.queue.outputs.has_work }}
+      capture_requested_at: ${{ steps.capture_request.outputs.requested_at }}
+      verification_authority: ${{ steps.authority.outputs.mode }}
+      overnight_native: ${{ steps.authority.outputs.overnight }}
+      overnight_source_commit: ${{ steps.authority.outputs.source_commit }}
+    if: vars.POLYTRACK_VERIFIER_ENABLED == 'true' && github.repository == 'StaticQuasar931/PolyTrack-0.6.3-Ranked' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-24.04
+    timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && inputs.catch_up && 25 || 15 }}
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+          cache: npm
+          cache-dependency-path: tools/verifier/package-lock.json
+      - name: Select verification authority
+        id: authority
+        env:
+          POLYTRACK_VERIFICATION_AUTHORITY: ${{ vars.POLYTRACK_VERIFICATION_AUTHORITY }}
+          CAPTURE_SCHEDULE: ${{ github.event.schedule }}
+          MANUAL_OVERNIGHT: ${{ github.event_name == 'workflow_dispatch' && inputs.overnight_capture == true }}
+          MANUAL_CATCH_UP: ${{ github.event_name == 'workflow_dispatch' && inputs.catch_up == true }}
+          EXPECTED_SOURCE_COMMIT: ${{ inputs.expected_source_commit }}
+        run: |
+          node --input-type=module <<'AUTHORITY'
+          import fs from 'node:fs';
+          import {execFileSync} from 'node:child_process';
+          import {readRepositoryVerificationAuthority} from './tools/verifier/local-snapshot-verification.mjs';
+          import {overnightSnapshotPlan} from './tools/overnight-snapshot-plan.mjs';
+          const configuredMode=await readRepositoryVerificationAuthority(process.cwd(),process.env.POLYTRACK_VERIFICATION_AUTHORITY);
+          const manualOvernight=process.env.MANUAL_OVERNIGHT==='true';
+          const expected=process.env.EXPECTED_SOURCE_COMMIT||'';
+          if(expected&&(!/^[a-f0-9]{40}$/.test(expected)||execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()!==expected))throw Error('Capture request differs from tested source');
+          if(manualOvernight&&(process.env.MANUAL_CATCH_UP==='true'||!/^[a-f0-9]{40}$/.test(process.env.EXPECTED_SOURCE_COMMIT||'')||
+            execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()!==process.env.EXPECTED_SOURCE_COMMIT))throw Error('Explicit overnight kickoff requires its tested commit and cannot catch up live queues');
+          let prior=null;try{prior=JSON.parse(fs.readFileSync('tools/workflow-capture-state.json','utf8'));}catch(error){if(error.code!=='ENOENT')throw error;}
+          const plan=overnightSnapshotPlan({eventName:process.env.GITHUB_EVENT_NAME,schedule:process.env.CAPTURE_SCHEDULE,
+            now:Date.now(),runAttempt:Number(process.env.GITHUB_RUN_ATTEMPT),configuredMode,previousCaptureStartedAt:prior?.startedAt,manualOvernight});
+          const sourceCommit=plan.overnight||expected?execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim():'';
+          fs.appendFileSync(process.env.GITHUB_OUTPUT,'mode='+plan.mode+'\novernight='+plan.overnight+'\nskip='+plan.skip+'\nsource_commit='+sourceCommit+'\n');
+          console.log(JSON.stringify({overnightPlan:plan}));
+          AUTHORITY
+      - name: Check Extra catalog and trusted track pins
+        run: node tools/extra-verification-check.mjs
+      - name: Test bounded workflow release contracts
+        # Offline checks only; no service-account credential is exposed to tests.
+        run: node --test tools/workflow-release-contract.test.mjs tools/overnight-snapshot-plan.test.mjs tools/overnight-capture-claim.test.mjs tools/overnight-kickoff.test.mjs tools/local-overnight-capture.test.mjs tools/local-capture-publication.test.mjs tools/local-capture-process.test.mjs tools/snapshot-daily-cost-plan.test.mjs tools/local-capture-git.test.mjs tools/local-capture-checkpoint.test.mjs tools/local-playback-cache.test.mjs tools/local-archive-replay-repair.test.mjs tools/local-capture-worker.test.mjs
+      - name: Check trusted engine before Firebase reads
+        run: node --input-type=module -e "import {validateEnginePin} from './tools/verifier/run.mjs'; await validateEnginePin();"
+      - name: Test queue and publication contracts before quota access
+        # Offline, dependency-free checks catch regressions before any production read.
+        run: node --test --test-concurrency=2 tools/verifier/queue.test.mjs tools/verifier/publication-queue.test.mjs tools/verifier/scheduled-drain.test.mjs tools/verifier/proof-cache-file.test.mjs tools/verifier/workflow-budget.test.mjs workers/ranked/test/event-preflight-cost.test.js tools/new-account-five-track-cost.test.mjs tools/usage-analytics.test.mjs tools/client-origin-cloud.test.mjs tools/cloud-cost-audit.test.mjs tools/analytics-url-privacy.test.mjs tools/cached-recording-verification.test.mjs tools/client-pb-profile-followup.test.cjs tools/client-cosmetic-publish-cost.test.cjs tools/client-pb-inflight-cost.test.cjs tools/offline-pb-analytics.test.cjs workers/ranked/test/event-publication-checkpoints.test.js
+      - name: Check for due verification work
+        id: queue
+        if: steps.authority.outputs.skip != 'true' && steps.authority.outputs.mode == 'firestore'
+        timeout-minutes: 2
+        env:
+          FIREBASE_VERIFIER_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_VERIFIER_SERVICE_ACCOUNT }}
+          VERIFIER_FIRESTORE_MODE: ${{ github.event_name == 'schedule' && 'scheduled' || 'manual' }}
+          VERIFIER_DOCUMENT_READ_LIMIT: '1500'
+          VERIFIER_DOCUMENT_WRITE_LIMIT: '1000'
+        run: node tools/verifier/run.mjs --check
+      - name: Share the verification document budget
+        id: budget
+        if: steps.authority.outputs.skip != 'true' && steps.authority.outputs.mode == 'firestore' && steps.queue.outputs.has_work == 'true'
+        env:
+          PREFLIGHT_DOCUMENT_BUDGET: ${{ steps.queue.outputs.preflight_document_budget }}
+        run: node tools/verifier/workflow-budget.mjs
+      - name: Install pinned verifier dependencies
+        if: steps.authority.outputs.skip != 'true' && steps.authority.outputs.mode == 'firestore' && steps.queue.outputs.has_work == 'true' && steps.budget.outputs.has_budget == 'true'
+        run: npm ci --prefix tools/verifier --ignore-scripts
+      - name: Test verifier safeguards
+        if: steps.queue.outputs.has_work == 'true' && steps.budget.outputs.has_budget == 'true'
+        run: |
+          npm test --prefix tools/verifier
+          node --test tools/verifier/events.test.mjs workers/ranked/test/events.test.js workers/ranked/test/event-canonical.test.js
+      - name: Cache the pinned Playwright browser
+        if: steps.queue.outputs.has_work == 'true' && steps.budget.outputs.has_budget == 'true'
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('tools/verifier/package-lock.json') }}
+      - name: Install Chromium and system dependencies
+        if: steps.queue.outputs.has_work == 'true' && steps.budget.outputs.has_budget == 'true'
+        working-directory: tools/verifier
+        run: npx playwright install --with-deps chromium
+      - name: Allow the pinned browser sandbox on Ubuntu
+        if: steps.queue.outputs.has_work == 'true' && steps.budget.outputs.has_budget == 'true'
+        working-directory: tools/verifier
+        run: |
+          BROWSER="$(node -e "process.stdout.write(require('playwright').chromium.executablePath())")"
+          test -x "$BROWSER"
+          printf 'abi <abi/4.0>,\ninclude <tunables/global>\nprofile polytrack-verifier "%s" flags=(unconfined) {\n  userns,\n}\n' "$BROWSER" | sudo tee /etc/apparmor.d/polytrack-verifier >/dev/null
+          sudo apparmor_parser -r /etc/apparmor.d/polytrack-verifier
+          node -e "(async()=>{const {chromium}=require('playwright');const browser=await chromium.launch({executablePath:chromium.executablePath(),chromiumSandbox:true,headless:true});await browser.close();console.log('Sandboxed browser startup passed.')})().catch(error=>{console.error(error);process.exit(1)})"
+      # Scheduled drains get more rounds within the same document caps and hard runtime.
+      - name: Verify queued runs
+        id: verification
+        timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && inputs.catch_up && 15 || 10 }}
+        if: steps.authority.outputs.skip != 'true' && steps.authority.outputs.mode == 'firestore' && steps.queue.outputs.has_work == 'true' && steps.budget.outputs.has_budget == 'true'
+        env:
+          FIREBASE_VERIFIER_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_VERIFIER_SERVICE_ACCOUNT }}
+          VERIFIER_FIRESTORE_MODE: ${{ github.event_name == 'schedule' && 'scheduled' || 'manual' }}
+          VERIFIER_DOCUMENT_READ_LIMIT: ${{ steps.budget.outputs.read_limit }}
+          VERIFIER_DOCUMENT_WRITE_LIMIT: ${{ steps.budget.outputs.write_limit }}
+          VERIFIER_SCHEDULED_DRAIN: ${{ github.event_name == 'schedule' && 'true' || 'false' }}
+          VERIFIER_CATCH_UP: ${{ github.event_name == 'workflow_dispatch' && inputs.catch_up && 'true' || 'false' }}
+        run: |
+          if [ "$VERIFIER_CATCH_UP" = "true" ]; then
+            node tools/post-verification-run.mjs --drain --catch-up
+          else
+            node tools/post-verification-run.mjs --drain
+          fi
+      - name: Timestamp the scheduled or changed capture request
+        id: capture_request
+        if: steps.authority.outputs.skip != 'true' && (steps.authority.outputs.mode == 'snapshot-native' || (github.event_name == 'schedule' && (steps.queue.outputs.has_work == 'false' || (steps.queue.outputs.has_work == 'true' && steps.verification.outputs.capture_ready == 'true'))) || steps.verification.outputs.snapshot_needed == 'true')
+        run: node -e "require('node:fs').appendFileSync(process.env.GITHUB_OUTPUT, 'requested_at=' + Date.now() + '\n')"
+
+  publish_snapshots:
+    needs: verify
+    # Empty queues still refresh pending/public data; a throttled preflight is not an empty queue.
+    if: needs.verify.result == 'success' && needs.verify.outputs.capture_requested_at != '' && (needs.verify.outputs.verification_authority == 'snapshot-native' || (github.event_name == 'schedule' && (needs.verify.outputs.queue_has_work == 'false' || (needs.verify.outputs.queue_has_work == 'true' && needs.verify.outputs.capture_ready == 'true'))) || needs.verify.outputs.snapshot_needed == 'true') && vars.POLYTRACK_POST_VERIFY_SNAPSHOTS_ENABLED != 'false'
+    permissions:
+      contents: write
+    uses: ./.github/workflows/publish-verified-snapshots.yml
+    with:
+      publication_changed: true
+      replay_document_limit: ${{ inputs.replay_document_limit || '100' }}
+      capture_requested_at: ${{ needs.verify.outputs.capture_requested_at }}
+      verification_authority: ${{ needs.verify.outputs.verification_authority }}
+      overnight_native: ${{ needs.verify.outputs.overnight_native == 'true' }}
+      expected_source_commit: ${{ needs.verify.outputs.overnight_source_commit }}
+    # Forward only the existing privileged credential to bounded capture; no blanket inheritance.
+    secrets:
+      FIREBASE_VERIFIER_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_VERIFIER_SERVICE_ACCOUNT }}

@@ -1,0 +1,49 @@
+{ "frames": [
+   {
+    "filename": "0",
+    "frame": { "x": 0, "y": 0, "w": 180, "h": 74 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 180, "h": 74 },
+    "sourceSize": { "w": 180, "h": 74 },
+    "duration": 133
+   },
+   {
+    "filename": "1",
+    "frame": { "x": 182, "y": 0, "w": 180, "h": 74 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 180, "h": 74 },
+    "sourceSize": { "w": 180, "h": 74 },
+    "duration": 133
+   },
+   {
+    "filename": "2",
+    "frame": { "x": 0, "y": 76, "w": 180, "h": 74 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 180, "h": 74 },
+    "sourceSize": { "w": 180, "h": 74 },
+    "duration": 133
+   },
+   {
+    "filename": "3",
+    "frame": { "x": 182, "y": 0, "w": 180, "h": 74 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 180, "h": 74 },
+    "sourceSize": { "w": 180, "h": 74 },
+    "duration": 133
+   }
+ ],
+ "meta": {
+  "app": "http://www.aseprite.org/",
+  "version": "1.3-rc2-dev",
+  "image": "taxi.png",
+  "format": "RGBA8888",
+  "size": { "w": 362, "h": 150 },
+  "scale": "1",
+  "frameTags": [
+  ]
+ }
+}
