@@ -42,6 +42,8 @@ jobs:
           git --version
       - name: Install matching Playwright Node package only
         run: npm install --no-save --package-lock=false playwright@1.55.0
+      - name: Mark container workspace as a safe Git directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Replace, test offline, report and commit batch 03
         run: bash scripts/repair-offline-games-2026-11-18.sh 3
       - name: Upload batch 03 browser evidence
