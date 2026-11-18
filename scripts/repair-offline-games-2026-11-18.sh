@@ -172,7 +172,17 @@ proprietary Snake implementation.
 - External runtime dependencies: none
 - No external scripts, stylesheets, fonts, images, CDNs or network APIs are used.
 EOF
-    ;;
+    python3 - <<'PY'
+from pathlib import Path
+p = Path("Google Snake/index.html")
+s = p.read_text()
+old = """<button onclick="location.href='../'">BACK</button>"""
+new = """<button onclick="history.back()">BACK</button>"""
+if old not in s:
+    raise SystemExit("Expected parent-directory back link was not found")
+p.write_text(s.replace(old, new))
+PY
+    ;;    ;;
   *)
     echo "Unknown batch: $BATCH" >&2
     exit 2
@@ -188,7 +198,8 @@ fi
 
 if [[ "$TEST_OK" != "true" ]]; then
   echo "Offline verification failed for $GAME; removing the unrecoverable folder."
-  git rm -r --ignore-unmatch -- "$FOLDER" >/dev/null 2>&1 || true
+  rm -rf -- "$FOLDER"
+  git rm -r --cached --ignore-unmatch -- "$FOLDER" >/dev/null 2>&1 || true
   RESULT="REMOVED — replacement failed offline verification; see test evidence below."
 else
   RESULT="PASS — complete local build launched and basic gameplay input was verified with external network requests blocked."
