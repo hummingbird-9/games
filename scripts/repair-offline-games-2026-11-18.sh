@@ -151,7 +151,7 @@ EOF
     GAME="Google Snake folder (MIT standalone Snake recreation)"
     SOURCE_REPO="prateek121/90s-games"
     SOURCE_COMMIT="98ca2ade686cb114480e6d359b5f5e2987cacb2f"
-    SOURCE_DATE="2026-10-16"
+    SOURCE_DATE="2026-05-23"
     SOURCE_LICENSE="MIT (90s-games contributors)"
     FILES="index.html (single-file games/snake.html), LICENSE, README.md"
     echo "=== Fetch pinned standalone Snake source ==="
