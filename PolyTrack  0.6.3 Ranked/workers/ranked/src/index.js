@@ -1,0 +1,3308 @@
+import {profileMaintenanceClock, profileRetryEntries, deferProfileTrack, deferredProfileJob, PROFILE_RETRY_BASE_MS} from './profile-maintenance.js';
+import {createPublicMissGuard} from './public-miss-guard.js';
+import {hasMatchingCompetitiveReviewHold} from './competitive-review.js';
+import {verifyCaptureRead} from './capture-read-auth.js';
+import {enqueueCanonicalPublication} from './coalesced-pb-publication.js';
+import {CANONICAL_CLIENT_URL, CLIENT_REVISION_HEADER, clientAccessPolicy, admitWriteBurst} from './client-access-policy.js';
+import {recallPublicResponse, rememberPublicResponse, publicResponseCacheScope, clearPublicResponseMemory} from './public-response-memory.js';
+import {EVENT_COLLECTIONS} from './events.js';
+import {createEventFirestoreStore} from './events-store.js';
+import {handleCurrencyRequest} from './currency-wallet.js';
+import {createCommunityBadgeService, CommunityBadgeError} from './community-badge.js';
+import {mergeEarnedAndPurchasedEntitlements, purchasedProfileCosmeticsUnlocked, addCommunityBadge} from './purchased-cosmetic-entitlements.js';
+import {PUBLIC_MANIFEST_COLLECTION,publicationManifestId,decodePublicationPage,PUBLIC_PAGE_COLLECTION, publicationPageId, preparePublicationPages, loadPublicationEntries} from './paged-publication.js';
+import {prepareShardedVerification, migrateVerificationChunk, verificationShardId, VERIFICATION_MIGRATION_BATCH} from './verification-shards.js';
+import {proofVersionAtOrBefore} from './proof-snapshot-reuse.js';
+import {advanceTrackBuild, trackBuildDisposition, trackBuildId, TRACK_BUILD_JOBS, TRACK_BUILD_PAGE_SIZE} from './track-build.js';
+import {continueQueuedTrackBuild} from './track-build-continuation.js';
+import { safePublicName } from './public-name-policy.js';
+import {kodubWeekly} from './kodub-weekly.js';
+import { eventWorkerHandler, eventWorkerMaintenance } from './events-worker.js';
+import {packPlannerResults, plannerDocumentBytes, PLANNER_BUNDLE_VERSION, PLANNER_PUBLICATION_VERSION, PLANNER_DOCUMENT_BUDGET} from './planner-results.js';
+export {packPlannerResults} from './planner-results.js';
+import {compactOverallEntries, compactOverallSnapshot, unpackOverallDetails, OVERALL_DETAILS_VERSION} from './overall-details.js';
+import { VERIFICATION_BOOTSTRAP_ID, VERIFICATION_BOOTSTRAP_BATCH, bootstrapSlots, VERIFICATION_COLLECTION, EXTRA_VERIFICATION_COLLECTION, verificationCollectionForTrack, verificationSchedule, verificationKey, hasAcceptedVerifiedProof, verifiedVerdict, verifiedTargetMs, pendingSlot } from './verification.js';
+import { aggregateServerAchievements, BEAT_OWNER_STAGES, OWNER_PUBLIC_ID, OWNER_CHALLENGE_POLICY_VERSION, SERVER_ACHIEVEMENT_VERSION, SERVER_ACHIEVEMENT_CATALOG, SPECIAL_ROLLING_HILLS_TRACK_ID } from './server-achievements.js';
+import { EXTRA_TRACK_IDS } from './extra-track-ids.js';
+import { createFirestoreAudit, recordFirestoreReads, recordFirestoreFailure, describeFirestoreOperation } from './firestore-read-cost.js';
+import {loadOverallSources, sourceCatalogAfterTrackWrite, sourceCatalogNeedsScan, sourceCatalogIsReady, SOURCE_CATALOG_RESCAN_MS} from './overall-source-cache.js';
+import {SOURCE_PUBLICATION_COLLECTION, sourcePublicationIds, prepareSourcePublication, decodeSourcePublication} from './overall-source-publication.js';
+import {ENTITLEMENT_COLLECTION, ENTITLEMENT_CACHE_COLLECTION, entitlementPolicyKey, entitlementEpoch,
+  invalidateEntitlements, entitlementAuditDue, entitlementChanged, loadOverallEntitlements,
+  prepareEntitlementPublication, fenceEntitlementWrites, captureEntitlementCommitTimes} from './overall-entitlement-cache.js';
+const FIREBASE_JWKS_URL = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
+const FIREBASE_JWKS_REFRESH_COOLDOWN_MS = 30000;
+const FIREBASE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
+const PROJECT_ID = 'polytrack-052';
+const ALGORITHM_VERSION = 'participation-v8-s1';
+const TRACK_SCHEMA_VERSION = 6;
+const AVERAGE_PLACEMENT_VERSION = 2;
+const DERIVED_METRICS_VERSION = 3;
+const INTEGRITY_STATE_VERSION = 1;
+const PROFILE_COSMETICS_VERSION = 7;
+const COSMETIC_ENTITLEMENT_VERSION = 7;
+const MIN_RANKED_TRACKS = 3;
+const PODIUM_MIN_FIELD = 5;
+const OVERALL_LIMIT = 200;
+const GROUP_TAG_DIRECTORY_LIMIT = 2000;
+const GROUP_TAG_DIRECTORY_MAX_BYTES = 300 * 1024;
+const TRACK_LIMIT = 500;
+const UNRANKED_EXTRA_TRACK_ID = '586fbb2ef6e638f8d22e050342896497f22da6302ff081e434aa17bf6f75cf87';
+const OVERALL_BOARD_PAGE_SIZE = 100;
+const OVERALL_BOARD_LIMIT = 500;
+const REBUILD_COOLDOWN_MS = 30 * 60 * 1000;
+const OVERALL_REBUILD_FAILURE_BASE_MS = 15 * 60 * 1000;
+const OVERALL_REBUILD_FAILURE_MAX_MS = 2 * 60 * 60 * 1000;
+const overallBuildRequests = new WeakMap();
+const BACKGROUND_REPAIR_INTERVAL_MS = 30 * 60 * 1000;
+
+// Scheduled timestamps can include seconds and milliseconds within their cron minute.
+export function scheduledIntervalDue(scheduledAt, intervalMs) {
+  return Number.isSafeInteger(scheduledAt) && scheduledAt >= 0 &&
+    Number.isSafeInteger(intervalMs) && intervalMs >= 60000 && intervalMs % 60000 === 0 &&
+    Math.floor(scheduledAt / 60000) % (intervalMs / 60000) === 0;
+}
+
+export function maintenanceWindowAllows(cron,scheduledAt,mode) {
+  if(mode!=='four-window'&&mode!=='coordinated')return true;
+  if(!Number.isSafeInteger(scheduledAt)||scheduledAt<0)return false;
+  const date=new Date(scheduledAt),minute=date.getUTCMinutes();
+  // Fixed-read-time builds must keep draining across capture-window boundaries.
+  if(mode==='coordinated'&&cron==='*/5 * * * *')return minute%5===0;
+  if(mode==='coordinated'&&cron==='2-59/5 * * * *')return minute%5===2;
+  if(![0,8,12,20].includes(date.getUTCHours()))return false;
+  if(cron==='* * * * *')return minute<45;
+  if(cron==='*/2 * * * *')return minute===0;
+  if(cron==='*/5 * * * *')return minute>=5&&minute<=40&&minute%5===0;
+  if(cron==='1-59/5 * * * *')return minute===41;
+  if(cron==='2-59/5 * * * *')return [2,7,12].includes(minute);
+  return false;
+}
+
+export function canonicalDiscoveryDue(scheduledAt,mode){
+  if(mode==='coordinated')return maintenanceWindowAllows('*/5 * * * *',scheduledAt,'four-window');
+  return scheduledIntervalDue(scheduledAt,RECONCILE_SCAN_INTERVAL_MS);
+}
+const OVERALL_INCOMPLETE_RETRY_LIMIT = 1;
+const MAX_REPLAY_LENGTH = 10000;
+// One capacity build can consume most of the Worker's shared subrequest budget.
+const MIGRATION_TRACK_BATCH = 1;
+const MIGRATION_BADGE_BATCH = 25;
+const MIGRATION_VERSION = 4;
+const RECONCILE_RESULT_BATCH = 50;
+const RECONCILE_TRACK_BATCH = 4;
+const RECONCILE_PENDING_ID_LIMIT = 200;
+const RECONCILE_FULL_TRACK_LIMIT = 512;
+const RECONCILE_JOB_DOCUMENT_BUDGET = 800000;
+const RECONCILE_TARGET_ID_BATCH = 16;
+const RECONCILE_PRESSURE_ID_BATCH = 64;
+// Eligibility thresholds only; larger existing payloads retain the 16-ID path.
+const RECONCILE_PRESSURE_RETAINED_BYTES = 4 * 1024 * 1024;
+// Mixed turns reserve 28 of the 42 work requests for the full build, including
+// two pages of fresh proof-queue writes. Final queue CAS uses the existing reserve.
+const RECONCILE_TARGETED_REQUEST_LIMIT = 14;
+const RECONCILE_SCAN_INTERVAL_MS = 15 * 60 * 1000;
+const RECONCILE_REBUILD_BACKOFF_BASE_MS = 15 * 60 * 1000;
+const RECONCILE_REBUILD_BACKOFF_MAX_MS = 6 * 60 * 60 * 1000;
+const RECONCILE_REBUILD_FAILURE_LIMIT = RECONCILE_PENDING_ID_LIMIT;
+const COLLECTIONS = Object.freeze({
+  raceResults: '0.6.2_race_results',
+  profiles: '0.6.2_profiles_public',
+  groupTags: '0.6.2_s1_group_tags',
+  betaTrack: '0.6.2_leaderboards_track',
+  track: '0.6.2_s1_leaderboards_track',
+  overall: '0.6.2_s1_leaderboards_overall',
+  badges: '0.6.2_s1_badges',
+  meta: '0.6.2_s1_release_meta',
+  jobs: '0.6.2_s1_worker_jobs',
+  cosmeticJobs: '0.6.2_s1_cosmetic_jobs',
+  extraTrackSubmissions: '0.6.2_extra_track_submissions',
+  extraTrackReports: '0.6.2_extra_track_reports',
+  unrankedExtra: '0.6.2_extra_unranked_leaderboards'
+});
+const PROFILE_COSMETIC_OPTIONS = Object.freeze({
+  theme: new Set(['classic', 'cyan', 'ocean', 'ice', 'mono', 'sunset', 'neon', 'forest', 'ember', 'crimson', 'podium', 'beta', 'petrol']),
+  accent: new Set(['cyan', 'white', 'lime', 'gold', 'orange', 'coral', 'pink', 'violet', 'ice']),
+  finish: new Set(['gradient', 'solid', 'split', 'gloss', 'carbon', 'horizon']),
+  plate: new Set(['block', 'solid', 'outline', 'notch', 'bar', 'pitlane-ticket']),
+  edge: new Set(['accent', 'wide', 'none', 'double', 'dashed', 'rail']),
+  stage: new Set(['garage', 'slate', 'aqua', 'grid', 'horizon', 'night', 'storm', 'dunes', 'podium', 'sunrise', 'aurora', 'apex-observatory']),
+  stageTint: new Set(['natural', 'blue', 'teal', 'gold', 'red', 'pink', 'mono', 'orange', 'violet']),
+  stripe: new Set(['standard', 'cyan', 'apex', 'chevron', 'sunset', 'split', 'grid', 'circuit', 'scan', 'blocks', 'gold', 'beta', 'overdrive', 'vector-ribbon', 'rally-lines']),
+  emblem: new Set(['none', 'bolt', 'star', 'diamond', 'twinStars', 'flag', 'flame', 'crown', 'target']),
+  emblem2: new Set(['none', 'star', 'bolt', 'flag', 'diamond', 'flame', 'crown']),
+  emblem3: new Set(['none', 'chevron', 'wings', 'laurel']),
+  emblemBackdrop: new Set(['none', 'disc', 'shield', 'hex']),
+  stageEffect: new Set(['none', 'speed', 'spark', 'halos']),
+  nameFont: new Set(['classic', 'clean', 'racing', 'serif', 'condensed', 'wide', 'mono', 'rounded', 'book']),
+  nameSize: new Set(['normal', 'large', 'compact']),
+  nameWeight: new Set(['regular', 'bold']),
+  nameColor: new Set(['default', 'white', 'cyan', 'gold', 'coral', 'mint', 'violet', 'aurora', 'sunset', 'lime', 'ice', 'rose', 'copper']),
+  baseSecondary: new Set(['auto', 'white', 'cyan', 'gold', 'coral', 'mint', 'violet', 'orange', 'ice', 'navy']),
+  title: new Set(['auto', 'none', 'contender', 'pbHunter', 'trackGrinder', 'podiumRegular', 'betaRacer']),
+  badge: new Set(['auto', 'member', 'none', 'betaTester', 'community'])
+});
+
+export function sanitizeProfileCosmetics(value) {
+  const source = value && typeof value === 'object' ? value : {};
+  const legacy = Number(source.version || 0) < 2;
+  const emblem2 = PROFILE_COSMETIC_OPTIONS.emblem2.has(source.emblem2) ? source.emblem2 : 'none';
+  const nameFont = PROFILE_COSMETIC_OPTIONS.nameFont.has(source.nameFont) ? source.nameFont : 'classic';
+  const nameSize = PROFILE_COSMETIC_OPTIONS.nameSize.has(source.nameSize) ? source.nameSize : 'normal';
+  const nameWeight = PROFILE_COSMETIC_OPTIONS.nameWeight.has(source.nameWeight) ? source.nameWeight : 'regular';
+  const nameColor = PROFILE_COSMETIC_OPTIONS.nameColor.has(source.nameColor) ? source.nameColor : 'default';
+  const baseSecondary = PROFILE_COSMETIC_OPTIONS.baseSecondary.has(source.baseSecondary) ? source.baseSecondary : 'auto';
+  return {
+    version: PROFILE_COSMETICS_VERSION,
+    theme: PROFILE_COSMETIC_OPTIONS.theme.has(source.theme) ? source.theme : 'classic',
+    accent: PROFILE_COSMETIC_OPTIONS.accent.has(source.accent) ? source.accent : 'cyan',
+    finish: PROFILE_COSMETIC_OPTIONS.finish.has(source.finish) ? source.finish : 'gradient',
+    plate: PROFILE_COSMETIC_OPTIONS.plate.has(source.plate) ? source.plate : 'block',
+    edge: PROFILE_COSMETIC_OPTIONS.edge.has(source.edge) ? source.edge : 'accent',
+    stage: PROFILE_COSMETIC_OPTIONS.stage.has(source.stage) ? source.stage : 'garage',
+    stageTint: PROFILE_COSMETIC_OPTIONS.stageTint.has(source.stageTint) ? source.stageTint : 'natural',
+    stripe: PROFILE_COSMETIC_OPTIONS.stripe.has(source.stripe) ? source.stripe : 'standard',
+    emblem: PROFILE_COSMETIC_OPTIONS.emblem.has(source.emblem) ? source.emblem : 'none',
+    ...(emblem2 === 'none' ? {} : { emblem2 }),
+    ...(PROFILE_COSMETIC_OPTIONS.emblem3.has(source.emblem3) && source.emblem3 !== 'none' ? { emblem3: source.emblem3 } : {}),
+    ...(PROFILE_COSMETIC_OPTIONS.emblemBackdrop.has(source.emblemBackdrop) && source.emblemBackdrop !== 'none' ? { emblemBackdrop: source.emblemBackdrop } : {}),
+    ...(PROFILE_COSMETIC_OPTIONS.stageEffect.has(source.stageEffect) && source.stageEffect !== 'none' ? { stageEffect: source.stageEffect } : {}),
+    ...(nameFont === 'classic' ? {} : { nameFont }),
+    ...(nameSize === 'normal' ? {} : { nameSize }),
+    ...(nameWeight === 'regular' ? {} : { nameWeight }),
+    ...(nameColor === 'default' ? {} : { nameColor }),
+    ...(baseSecondary === 'auto' ? {} : { baseSecondary }),
+    title: PROFILE_COSMETIC_OPTIONS.title.has(source.title) ? source.title : 'auto',
+    badge: legacy ? 'auto' : (PROFILE_COSMETIC_OPTIONS.badge.has(source.badge) ? source.badge : 'auto'),
+    favoriteTrackId: OFFICIAL_IDS.has(safeText(source.favoriteTrackId, 80)) || COMMUNITY_IDS.has(safeText(source.favoriteTrackId, 80)) || LEGACY_COMMUNITY_IDS.has(safeText(source.favoriteTrackId, 80)) ? safeText(source.favoriteTrackId, 80) : '',
+    overridePodium: source.overridePodium === true
+  };
+}
+
+export function profileCosmeticsUnlocked(cosmetics, entry = {}, betaTester = false) {
+  const value = sanitizeProfileCosmetics(cosmetics);
+  const tracks = Math.max(0, Number(entry.raceCount || 0));
+  const playtimeMs = Math.max(0, Number(entry.totalPlaytimeMs || 0));
+  const extraTracks = Math.max(0, Number(entry.extraCount || 0));
+  const rank = Math.max(0, Number(entry.rank || 0));
+  const podium = rank > 0 && rank <= 3;
+  const allowed = {
+    theme: new Set(['classic', 'cyan']),
+    accent: new Set(['cyan', 'white']),
+    finish: new Set(['gradient', 'solid']),
+    plate: new Set(['block', 'outline']),
+    edge: new Set(['accent', 'none']),
+    stage: new Set(['garage', 'slate']),
+    stageTint: new Set(['natural', 'blue']),
+    stripe: new Set(['standard', 'cyan']),
+    emblem: new Set(['none', 'bolt']),
+    emblem2: new Set(['none']),
+    emblem3: new Set(['none']),
+    emblemBackdrop: new Set(['none']),
+    stageEffect: new Set(['none']),
+    nameFont: new Set(['classic']),
+    nameSize: new Set(['normal']),
+    nameWeight: new Set(['regular']),
+    nameColor: new Set(['default']),
+    baseSecondary: new Set(['auto']),
+    title: new Set(['auto']),
+    badge: new Set(['auto', 'none'])
+  };
+  if (tracks >= 1) { allowed.theme.add('ocean'); allowed.accent.add('lime'); allowed.stageTint.add('teal'); allowed.stage.add('aqua'); allowed.plate.add('solid'); allowed.edge.add('wide'); allowed.stripe.add('apex'); allowed.emblem.add('star'); allowed.nameFont.add('clean'); allowed.baseSecondary.add('white'); allowed.title.add('none'); allowed.badge.add('member'); }
+  if (tracks >= 3) { allowed.theme.add('ice'); allowed.accent.add('gold'); allowed.finish.add('split'); allowed.emblem.add('diamond'); }
+  if (tracks >= 5) { allowed.theme.add('sunset'); allowed.accent.add('coral'); allowed.finish.add('gloss'); allowed.edge.add('double'); allowed.stage.add('grid'); allowed.stageTint.add('gold'); allowed.stripe.add('chevron'); allowed.emblem.add('flag'); allowed.title.add('contender'); allowed.nameFont.add('racing'); allowed.nameColor.add('white'); }
+  if (tracks >= 5) { allowed.theme.add('neon'); allowed.accent.add('pink'); allowed.plate.add('notch'); allowed.stage.add('horizon'); allowed.stage.add('dunes'); allowed.stageTint.add('red'); allowed.stripe.add('sunset'); allowed.stripe.add('split'); allowed.emblem2.add('star'); allowed.stageEffect.add('speed'); }
+  if (tracks >= 8) { allowed.theme.add('forest'); allowed.accent.add('violet'); allowed.finish.add('carbon'); allowed.plate.add('bar'); allowed.edge.add('dashed'); allowed.stage.add('night'); allowed.stageTint.add('pink'); allowed.emblem.add('flame'); allowed.emblem.add('twinStars'); allowed.emblem2.add('bolt'); allowed.title.add('trackGrinder'); }
+  if (tracks >= 12) { allowed.emblem3.add('chevron'); allowed.emblemBackdrop.add('disc'); allowed.stageEffect.add('spark'); allowed.nameSize.add('large'); allowed.nameFont.add('condensed'); allowed.stage.add('sunrise'); allowed.stageTint.add('orange'); allowed.theme.add('ember'); allowed.accent.add('ice'); allowed.stripe.add('scan'); allowed.emblem2.add('flag'); allowed.nameFont.add('serif'); }
+  if (tracks >= 16) { allowed.emblem3.add('wings'); allowed.emblemBackdrop.add('shield'); allowed.stageEffect.add('halos'); allowed.nameSize.add('compact'); allowed.nameWeight.add('bold'); allowed.nameFont.add('wide'); allowed.stageTint.add('violet'); allowed.theme.add('crimson'); }
+  if (playtimeMs >= 60 * 60 * 1000) { allowed.theme.add('mono'); allowed.nameFont.add('mono'); allowed.nameColor.add('lime'); }
+  if (playtimeMs >= 5 * 60 * 60 * 1000) { allowed.nameFont.add('rounded'); allowed.nameColor.add('ice'); }
+  if (extraTracks >= 1) { allowed.accent.add('orange'); allowed.stage.add('storm'); allowed.stageTint.add('mono'); allowed.stripe.add('grid'); allowed.stripe.add('circuit'); }
+  if (extraTracks >= 3) { allowed.stage.add('aurora'); allowed.stripe.add('blocks'); allowed.nameColor.add('rose'); }
+  if (Number(entry.pbCount||0) >= 10) { allowed.title.add('pbHunter'); allowed.nameColor.add('cyan'); allowed.nameColor.add('gold'); allowed.baseSecondary.add('cyan'); allowed.baseSecondary.add('gold'); }
+  if (Number(entry.pbCount||0) >= 25) { allowed.nameColor.add('coral'); allowed.nameColor.add('mint'); allowed.baseSecondary.add('coral'); allowed.baseSecondary.add('mint'); allowed.emblem2.add('diamond'); }
+  if (Number(entry.pbCount||0) >= 50) { allowed.nameColor.add('violet'); allowed.nameColor.add('aurora'); allowed.baseSecondary.add('violet'); allowed.baseSecondary.add('orange'); allowed.baseSecondary.add('ice'); allowed.emblem2.add('flame'); }
+  if (Number(entry.trackWins||0) >= 1) { allowed.emblemBackdrop.add('hex'); allowed.emblem2.add('crown'); allowed.emblem3.add('laurel'); }
+  if (Number(entry.trackWins||0) >= 5) { allowed.nameColor.add('sunset'); allowed.baseSecondary.add('ice'); }
+  if (podium) { allowed.theme.add('podium'); allowed.finish.add('horizon'); allowed.stage.add('podium'); allowed.stripe.add('gold'); allowed.emblem.add('crown'); allowed.title.add('podiumRegular'); }
+  if (betaTester) { allowed.theme.add('beta'); allowed.stripe.add('beta'); allowed.badge.add('betaTester'); allowed.title.add('betaRacer'); }
+  const serverUnlocks = new Set(Array.isArray(entry.cosmeticUnlocks) ? entry.cosmeticUnlocks : []);
+  for (const stage of BEAT_OWNER_STAGES) {
+    if (!serverUnlocks.has(stage.cosmeticId)) continue;
+    const [kind, id] = stage.cosmeticId.split(':');
+    if (allowed[kind] && PROFILE_COSMETIC_OPTIONS[kind]?.has(id)) allowed[kind].add(id);
+  }
+  return allowed.theme.has(value.theme) && allowed.accent.has(value.accent) && allowed.finish.has(value.finish) && allowed.plate.has(value.plate) && allowed.edge.has(value.edge) && allowed.stage.has(value.stage) && allowed.stageTint.has(value.stageTint) && allowed.stripe.has(value.stripe) && allowed.emblem.has(value.emblem) && allowed.emblem2.has(value.emblem2||'none') && allowed.emblem3.has(value.emblem3||'none') && allowed.emblemBackdrop.has(value.emblemBackdrop||'none') && allowed.stageEffect.has(value.stageEffect||'none') && allowed.nameFont.has(value.nameFont||'classic') && allowed.nameSize.has(value.nameSize||'normal') && allowed.nameWeight.has(value.nameWeight||'regular') && allowed.nameColor.has(value.nameColor||'default') && allowed.baseSecondary.has(value.baseSecondary||'auto') && allowed.title.has(value.title) && allowed.badge.has(value.badge);
+}
+function cosmeticEntitlement(entry={},beta=false){
+  const defaults=sanitizeProfileCosmetics({});
+  return {
+    ...Object.fromEntries(Object.entries(PROFILE_COSMETIC_OPTIONS).map(([kind,values])=>[kind,[...values].filter(value=>profileCosmeticsUnlocked({...defaults,[kind]:value},entry,beta))])),
+    serverIssued: {
+      version: SERVER_ACHIEVEMENT_VERSION,
+      cosmeticUnlocks: Array.isArray(entry.cosmeticUnlocks) ? entry.cosmeticUnlocks : [],
+      beta: entry.betaEntitlement || null,
+      achievements: entry.serverAchievements || null
+    }
+  };
+}
+
+function stableJson(value) {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
+  if (value && typeof value === 'object') return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(',')}}`;
+  return JSON.stringify(value);
+}
+
+const LEGACY_COMMUNITY_IDS = new Set(['5aafb733c264d51b09beedc7bd7eabb5e65bdded338980fcb14ae5ce36955572']);
+const OFFICIAL_IDS = new Set(["5803f9e963625804e3de3246d043dc7dde847aa32e991f7f7326b0453f1fa038","7eac4fee1111152cfba4d3737410264ca0f22c7f5a2211e79f0099589b8b48c0","148826aa16ffaa23dbc453b32cff05e025ddbce1773fc7733cc13d218926515a","93c7363dfea7fb09ca1d23b72cad5df43a30841d41c8ff25fb544c85bb03c7ae","7603aaeffa1989a649dfaa8e1804bed4481b49df233e377687d0669899566e52","c117823cf6788e3247b9ee63a0c091c07352bbe352c650a7790dc6718148c2fa","e4bcaca3a583bb0eb62a700a69d14e89c852f0c5bf740fca76e0519ebdfc9ab1","7239b17057127936907a805b0caa5d8c6f6c97eca9bdabf1a5312dce479629b7","99864b635d1891d22e17eb9267527a07a92c49c0f02893729fa2ded90e3ca0f9","a5341fe706097cff2a3812a3fc0d87399254557328351ae8e5c882700fc1a196","7d134c939df80c676a258266201beedd3b93572d5603f3ff4339ff8679803715","2fe4bd46b0075cc25fc770ce50adbb68447cf493c999635bb272d231811dd264","c20b4ee3cd517ca6cae7e43f047548757287fbd08ba81b97892a3ef520159a34","88647ea04145fbbbb19b55f1590e038fb0378acb2571110f02cb545cc46b0d57","2806030c503abb41a1a26fa9a570888be14296172bb273798ef0ad87a108a2ec","4697ea67b18c3f49b30a3d8884602115536650bc5435c88e3732e64d21a72d33","e5d084e06db4ab71196fea44efeceb23c8561266a78669c324a38f92581fe2db"]);
+const COMMUNITY_IDS = new Set(["fb769ac2ea77e8f19a21a9dd3071742f2342bd49c41e4748d7e8c7903d4f0778","387aab2d3400ebf74b5a780d15c911cdc695053b94be3e7ad23f6ae313b2471c","a680fa81e6a4b9dec06b4197833f0a96334a275faf387d495c9c674ffd6b8686","439f1c61263987365996667f99d65f899ec482dfe21c64edcd9a1b1ae5b4a0a9","dc7783fef2a5fbb7a2d75b9c6fdd6a9d600b833d47c6274374ea4388c707517a","f40d385d5e97e00a166a9a05d19789d8f2bf3621a8c1c8919c8bec41ab6347ab","d57a81355f36d5ef0bd2c063d251baf6d28401c275a8b3e3a62e0ae5071a2559","225fad12335dadc12b60bfa1b31369b1026d8a084fd4670583870fb3b71f7ec0","0338f449b9948f06c03ffc2ab3ab6cf551fd08a9f2c09a16156b93ef52dd4411","27c3384de80b1bed23f1ea15316abe62c8cca33e955805f23d461803f6dee8d4","d9bc51ec180bc46558e079c7949ba10b9ade52078c4c145f217a6a8543df2377","5159a8dac6a1f397407a7b5233ad570613531f6609f7dc897490c28c9f2c7a4e","1783b7b6c30e7fddf7ffb7c8a4a8a3b65c1ef6ec317d908d6eb05e6c905a57f6","ddfe00045807e2786552d1e31e1363384c365487180f65d4eff1aa41e334a8e8","4058e3616fbd79b848e70037adde4f12b4413011050aaf1c9d875cdbe2e33d68","2ec74a179c8aba94354e3c6dee2a2920bedd7d84adf4d0a691f4a7453afdb1e8","76e1920a3ca015033a0b21156848def2c248c95d97ccf4aab2312a0302beefe0","81cede50724b1ee0c2ebcef973c37d620680766bd75771c5ae2728b8732c7a66","76269faf38e8726671c05b2b9044f7aa3e66c4313cb4fa5d0fbb23fc8524fe9e","151f12fd3ebc8942f7aaef669024a0fc149bc220f370753efe14d9371acc9c87","f9283607ecec9c89583205cf08715c8f504cc271eec51209bb6fc0cc37ddc915","64bf7efaed2a47dfb03a6b152e3aef637ac251b68a725a28352f3376ff1384d7","520c4f511821ced30b99bceafbb02e6b7531e867126b0756e68d5e157691ef2f","315c9e95c567cce4feca78f5ad6e8d08d0a22dac0d56061af567b43eea3d4fa8","a8913b96daceb5b615fe45aad2bb104e04eb7db140242934657111e1d1f55b89","66f43b2d2a17f3cee05a127040ca409795058510bd3d1ac7eee224512ec532f5","fcbba504800751b0fb404a7cd1c9591befdf688ad5451ab2bc1f3651590cc5fc","9ba44e8eafd0158e7e1f63e7d609db308c53f337b79e86bd0b630225451eef34","b3889905b6df31cbe302e58e975988385607771605bf6e8e8e8e31b3d2dc8aa1","3cd94552b12fb3a8ac45ca3a5e21a882b71b31c788989b396ab382afc69414ac","3125a5f98c3b43cf1e2604e25e8504bffd714ea5843200fa8ddf0b4c58842f16","a2137c20c03ad1848098b47f70417cc0b0bf169010c825dc6fb82f37066808a0","d03b9f7c10c95f40eed389458be51bdf2437febd5673d028da134e59e503c10b","f68a709a296a60f6e6f73a2da670f95aca424be0f2fda5d6b608ece71f339b7c","a1f41dc9e884d5d4b1b6025158d70f0934dc4d892076e6c4b32dc3f3846b882e","b430aad5e481caa4588e30f46352b876b62f1ba0cf7730a15efd026c91a8f32e","95d8f7cbe11053dbdfaeeb2f3c3d8f53f0d45fb6abeb411a74949a4cf52f427f","409f26b9faf55bd0ad748177bf85ebdcfc0ddd572190e7f464f38b4a60587b7e","c1a2c5aef1029d7bbf946f08cd087dd25bad6e019a41694a48a0024c27627dc8","9e53d03f4efe86834c49ce202b528d769d9aa7a6e17732d0fc56440463956a1b","b77ec520a40c4b38d3d7d653b747b1f8627c98709096568db22cd1bfec534ba6","9f827673c4132828009237a03e12ead73eae87504b4708a79c6cc0858212262d","9acd9aef650c4ccc41bb01f72ed44dfaa13f2e4404d2e3466f09cc1adcd9a9c0","62d9989187e4508f7866e7b30aa187ddbee2595df21ff5988d7fec3589f9048d","b36162623435dc90a54f57590d2baa9f2d67a51cb12c393531f4b6d5e5528ebf","74ae56c0f278a19f3b69f3903198c7b9de09981133205856b53bf6bdf8db4211","9f4597449906aa0c2baf9a4737406385c829533e64e9e972b25b4189f4593a54","28b658c7d10eb8b5de6f465e034e87e40f70b37e4534d8c37d1f2af06b5a36d7","470af92ed4c0a6f62028d7dea4dbc7765d1db16a3698d6a0c271be582a20a7c6","a6b990137e404c9ef2cb4399c463acbed8ebfa3bb82ab5315027118604c4ec03","35fe02bf18312713c05528f0b7b8fd15c83dac50bcdcbd373040a16e8bfcc138","18b69f54f119cfb2867abded9a1574f0799a750ef94aa744d9ec8ef6b4d565ae","5ea46b3ae268a0196dcc59dabe88926400b56e29814658bfed06a284f837cefd","ab8e1c13ddf394102be1cb04adcff8411127f1e7140a216d27a94fc19b7d0428","86335d78d1a06d3dc81d80f84b8ac2e8f6359e9a206826e2c36f7d3f4351bea4","a510bbd3341f2992a12db8a3780cb8943b6087538345d58d16602d6129742df0","8cf99166f12cbb56a9df4e022a0e9b8c78973adb929dbf1e265ebb9f99f01163","33d99aad2ad5cef45b1d3afb8735c5229cfd98ac7cc24916e0da7283f7a545ce","5c00f2c90bcf8230183484225d1a417e45b0ad310379acfafd4c8f1dc7345dd7","009fad7fcc215022c6b2dbb2b6de622f07cd88d4930b8e2b6a6b74c1f5de9e44","1ad53694ee3e96aea27afa7b64d5c29d115de88a17b69cf3fe3f5609c52b040b","2ed125037366052871fbb97da6e1bda49cfeb471f6b9c8fa799d520bdb3683e2","f79b1d863d50f9e3b4489988698065c6d775ff3ec90bf91085bad05ad5ec8316","27429a1d1bf05770851e3919af70f47c6cd7a269c67032b084fb4345f6c271ce","f5c327cf09b90e4de8c3c1f9c910dbb7988cf15485d2e4beec3cc03aef408c5c","7451c2128cb96bc28195cf0ca0f83a46c3b55d78d434232d9de085dd1cf0ab36","af6ef508e1f6e47a462a6998b950ef535d1e8a38fe67ead891bf5f2de1346f43","089f2aebcfe4f24d8dda3a8a630172d2bd13793e78c5247adfaa760743a377e1","5e40f730509204c77e9c610839ed43addddbe0f8aa007168447f7fde38583905","191737cc4d1b74949e992d99371e5c7f5fc446a716af571c6e5449b23e9f4558","39bd3fa6c3c769b298c219aee7561af35a6d856bfee14b46b0b48499e7a57ed5"]);
+let firebaseJwks = { keys: [], expiresAt: 0 };
+let firebaseJwksRefresh = null;
+let firebaseJwksRefreshAfter = 0;
+let serviceToken = { value: '', expiresAt: 0 };
+const publicSnapshotLoads = new Map();
+const publicMissGuards = new WeakMap();
+function publicMissGuard(env){const owner=env.__FIRESTORE_ROOT_ENV||env;let guard=publicMissGuards.get(owner);if(!guard)publicMissGuards.set(owner,guard=createPublicMissGuard());return guard;}
+const unrankedBoardLoads = new WeakMap();
+
+function allowedOrigins(env) {
+  return new Set(String(env.ALLOWED_ORIGINS || '').split(',').map((value) => value.trim()).filter(Boolean));
+}
+
+function responseHeaders(origin, env) {
+  const headers = new Headers({
+    'Cache-Control': 'no-store, max-age=0',
+    'Content-Type': 'application/json; charset=utf-8',
+    'Referrer-Policy': 'no-referrer',
+    'X-Content-Type-Options': 'nosniff'
+  });
+  if (allowedOrigins(env).has(origin)) {
+    headers.set('Access-Control-Allow-Origin', origin);
+    headers.set('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Admin-Token, X-PolyTrack-Revision');
+    headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    headers.set('Access-Control-Max-Age', '600');
+    headers.set('Vary', 'Origin');
+  }
+  return headers;
+}
+
+function json(origin, env, status, body, cacheControl = '') {
+  const headers = responseHeaders(origin, env);
+  if (cacheControl) headers.set('Cache-Control', cacheControl);
+  return new Response(JSON.stringify(body), { status, headers });
+}
+
+function rateLimited(origin, env) {
+  const response = json(origin, env, 429, {error: 'rate_limited', retryAfterSeconds: 60});
+  response.headers.set('Retry-After', '60');
+  return response;
+}
+
+async function userRateLimitResponse(origin, env, uid) {
+  try {
+    const limiter = env.PB_NOTIFY_RATE_LIMITER;
+    if (typeof limiter?.limit === 'function') {
+      const result = await limiter.limit({key: uid});
+      if (result?.success === true) return null;
+      if (result?.success === false) return rateLimited(origin, env);
+    }
+  } catch {}
+  const response = json(origin, env, 503, {error:'user_limiter_unavailable',retryAfterSeconds:60});
+  response.headers.set('Retry-After','60');
+  return response;
+}
+
+function base64UrlBytes(value) {
+  const normalized = String(value || '').replace(/-/g, '+').replace(/_/g, '/');
+  const binary = atob(normalized + '='.repeat((4 - normalized.length % 4) % 4));
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+}
+
+function base64Url(value) {
+  const bytes = typeof value === 'string' ? new TextEncoder().encode(value) : value;
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function base64UrlJson(value) {
+  return JSON.parse(new TextDecoder().decode(base64UrlBytes(value)));
+}
+
+async function getFirebaseJwk(kid) {
+  const now = Date.now();
+  const warmKey = firebaseJwks.expiresAt > now && firebaseJwks.keys.find(key => key.kid === kid);
+  if (warmKey) return warmKey;
+  if (!firebaseJwksRefresh) {
+    if (now < firebaseJwksRefreshAfter) throw new Error(firebaseJwks.expiresAt > now ? 'AUTH_KEY_UNKNOWN' : 'AUTH_KEYS_UNAVAILABLE');
+    // One refresh budget per isolate, not per untrusted kid or shared-school IP.
+    firebaseJwksRefreshAfter = now + FIREBASE_JWKS_REFRESH_COOLDOWN_MS;
+    firebaseJwksRefresh = Promise.resolve().then(async () => {
+      const response = await fetch(FIREBASE_JWKS_URL, {
+        headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(8000)
+      });
+      if (!response.ok) throw new Error('AUTH_KEYS_UNAVAILABLE');
+      const payload = await response.json();
+      const keys = Array.isArray(payload?.keys) ? payload.keys.filter(key => key?.kty === 'RSA' && typeof key.kid === 'string' && key.kid.length > 0 && key.kid.length <= 256) : [];
+      if (!keys.length) throw new Error('AUTH_KEYS_INVALID');
+      const maxAge = Math.max(300, Math.min(21600, Number((response.headers.get('Cache-Control') || '').match(/max-age=(\d+)/i)?.[1]) || 3600));
+      firebaseJwks = { keys, expiresAt: Date.now() + maxAge * 1000 };
+    }).finally(() => { firebaseJwksRefresh = null; });
+  }
+  await firebaseJwksRefresh;
+  const key = firebaseJwks.keys.find((candidate) => candidate.kid === kid);
+  if (!key) throw new Error('AUTH_KEY_UNKNOWN');
+  return key;
+}
+
+export async function verifyFirebaseUser(request, env) {
+  if (env.__TEST_UID) return String(env.__TEST_UID);
+  const match = (request.headers.get('Authorization') || '').match(/^Bearer\s+([^\s]+)$/i);
+  if (!match) throw new Error('AUTH_REQUIRED');
+  const parts = match[1].split('.');
+  if (parts.length !== 3) throw new Error('AUTH_INVALID');
+  const header = base64UrlJson(parts[0]);
+  const payload = base64UrlJson(parts[1]);
+  if (header.alg !== 'RS256' || typeof header.kid !== 'string' || !header.kid || header.kid.length > 256) throw new Error('AUTH_INVALID');
+  const projectId = String(env.FIREBASE_PROJECT_ID || PROJECT_ID);
+  const now = Math.floor(Date.now() / 1000);
+  // Reject malformed claims before key lookup; signature verification still follows.
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload) ||
+      payload.aud !== projectId || payload.iss !== `https://securetoken.google.com/${projectId}` ||
+      typeof payload.sub !== 'string' || !payload.sub || payload.sub.length > 128 ||
+      !Number.isSafeInteger(payload.exp) || !Number.isSafeInteger(payload.iat) ||
+      payload.exp <= now - 30 || payload.iat < 0 || payload.iat > now + 30) throw new Error('AUTH_INVALID');
+  const jwk = await getFirebaseJwk(header.kid);
+  const key = await crypto.subtle.importKey('jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
+  const valid = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, base64UrlBytes(parts[2]), new TextEncoder().encode(`${parts[0]}.${parts[1]}`));
+  const verifiedAt = Math.floor(Date.now() / 1000);
+  if (!valid || payload.exp <= verifiedAt - 30 || payload.iat > verifiedAt + 30) throw new Error('AUTH_INVALID');
+  return payload.sub;
+}
+
+function pemToBytes(value) {
+  const normalized = String(value || '').replace(/\\n/g, '\n').replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\s/g, '');
+  if (!normalized) throw new Error('SERVICE_ACCOUNT_MISSING');
+  const binary = atob(normalized);
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+}
+
+async function serviceAccessToken(env) {
+  if (env.__TEST_ACCESS_TOKEN) return String(env.__TEST_ACCESS_TOKEN);
+  if (serviceToken.value && serviceToken.expiresAt > Date.now() + 60000) return serviceToken.value;
+  const now = Math.floor(Date.now() / 1000);
+  const header = base64Url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+  const claim = base64Url(JSON.stringify({
+    iss: String(env.FIREBASE_CLIENT_EMAIL || ''),
+    scope: 'https://www.googleapis.com/auth/datastore',
+    aud: FIREBASE_TOKEN_URL,
+    iat: now,
+    exp: now + 3600
+  }));
+  const key = await crypto.subtle.importKey('pkcs8', pemToBytes(env.FIREBASE_PRIVATE_KEY), { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign']);
+  const signature = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, new TextEncoder().encode(`${header}.${claim}`));
+  const assertion = `${header}.${claim}.${base64Url(new Uint8Array(signature))}`;
+  const response = await fetch(FIREBASE_TOKEN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion })
+  });
+  if (!response.ok) throw new Error('SERVICE_AUTH_FAILED');
+  const payload = await response.json();
+  serviceToken = { value: String(payload.access_token || ''), expiresAt: Date.now() + Math.max(300, Number(payload.expires_in || 3600) - 60) * 1000 };
+  if (!serviceToken.value) throw new Error('SERVICE_AUTH_INVALID');
+  return serviceToken.value;
+}
+
+function documentBase(env) {
+  const project = encodeURIComponent(String(env.FIREBASE_PROJECT_ID || PROJECT_ID));
+  return `https://firestore.googleapis.com/v1/projects/${project}/databases/(default)/documents`;
+}
+
+function encodeValue(value) {
+  if (value === null || value === undefined) return { nullValue: null };
+  if (Array.isArray(value)) return { arrayValue: { values: value.map(encodeValue) } };
+  if (typeof value === 'boolean') return { booleanValue: value };
+  if (typeof value === 'number') return Number.isInteger(value) ? { integerValue: String(value) } : { doubleValue: value };
+  if (typeof value === 'object' && typeof value.__firestoreTimestamp==='string') return {timestampValue:value.__firestoreTimestamp};
+  if (typeof value === 'object') return { mapValue: { fields: encodeFields(value) } };
+  return { stringValue: String(value) };
+}
+
+function encodeFields(value) {
+  return Object.fromEntries(Object.entries(value || {}).filter(([, field]) => field !== undefined).map(([key, field]) => [key, encodeValue(field)]));
+}
+
+function decodeValue(value) {
+  if (!value || typeof value !== 'object') return null;
+  if ('nullValue' in value) return null;
+  if ('stringValue' in value) return value.stringValue;
+  if ('integerValue' in value) return Number(value.integerValue);
+  if ('doubleValue' in value) return Number(value.doubleValue);
+  if ('booleanValue' in value) return Boolean(value.booleanValue);
+  if ('timestampValue' in value) return {__firestoreTimestamp:value.timestampValue};
+  if ('arrayValue' in value) return (value.arrayValue.values || []).map(decodeValue);
+  if ('mapValue' in value) return decodeFields(value.mapValue.fields || {});
+  return null;
+}
+
+function decodeFields(fields) {
+  return Object.fromEntries(Object.entries(fields || {}).map(([key, value]) => [key, decodeValue(value)]));
+}
+
+async function firestoreRequest(env, path, init = {}) {
+  const audit=env.__FIRESTORE_READ_AUDIT;
+  const quota=env.__FIRESTORE_QUOTA_STATE || audit;
+  // Catch-and-continue maintenance must not spend more calls after quota exhaustion.
+  if (quota?.quotaStopped) throw new Error('FIRESTORE_429');
+  takeOverallRequest(env);
+  if (!audit) return loadFirestoreRequest(env,path,init);
+  audit.operationAttempts = (audit.operationAttempts || 0) + 1;
+  let transported = false,payload,failed=false;
+  const started=performance.now();
+  try {
+    const value=await loadFirestoreRequest(env,path,init,() => {
+      transported = true;
+      audit.httpRequests++;
+    });
+    recordFirestoreReads(audit,path,init,value);
+    payload=value;
+    return value;
+  } catch(error) {
+    failed=true;
+    audit.failedOperations = (audit.failedOperations || 0) + 1;
+    if (transported) {
+      audit.failedRequests++;
+      recordFirestoreFailure(audit,path,init);
+    } else audit.preTransportFailures = (audit.preTransportFailures || 0) + 1;
+    if (error?.status === 429 || error?.message === 'FIRESTORE_429') quota.quotaStopped = true;
+    throw error;
+  } finally {
+    if(transported&&env.FIRESTORE_OPERATION_LOGGING==='true'){
+      try{console.log('Ranked Firestore operation',JSON.stringify({auditId:env.__FIRESTORE_AUDIT_ID,
+        scope:env.__FIRESTORE_AUDIT_SCOPE||'unknown',durationMs:Math.max(0,Math.round(performance.now()-started)),
+        ...describeFirestoreOperation({path,init,payload,failed}),billingEstimateOnly:true}));}catch{}
+    }
+  }
+}
+
+function takeOverallRequest(env) {
+  const budget = env.__OVERALL_REQUEST_BUDGET;
+  if (!budget) return;
+  if (budget.used >= budget.limit) throw Error('OVERALL_REQUEST_BUDGET_EXHAUSTED');
+  budget.used++;
+}
+
+async function loadFirestoreRequest(env, path, init = {}, onTransport = () => {}) {
+  if (typeof env.__TEST_FIRESTORE === 'function') {
+    onTransport();
+    return env.__TEST_FIRESTORE(path, init);
+  }
+  const token = await serviceAccessToken(env);
+  const url = `${documentBase(env)}${path}`;
+  const fetchInit = {
+    ...init,
+    headers: { Accept: 'application/json', Authorization: `Bearer ${token}`, ...(init.headers || {}) }
+  };
+  onTransport();
+  const response = await fetch(url, fetchInit);
+  // Only a document GET can represent absence. A missing database/commit/query
+  // endpoint must fail, never acknowledge a write or advance an empty cursor.
+  if (response.status === 404 && path.startsWith('/') && (init.method || 'GET') === 'GET') return null;
+  if (!response.ok) throw new Error(`FIRESTORE_${response.status}`);
+  if (response.status === 204) return null;
+  return response.json();
+}
+
+async function readDocument(env, collection, id, readTime = '') {
+  const payload = await firestoreRequest(env, `/${encodeURIComponent(collection)}/${encodeURIComponent(id)}${readTime ? '?readTime='+encodeURIComponent(readTime) : ''}`);
+  return payload ? { id, data: decodeFields(payload.fields || {}), updateTime: payload.updateTime || '' } : null;
+}
+
+async function readOverallSnapshot(env) {
+  const document = await readDocument(env, COLLECTIONS.overall, 'main');
+  if(!document)return null;
+  const data=await unpackOverallDetails(document.data);
+  if(data.pagination)data.entries=await loadPublicationEntries(data,'overall','main',(c,id)=>readDocument(env,c,id));
+  return {...document,data};
+}
+
+async function prepareOverallSnapshotDocuments(env, prior, data) {
+  const allEntries = data.entries || [];
+  const paged = allEntries.length > OVERALL_LIMIT ? await preparePublicationPages('overall','main',allEntries,{sourceRevision:data.sourceRevision||0,sourceComplete:data.sourceComplete??(data.complete===true)}) : null;
+  if (paged) await stagePublication(env,paged.documents);
+  const compacted = await compactOverallSnapshot({...data,entries:allEntries.slice(0,OVERALL_LIMIT).map(({resultSamples,...entry})=>entry),
+    ...(paged ? {pagination:paged.pagination,sourceComplete:data.sourceComplete===true||data.complete===true,complete:false} : {})});
+  if (plannerDocumentBytes(compacted) >= PLANNER_DOCUMENT_BUDGET) throw Error('OVERALL_DOCUMENT_CAP');
+  return [...(paged?[{collection:PUBLIC_MANIFEST_COLLECTION,id:publicationManifestId('overall','main',paged.pagination.generation),data:{...paged.pagination,sourceRevision:data.sourceRevision||0},unconditional:true}]:[]),{collection:COLLECTIONS.overall,id:'main',prior,data:compacted}];
+}
+async function writeOverallSnapshot(env,prior,data){
+  const documents=await prepareOverallSnapshotDocuments(env,prior,data);
+  if(documents.length===1&&!prior?.updateTime){
+    const result=await writeDocument(env,COLLECTIONS.overall,'main',documents[0].data);
+    if(result!=null)clearPublicResponseMemory(env);
+    return result;
+  }
+  return commitDocuments(env,documents);
+}
+
+async function readDocumentsForCollections(env, requests, readTime = '') {
+  const requested = requests.flatMap(([collection, ids]) => {
+    if (!/^[A-Za-z0-9_.-]+$/.test(collection)) throw new Error('INVALID_DOCUMENT_COLLECTION');
+    const pattern = [VERIFICATION_COLLECTION,EXTRA_VERIFICATION_COLLECTION].includes(collection) ? /^[A-Za-z0-9_.:-]{1,209}$/ : collection === COLLECTIONS.raceResults
+      ? /^[A-Za-z0-9_.:-]{1,128}_[A-Za-z0-9_-]{1,80}$/ : /^[A-Za-z0-9_.:-]{1,128}$/;
+    return [...new Set(ids)].map(id => {
+      if (typeof id !== 'string' || id.match(pattern)?.[0] !== id || id === '.' || id === '..') throw new Error('INVALID_DOCUMENT_ID');
+      return {collection, id};
+    });
+  });
+  const output = new Map(requests.map(([collection]) => [collection, new Map()]));
+  if (!requested.length) return output;
+  const base = documentBase(env).replace('https://firestore.googleapis.com/v1/', '');
+  const payload = await firestoreRequest(env, ':batchGet', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({documents: requested.map(({collection, id}) => `${base}/${collection}/${id}`),...(readTime?{readTime}:{})})
+  });
+  for (const item of Array.isArray(payload) ? payload : []) {
+    const document = item?.found;
+    if (!document) continue;
+    const segments = String(document.name || '').split('/');
+    const collection = decodeURIComponent(segments.at(-2) || ''), id = decodeURIComponent(segments.at(-1) || '');
+    output.get(collection)?.set(id, {id, data: decodeFields(document.fields || {}), updateTime: document.updateTime || ''});
+  }
+  return output;
+}
+
+async function writeDocument(env, collection, id, data, updateTime = '') {
+  if(updateTime){
+    const result=await commitDocuments(env,[{collection,id,data,prior:{updateTime}}]);
+    return {updateTime:result?.writeResults?.[0]?.updateTime||''};
+  }
+  return firestoreRequest(env, '/' + encodeURIComponent(collection) + '/' + encodeURIComponent(id), {
+    method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields:encodeFields(data)})
+  });
+}
+
+// Snapshot and dirty metadata must commit together; conflicts are retried by the caller/job.
+async function commitDocuments(env, documents) {
+  const result = await firestoreRequest(env, ':commit', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({writes: documents.map(({collection,id,data,prior,unconditional=false,remove=false}) => ({
+      [remove ? 'delete' : 'update']: remove
+        ? documentBase(env).replace('https://firestore.googleapis.com/v1/','') + '/' + collection + '/' + id
+        : {name: documentBase(env).replace('https://firestore.googleapis.com/v1/','') + '/' + collection + '/' + id, fields: encodeFields(data)},
+      ...(unconditional ? {} : {currentDocument: prior ? {updateTime: prior.updateTime} : {exists: false}})
+    }))})
+  });
+  if (result != null && documents.some(({collection}) => [COLLECTIONS.track, COLLECTIONS.overall, PUBLIC_PAGE_COLLECTION, PUBLIC_MANIFEST_COLLECTION].includes(collection))) {
+    clearPublicResponseMemory(env);
+  }
+  return result;
+}
+
+export async function migrateExtraVerificationQueues(env, ids = EXTRA_TRACK_IDS) {
+  const trackIds = [...ids].sort();
+  if (trackIds.some(id => !/^[a-f0-9]{64}$/.test(id))) throw Error('INVALID_EXTRA_TRACK_ID');
+  const jobId = 'extra_verification_queue_migration_v1';
+  const prior = await readDocument(env, COLLECTIONS.jobs, jobId);
+  const registry = trackIds.join(',');
+  const cursor = prior?.data?.registry === registry ? Number(prior.data.cursor || 0) : 0;
+  if (!Number.isSafeInteger(cursor) || cursor < 0 || cursor > trackIds.length) throw Error('INVALID_EXTRA_QUEUE_CURSOR');
+  if (cursor === trackIds.length) return {moved: 0, processed: cursor, complete: true};
+  const writes = [];
+  let moved = 0;
+  const batch = trackIds.slice(cursor, cursor + 4);
+  for (const trackId of batch) {
+    const migration = await legacyExtraQueueWrites(env, trackId);
+    if (migration.length) { writes.push(...migration); moved++; }
+  }
+  const processed = cursor + batch.length;
+  writes.push({collection: COLLECTIONS.jobs, id: jobId, prior,
+    data: {registry, cursor: processed, complete: processed === trackIds.length, updatedAt: Date.now()}});
+  await commitDocuments(env, writes);
+  return {moved, processed, complete: processed === trackIds.length};
+}
+
+async function legacyExtraQueueWrites(env, trackId) {
+  const core = await readDocument(env, VERIFICATION_COLLECTION, trackId);
+  if (!core) return [];
+  if (core.data.trackId !== trackId) throw Error('EXTRA_QUEUE_ID_MISMATCH');
+  const extra = await readDocument(env, EXTRA_VERIFICATION_COLLECTION, trackId);
+  const slots = {...core.data.slots};
+  for (const [accountId, slot] of Object.entries(extra?.data?.slots || {})) {
+    if (Object.hasOwn(slots, accountId)) throw Error('EXTRA_QUEUE_SLOT_CONFLICT');
+    slots[accountId] = slot;
+  }
+  return [
+    {collection: EXTRA_VERIFICATION_COLLECTION, id: trackId, prior: extra,
+      data: {...core.data, ...extra?.data, trackId, slots, ...verificationSchedule(slots), updatedAt: Date.now()}},
+    {collection: VERIFICATION_COLLECTION, id: trackId, prior: core, remove: true}
+  ];
+}
+
+export async function migrateCapacityVerificationQueues(env) {
+  for(const collection of [VERIFICATION_COLLECTION,EXTRA_VERIFICATION_COLLECTION]){
+    const roots=await runQuery(env,collection,{field:'migrationComplete',value:false},1);
+    if(!roots.length)continue;
+    const root=roots[0],trackId=root.data.trackId;
+    if(root.id!==trackId||root.data.storageVersion!==2)throw Error('INVALID_VERIFICATION_MIGRATION_ROOT');
+    const next=await migrateVerificationChunk({trackId,collection,root,read:(c,id)=>readDocument(env,c,id),readMany:async(c,ids)=>(await readDocumentsForCollections(env,[[c,ids]])).get(c),commit:w=>commitDocuments(env,w)});
+    return {moved:true,remaining:Object.keys(next?.data?.slots||{}).length};
+  }
+  return {moved:false};
+}
+async function requireExtraQueueMigration(env, trackId) {
+  if (verificationCollectionForTrack(trackId) !== EXTRA_VERIFICATION_COLLECTION) return;
+  const marker = await readDocument(env, COLLECTIONS.jobs, 'extra_verification_queue_migration_v1');
+  if (marker?.data?.complete !== true || marker.data.registry !== [...EXTRA_TRACK_IDS].sort().join(',')) {
+    const migration = await legacyExtraQueueWrites(env, trackId);
+    if (migration.length) await commitDocuments(env, migration);
+  }
+}
+
+async function runQuery(env, collection, where = null, limit = 500) {
+  const structuredQuery = { from: [{ collectionId: collection }], limit };
+  if (where) structuredQuery.where = { fieldFilter: { field: { fieldPath: where.field }, op: where.op || 'EQUAL', value: encodeValue(where.value) } };
+  const payload = await firestoreRequest(env, ':runQuery', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ structuredQuery })
+  });
+  return (Array.isArray(payload) ? payload : []).flatMap((item) => item.document ? [{
+    id: decodeURIComponent(String(item.document.name || '').split('/').pop()),
+    data: decodeFields(item.document.fields || {}),
+    updateTime: item.document.updateTime || ''
+  }] : []);
+}
+
+async function profileTrackPage(env,accountId,after=''){
+  const reference=id=>documentBase(env).replace('https://firestore.googleapis.com/v1/','')+'/'+COLLECTIONS.raceResults+'/'+id;
+  const structuredQuery={from:[{collectionId:COLLECTIONS.raceResults}],limit:100,
+    select:{fields:[{fieldPath:'trackId'}]},
+    where:{fieldFilter:{field:{fieldPath:'accountId'},op:'EQUAL',value:encodeValue(accountId)}},
+    orderBy:[{field:{fieldPath:'__name__'},direction:'ASCENDING'}],
+    ...(after?{startAt:{before:false,values:[{referenceValue:reference(after)}]}}:{})};
+  const payload=await firestoreRequest(env,':runQuery',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({structuredQuery})});
+  if(!Array.isArray(payload)||payload.some(item=>!item||typeof item!=='object'||item.error))throw Error('PROFILE_DISCOVERY_PAGE_INVALID');
+  const rows=payload.flatMap(item=>item.document?[item.document]:[]);
+  if(rows.length>100)throw Error('PROFILE_DISCOVERY_PAGE_INVALID');
+  let cursor=after;
+  const tracks=[];
+  for(const row of rows){
+    const id=String(row.name||'').split('/').pop();
+    const trackId=safeText(decodeFields(row.fields||{}).trackId,80);
+    if(!id||id<=cursor||row.name!==reference(id)||!id.startsWith(accountId+'_'))throw Error('PROFILE_DISCOVERY_CURSOR_INVALID');
+    cursor=id;
+    if(/^[A-Za-z0-9_-]{1,80}$/.test(trackId))tracks.push(trackId);
+  }
+  return {tracks:[...new Set(tracks)],cursor,complete:rows.length<100};
+}
+
+async function runChangedResultsQuery(env, timestamp, limit, afterId = '', legacy = false) {
+  const reference = id => ({referenceValue:documentBase(env).replace('https://firestore.googleapis.com/v1/','')+'/'+COLLECTIONS.raceResults+'/'+id});
+  const structuredQuery = {
+    from:[{collectionId:COLLECTIONS.raceResults}], limit,
+    ...(legacy ? {} : {where:{fieldFilter:{field:{fieldPath:'ingestedAt'},op:'GREATER_THAN_OR_EQUAL',value:{timestampValue:timestamp}}}}),
+    orderBy: legacy ? [{field:{fieldPath:'__name__'},direction:'ASCENDING'}] : [{field:{fieldPath:'ingestedAt'},direction:'ASCENDING'},{field:{fieldPath:'__name__'},direction:'ASCENDING'}],
+    ...(afterId ? {startAt:{before:false,values:legacy?[reference(afterId)]:[{timestampValue:timestamp},reference(afterId)]}} : {})
+  };
+  const payload=await firestoreRequest(env,':runQuery',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({structuredQuery})});
+  return (Array.isArray(payload)?payload:[]).flatMap(item=>item.document?[{id:decodeURIComponent(item.document.name.split('/').pop()),data:decodeFields(item.document.fields||{}),ingestedAt:item.document.fields?.ingestedAt?.timestampValue||'',updateTime:item.document.updateTime||''}]:[]);
+}
+
+function safeText(value, max) {
+  return String(value || '').replace(/[<>\u0000-\u001f]/g, '').trim().slice(0, max);
+}
+
+function raceTime(row) {
+  const time = Math.round(Number(row?.timeMs || 0));
+  return Number.isFinite(time) && time > 0 && time <= 36000000 ? time : 0;
+}
+
+function structurallyValidResult(row, expectedTrackId = '') {
+  const trackId = safeText(row?.trackId, 80);
+  const accountId = safeText(row?.accountId || row?.userId, 128);
+  const frames = Math.round(Number(row?.raceTimeFrames || row?.frames || 0));
+  const replay = typeof row?.replay === 'string' ? row.replay : '';
+  const replayHash = safeText(row?.replayHash, 128);
+  return Boolean(
+    accountId &&
+    trackId &&
+    (!expectedTrackId || trackId === expectedTrackId) &&
+    raceTime(row) > 0 &&
+    Number.isSafeInteger(frames) && frames > 0 && frames <= 4000000 &&
+    replay.length > 0 && replay.length < MAX_REPLAY_LENGTH &&
+    (!replayHash || /^[0-9a-f]{32,128}$/i.test(replayHash))
+  );
+}
+
+async function replayIntegrityValid(row) {
+  if (!structurallyValidResult(row)) return false;
+  const expected = safeText(row?.replayHash, 128).toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(expected)) return false;
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(row.replay || '')));
+  const actual = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+  return actual === expected;
+}
+
+function trackType(trackId) {
+  return trackId === SPECIAL_ROLLING_HILLS_TRACK_ID ? 'permanent' :
+    OFFICIAL_IDS.has(trackId) ? 'official' : (COMMUNITY_IDS.has(trackId) || LEGACY_COMMUNITY_IDS.has(trackId)) ? 'community' : 'custom';
+}
+
+function median(values, fallback = 0) {
+  const clean = values.map(Number).filter(Number.isFinite).sort((a, b) => a - b);
+  if (!clean.length) return fallback;
+  const middle = Math.floor(clean.length / 2);
+  return clean.length % 2 ? clean[middle] : (clean[middle - 1] + clean[middle]) / 2;
+}
+
+function competition(entries) {
+  const times = entries.map((entry) => raceTime(entry)).filter(Boolean).sort((a, b) => a - b);
+  if (times.length < 3) return { relativeGap: 0, boost: 1 };
+  const middle = median(times, 1);
+  const gaps = times.slice(1).map((time, index) => Math.min(0.25, (time - times[index]) / Math.max(1, middle)));
+  const relativeGap = median(gaps, 0);
+  return { relativeGap, boost: 0.9 + 0.2 / (1 + 8 * relativeGap) };
+}
+
+export function trackWeightParts(trackId, fieldSize, competitionBoost = 1) {
+  const type = EXTRA_TRACK_IDS.has(trackId) ? 'extra' : trackType(trackId);
+  const field = Math.max(0, Number(fieldSize || 0));
+  const base = type === 'official' || type === 'permanent' ? 1.6 : type === 'community' ? 1 : 0.6;
+  const popularity = field < 2 ? 0 : 0.56 * Math.log2(field) * (field - 1) / (field + 8);
+  const competitionFactor = Math.max(0.85, Math.min(1.15, Number(competitionBoost || 1)));
+  const weight = base * popularity * competitionFactor;
+  return { type, field, base, popularity, competition: competitionFactor, finalWeight: weight };
+}
+
+function extraWeightCap(boards) {
+  let strongest = 0;
+  for (const board of boards) {
+    if (EXTRA_TRACK_IDS.has(board?.trackId)) continue;
+    for (const entry of Array.isArray(board?.entries) ? board.entries : []) {
+      if (entry.integrityVerified !== true || entry.runVerified !== true) continue;
+      const weight = Number(entry.weight || 0);
+      if (Number.isFinite(weight) && weight > strongest) strongest = weight;
+    }
+  }
+  return strongest > 0 ? strongest / 5 : 0.2;
+}
+
+async function runOverallBoardPage(env, afterName = '', limit = OVERALL_BOARD_PAGE_SIZE) {
+  const structuredQuery = {
+    from: [{collectionId: COLLECTIONS.track}], limit,
+    orderBy: [{field: {fieldPath: '__name__'}, direction: 'ASCENDING'}],
+    ...(afterName ? {startAt: {before: false, values: [{referenceValue: afterName}]}} : {})
+  };
+  const payload = await firestoreRequest(env, ':runQuery', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({structuredQuery})
+  });
+  return (Array.isArray(payload) ? payload : []).flatMap(item => item.document ? [{
+    name: item.document.name,
+    id: item.document.name.split('/').at(-1),
+    updateTime: item.document.updateTime || '',
+    data: decodeFields(item.document.fields || {})
+  }] : []);
+}
+
+async function scanOverallSourceDocuments(env, request) {
+  const documents = [];
+  let afterName = '';
+  while (documents.length < OVERALL_BOARD_LIMIT) {
+    const page = await request(() => runOverallBoardPage(env, afterName));
+    documents.push(...page);
+    if (page.length < OVERALL_BOARD_PAGE_SIZE) return {documents, fullScan: true, limitReached: false};
+    const lastName = page.at(-1)?.name;
+    if (!lastName || lastName === afterName) throw Error('OVERALL_BOARD_CURSOR_INVALID');
+    afterName = lastName;
+  }
+  const overflow = await request(() => runOverallBoardPage(env, afterName, 1));
+  return {documents, fullScan: overflow.length === 0, limitReached: overflow.length > 0};
+}
+
+function placementCost(rank, fieldSize) {
+  const field = Math.max(0, Number(fieldSize || 0));
+  const place = Math.max(1, Math.min(field, Number(rank || field) || field));
+  if (field < 2) return 50;
+  const raw = 100 * (place - 1) / (field - 1);
+  const confidence = (field - 1) / (field + 5);
+  return 50 + confidence * (raw - 50);
+}
+
+function rankTitle(score, tracks) {
+  if (tracks < MIN_RANKED_TRACKS) return 'Provisional';
+  const bands = [['Apex',18,20],['Elite',26,15],['Diamond',36,12],['Platinum',48,10],['Gold',62,7],['Silver',78,5],['Bronze',101,3]];
+  let lower = 0;
+  for (const [name, upper, minimumTracks] of bands) {
+    if (score <= upper && tracks >= minimumTracks) {
+      const progress = (score - lower) / Math.max(1, upper - lower);
+      const division = progress < 1 / 3 ? 'I' : progress < 2 / 3 ? 'II' : 'III';
+      const breadth = tracks >= 20 ? ' Marathon' : tracks >= 12 ? ' Veteran' : tracks >= 8 ? ' Challenger' : '';
+      return `${name} ${division}${breadth}`;
+    }
+    lower = upper;
+  }
+  return 'Bronze III';
+}
+
+function betaCutoff(env) {
+  const cutoff = Number(env.BETA_CUTOFF_MS || 0);
+  return Number.isSafeInteger(cutoff) && cutoff > 0 ? cutoff : 0;
+}
+
+function openBetaEnabled(env) {
+  const configured = safeText(env.OPEN_BETA_ENABLED ?? 'true', 16).trim().toLowerCase();
+  return configured === 'true' || configured === '1';
+}
+
+function validBetaEntitlement(value) {
+  const source = safeText(value?.source, 64);
+  const sourceRevision = Math.max(0, Number(value?.sourceRevision || 0));
+  const issuedAt = Math.max(0, Number(value?.issuedAt || 0));
+  if (!['open-beta-release', 'release-migration', 'ranked-overall-snapshot', 'legacy-cosmetic-entitlement'].includes(source) || !sourceRevision || !issuedAt) return null;
+  return { id: 'beta-tester', source, sourceRevision, issuedAt,
+    cutoffAt: Math.max(0, Number(value?.cutoffAt || 0)) };
+}
+
+function betaEntitlementFor(accountId, accountCreatedAt, priorEntry, priorEntitlement, migration, priorSnapshot) {
+  const createdAt = Number(accountCreatedAt);
+  const cutoffAt = betaCutoff({BETA_CUTOFF_MS:migration?.cutoffAt});
+  const knownPostCutoffAccount = cutoffAt > 0 && Number.isSafeInteger(createdAt) && createdAt > cutoffAt;
+  const storedEntitlement = validBetaEntitlement(priorEntitlement?.data?.serverIssued?.beta || priorEntry?.betaEntitlement);
+  // Open-beta grants must themselves predate the cutoff. The prior deployment may
+  // have issued them during the post-cutoff/pre-deploy window.
+  const preserved = storedEntitlement?.source === 'open-beta-release' && cutoffAt > 0 && storedEntitlement.issuedAt > cutoffAt
+    ? null : storedEntitlement;
+  if (preserved) return preserved;
+  const awardedMigrationIds = new Set((migration?.awardedBadgeIds || []).map(value => safeText(value, 128)).filter(Boolean));
+  if (awardedMigrationIds.has(accountId)) return {
+    id: 'beta-tester', source: 'release-migration', sourceRevision: Math.max(1, Number(migration.migrationVersion || MIGRATION_VERSION)),
+    issuedAt: Math.max(1, Number(migration.completedAt || migration.updatedAt || migration.createdAt || priorSnapshot?.updatedAt || Date.now())),
+    cutoffAt: Math.max(0, Number(migration.cutoffAt || 0))
+  };
+  const eligibleAtCutoff = migration?.open === true && cutoffAt > 0
+    && Number.isSafeInteger(createdAt) && createdAt > 0 && createdAt <= cutoffAt
+    && Number(migration?.issuedAt || 0) > 0 && Number(migration.issuedAt) <= cutoffAt;
+  if ((migration?.pendingBadges || []).some(value => safeText(value, 128) === accountId) && eligibleAtCutoff) return {
+    id: 'beta-tester', source: 'release-migration', sourceRevision: Math.max(1, Number(migration.migrationVersion || MIGRATION_VERSION)),
+    issuedAt: Math.max(1, Number(migration.completedAt || migration.updatedAt || migration.createdAt || priorSnapshot?.updatedAt || Date.now())),
+    cutoffAt: Math.max(0, Number(migration.cutoffAt || 0))
+  };
+  const legacyEntitlementAt = Date.parse(priorEntitlement?.updateTime || '');
+  if (!knownPostCutoffAccount && Array.isArray(priorEntitlement?.data?.badge) && priorEntitlement.data.badge.includes('betaTester')
+      && (!cutoffAt || (Number.isFinite(legacyEntitlementAt) && legacyEntitlementAt <= cutoffAt))) return {
+    id: 'beta-tester', source: 'legacy-cosmetic-entitlement', sourceRevision: 2,
+    issuedAt: Math.max(1, legacyEntitlementAt || Number(priorSnapshot?.updatedAt || Date.now())),
+    cutoffAt: 0
+  };
+  if (!knownPostCutoffAccount && priorEntry?.badges?.betaTester === true
+      && (!cutoffAt || Number(priorSnapshot?.updatedAt || 0) <= cutoffAt)) return {
+    id: 'beta-tester', source: 'ranked-overall-snapshot',
+    sourceRevision: Math.max(1, Number(priorSnapshot?.sourceRevision || priorSnapshot?.revision || 1)),
+    issuedAt: Math.max(1, Number(priorSnapshot?.updatedAt || priorEntry?.latestPbAt || Date.now())),
+    cutoffAt: 0
+  };
+  if (eligibleAtCutoff) return {
+    id: 'beta-tester', source: 'open-beta-release', sourceRevision: Math.max(1, Number(migration?.sourceRevision || MIGRATION_VERSION)),
+    issuedAt: Math.max(1, Number(migration?.issuedAt || Date.now())), cutoffAt: Number(migration.cutoffAt)
+  };
+  return null;
+}
+
+async function ensureProfileBetaEntitlement(env, accountId, accountCreatedAt) {
+  const document = await readDocument(env, '0.6.2_s1_cosmetic_entitlements', accountId);
+  const preserved = validBetaEntitlement(document?.data?.serverIssued?.beta);
+  if (preserved || !openBetaEnabled(env)) return preserved;
+  const cutoffAt = betaCutoff(env);
+  const createdAt = Number(accountCreatedAt);
+  if (!cutoffAt || Date.now() > cutoffAt || !Number.isSafeInteger(createdAt) || createdAt <= 0 || createdAt > cutoffAt) return null;
+  const beta = {id: 'beta-tester', source: 'open-beta-release', sourceRevision: 1, issuedAt: Date.now(), cutoffAt};
+  const baseline = cosmeticEntitlement({betaEntitlement: beta}, true);
+  const prior = document?.data || {};
+  const include = (kind, value) => [...new Set([...(baseline[kind] || []), ...(Array.isArray(prior[kind]) ? prior[kind] : []), value])];
+  const data = {...baseline, ...prior,
+    theme: include('theme', 'beta'), stripe: include('stripe', 'beta'),
+    badge: include('badge', 'betaTester'), title: include('title', 'betaRacer'),
+    serverIssued: {...baseline.serverIssued, ...(prior.serverIssued || {}), beta}
+  };
+  const metaDoc = await readDocument(env, COLLECTIONS.meta, 'current');
+  await commitDocuments(env, [
+    {collection: ENTITLEMENT_COLLECTION, id: accountId, data, prior: document},
+    {collection: COLLECTIONS.meta, id: 'current', prior: metaDoc, data: invalidateEntitlements(metaDoc?.data || {}, [accountId])}
+  ]);
+  return beta;
+}
+
+export function computeTrackEntries(rows, trackId, env = {}, verdicts = {}) {
+  const best = new Map();
+  for (const row of rows) {
+    const accountId = safeText(row.accountId || row.userId, 128);
+    const timeMs = raceTime(row);
+    if (!accountId || !timeMs || !structurallyValidResult(row, trackId)) continue;
+    const previous = best.get(accountId);
+    if (previous && previous.timeMs <= timeMs) continue;
+    best.set(accountId, {
+      accountId,
+      userId: accountId,
+      trackId,
+      name: safePublicName(row.nickname || row.name || 'Racer', accountId),
+      nickname: safePublicName(row.nickname || row.name || 'Racer', accountId),
+      countryCode: safeText(row.countryCode, 8).toUpperCase(),
+      timeMs,
+      frames: Math.max(1, Number(row.frames || row.raceTimeFrames || timeMs)),
+      raceTimeFrames: Math.max(1, Number(row.raceTimeFrames || row.frames || timeMs)),
+      replayHash: safeText(row.replayHash, 128) || null,
+      uploadId: Number.isSafeInteger(Number(row.uploadId)) && Number(row.uploadId) > 0 ? Number(row.uploadId) : null,
+      id: Number.isSafeInteger(Number(row.uploadId)) && Number(row.uploadId) > 0 ? Number(row.uploadId) : null,
+      carId: safeText(row.carId, 64) || null,
+      carColors: safeText(row.carColors, 64) || null,
+      carStyle: safeText(row.carStyle, 256),
+      ...(Object.prototype.hasOwnProperty.call(row, 'profileCosmetics') ? {profileCosmetics: sanitizeProfileCosmetics(row.profileCosmetics)} : {}),
+      ...(typeof row.groupCode === 'string' && (/^\d{6}$/.test(row.groupCode) || row.groupCode === '') ? {groupCode: row.groupCode} : {}),
+      ...(Number(row.groupCodeUpdatedAt) > 0 ? {groupCodeUpdatedAt: Number(row.groupCodeUpdatedAt)} : {}),
+      pbCount: Math.max(0, Number(row.pbCount || 0)),
+      totalPlaytimeMs: Math.max(0, Number(row.totalPlaytimeMs || 0)),
+      pbAt: Math.max(0, Number(row.pbAt || row.createdAt || 0)),
+      createdAt: Math.max(0, Number(row.pbAt || row.createdAt || 0)),
+      accountCreatedAt: Math.max(0, Number(row.accountCreatedAt || 0)),
+      verified: verifiedVerdict(row, verdicts[accountId]),
+      runVerified: verifiedVerdict(row, verdicts[accountId]),
+      verifiedState: verifiedVerdict(row, verdicts[accountId]) ? 1 : 0,
+      integrityVerified: row.integrityVerified === true,
+      validationState: row.integrityVerified === true ? 'integrity' : 'pending',
+    });
+  }
+  return rankTrustedTrackEntries([...best.values()], trackId);
+}
+
+export function rankTrustedTrackEntries(rows, trackId) {
+  const entries = [...rows].sort((a, b) => a.timeMs - b.timeMs || a.accountId.localeCompare(b.accountId));
+  const comp = competition(entries);
+  const parts = trackWeightParts(trackId, entries.length, comp.boost);
+  return entries.map((entry, index) => ({
+    ...entry,
+    rank: index + 1,
+    position: index + 1,
+    fieldSize: entries.length,
+    weight: Number(parts.finalWeight.toFixed(3)),
+    competition: Number(parts.competition.toFixed(3)),
+    timingVersion: 2
+  }));
+}
+
+function preservePublishedIdentity(entry, previous) {
+  const profileUpdatedAt = Number(previous?.identityUpdatedAt || 0);
+  const pbUpdatedAt = Number(entry?.pbAt || entry?.createdAt || 0);
+  if (!Number.isSafeInteger(profileUpdatedAt) || profileUpdatedAt <= 0 || profileUpdatedAt <= pbUpdatedAt) {
+    return previous?.profileCosmetics != null && entry?.profileCosmetics == null
+      ? {...entry, profileCosmetics: previous.profileCosmetics}
+      : entry;
+  }
+  return {
+    ...entry,
+    name: previous.name ?? entry.name,
+    nickname: previous.nickname ?? entry.nickname,
+    countryCode: previous.countryCode ?? entry.countryCode,
+    carId: previous.carId ?? entry.carId,
+    carColors: previous.carColors ?? entry.carColors,
+    carStyle: previous.carStyle ?? entry.carStyle,
+    profileCosmetics: previous.profileCosmetics ?? entry.profileCosmetics,
+    identityUpdatedAt: previous.identityUpdatedAt,
+    ...(Object.prototype.hasOwnProperty.call(previous, 'groupCode') ? {groupCode: previous.groupCode} : {}),
+    ...(Object.prototype.hasOwnProperty.call(previous, 'groupCodeUpdatedAt') ? {groupCodeUpdatedAt: previous.groupCodeUpdatedAt} : {})
+  };
+}
+
+function trackEntrySignature(entry) {
+  return [
+    entry.accountId,
+    entry.timeMs,
+    entry.pbAt,
+    entry.uploadId || '',
+    entry.replayHash || '',
+    entry.integrityVerified === true ? 1 : 0,
+    entry.runVerified === true ? 1 : 0,
+    entry.name || '',
+    entry.countryCode || '',
+    entry.carId || '',
+    entry.carColors || '',
+    entry.carStyle || '',
+    JSON.stringify(entry.profileCosmetics || {}),
+    Number(entry.identityUpdatedAt || 0),
+    ...(Number(entry.groupCodeUpdatedAt) > 0 ? [entry.groupCode || '', entry.groupCodeUpdatedAt] : entry.groupCode ? [entry.groupCode] : [])
+  ].join(':');
+}
+
+export async function persistTrackSnapshot(env, trackId, entries, prior = null, build = {}) {
+  const signatureInput = entries.map(trackEntrySignature).join('|');
+  const signature = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(signatureInput)).then((bytes) => base64Url(new Uint8Array(bytes)));
+  if (!build.completionWrite && trackSnapshotIsCurrent(prior?.data, signature)) return { changed: false, entries, revision: Number(prior.data.revision || 0) };
+  if (build.completionWrite && prior?.updateTime && prior.data.trackId === trackId &&
+      Number(prior.data.schemaVersion) === TRACK_SCHEMA_VERSION && trackSnapshotIsCurrent(prior.data, signature) &&
+      Number.isSafeInteger(prior.data.updatedAt) && prior.data.updatedAt > 0 &&
+      Number.isSafeInteger(prior.data.revision) && prior.data.revision > 0 &&
+      Number.isSafeInteger(prior.data.sourceRevision) && prior.data.sourceRevision > 0 &&
+      prior.data.entries.length === Math.min(entries.length, TRACK_LIMIT) &&
+      Array.isArray(build.previousEntries) && stableJson(entries) === stableJson(build.previousEntries) &&
+      stableJson(prior.data.entries) === stableJson(entries.slice(0, TRACK_LIMIT))) {
+    // The whole old generation was read and validated. Keep its logical source
+    // binding, but retain the root CAS write so completion cannot erase a newer PB.
+    const documents = [build.completionWrite, {collection:COLLECTIONS.track,id:trackId,prior,data:prior.data}];
+    const result = {changed:false,overallChanged:false,entries,revision:prior.data.revision};
+    if (build.deferPublication === true) return {...result,publicationDocuments:documents};
+    await commitDocuments(env, documents);
+    return result;
+  }
+  const revision = Math.max(0, Number(prior?.data?.revision || 0)) + 1;
+  const now = Date.now();
+  // Overall scoring re-ranks only verified entrants. Pending-only changes must
+  // still publish immediately on the track board, without crawling every board.
+  const overallChanged = !trackSnapshotIsCurrent(prior?.data, prior?.data?.signature)
+    || prior.data.complete !== (entries.length < TRACK_LIMIT)
+    || overallTrackInput(trackId, prior.data.entries) !== overallTrackInput(trackId, entries);
+  const paged = entries.length > TRACK_LIMIT ? await preparePublicationPages('track',trackId,entries,{sourceRevision:revision,sourceComplete:true}) : null;
+  if (paged) await stagePublication(env,paged.documents);
+  const trackWrite = {collection:COLLECTIONS.track,id:trackId,prior,data:{trackId,entries:entries.slice(0,TRACK_LIMIT),complete:entries.length<=TRACK_LIMIT,
+    sourceComplete:true,totalEntriesExact:true,totalEntries:entries.length,publishedEntries:Math.min(entries.length,TRACK_LIMIT),
+    ...(paged ? {pagination:paged.pagination,complete:false} : {}),
+    ...(build.sourceReadTime ? {sourceReadTime:build.sourceReadTime,canonicalCount:build.sourceCount} : {}),
+    updatedAt:now,builtAt:now,schemaVersion:TRACK_SCHEMA_VERSION,algorithmVersion:ALGORITHM_VERSION,revision,sourceRevision:revision,signature}};
+  const completion = build.completionWrite ? [build.completionWrite] : [];
+  if(trackId===SPECIAL_ROLLING_HILLS_TRACK_ID){
+    // Couple permanent-RP invalidation to the accepted track generation, not a
+    // repeating source scan. Keep the last combined public generation intact.
+    const work=await readDocument(env,EVENT_COLLECTIONS.public,'totals');
+    completion.push({collection:EVENT_COLLECTIONS.public,id:'totals',prior:work,
+      data:{...(work?.data||{entries:[],totalEntries:0,complete:false,revision:0}),publicationPending:true}});
+  }
+  if(paged)completion.push({collection:PUBLIC_MANIFEST_COLLECTION,id:publicationManifestId('track',trackId,paged.pagination.generation),data:{...paged.pagination,sourceRevision:revision},unconditional:true});
+  // Membership and exact bindings advance atomically even for non-scoring rewrites.
+  const metaDoc = await readDocument(env, COLLECTIONS.meta, 'current');
+  const meta = metaDoc?.data || {};
+  const sourceCatalog = sourceCatalogAfterTrackWrite(meta.sourceCatalog, trackId, {id:trackId,data:trackWrite.data});
+  const documents = [...completion,trackWrite,
+    {collection:COLLECTIONS.meta,id:'current',prior:metaDoc,data:overallChanged
+      ? {...meta,sourceCatalog,algorithmVersion:ALGORITHM_VERSION,schemaVersion:TRACK_SCHEMA_VERSION,dirty:true,revision:Math.max(Number(meta.revision||0)+1,revision),builtRevision:Number(meta.builtRevision||0),lastPbAt:now,updatedAt:now,rankedWritesEnabled:String(env.RANKED_WRITES_ENABLED)!=='false',multiplayerEnabled:String(env.MULTIPLAYER_ENABLED)!=='false'}
+      : {...meta,sourceCatalog}}];
+  const result = {changed:true,overallChanged,entries,revision};
+  // Reconciliation must publish and discharge its queue in the same CAS commit.
+  if (build.deferPublication === true) return {...result,publicationDocuments:documents};
+  await commitDocuments(env, documents);
+  return result;
+}
+
+export function overallTrackInput(trackId, entries) {
+  return JSON.stringify(rankTrustedTrackEntries((Array.isArray(entries) ? entries : [])
+    .filter(entry => entry.integrityVerified === true && entry.runVerified === true), trackId));
+}
+
+export function trackSnapshotIsCurrent(snapshot, signature) {
+  return Array.isArray(snapshot?.entries) && (snapshot?.pagination ? snapshot.sourceComplete === true && snapshot.pagination.complete === true && snapshot.totalEntries === snapshot.pagination.totalEntries : snapshot?.complete === true && snapshot.totalEntries === snapshot.entries.length)
+    && snapshot?.signature === signature
+    && snapshot.algorithmVersion === ALGORITHM_VERSION
+    && Number(snapshot.schemaVersion || 0) >= TRACK_SCHEMA_VERSION;
+}
+
+function finishSummary(finish) {
+  return {
+    trackId: finish.trackId,
+    rank: finish.rank,
+    fieldSize: finish.fieldSize,
+    weight: finish.weight,
+    placementCost: finish.placementCost,
+    contribution: finish.contribution,
+    improvementValue: finish.improvementValue,
+    timeMs: finish.timeMs,
+    pbAt: finish.pbAt,
+    type: finish.type,
+    competition: finish.competition,
+    timingVersion: 2
+  };
+}
+
+export function computeOverall(trackDocuments, priorEntries = [], betaTesterIds = new Set(), {includePlannerResults = false} = {}) {
+  const users = new Map();
+  const prior = new Map((priorEntries || []).map((entry) => [entry.userId, entry]));
+  const extraCap = extraWeightCap(trackDocuments);
+  for (const board of trackDocuments) {
+    const trackId = safeText(board.trackId, 80);
+    const entries = rankTrustedTrackEntries((Array.isArray(board.entries) ? board.entries : []).filter((entry) => entry.integrityVerified === true && entry.runVerified === true), trackId);
+    if (!trackId || entries.length < 2) continue;
+    for (const entry of entries) {
+      const accountId = safeText(entry.accountId || entry.userId, 128);
+      if (!accountId) continue;
+      const rank = Number(entry.rank || 0);
+      const fieldSize = entries.length;
+      const weight = EXTRA_TRACK_IDS.has(trackId) ? Math.min(extraCap, Number(entry.weight || 0)) : Number(entry.weight || 0);
+      if (!rank || weight <= 0) continue;
+      const cost = placementCost(rank, fieldSize);
+      let user = users.get(accountId);
+      if (!user) {
+        const previous = prior.get(accountId);
+        const previousIdentityAt = Number(previous?.identityUpdatedAt || 0);
+        const previousPbAt = Number(previous?.latestPbAt || 0);
+        const previousOverlayIsFresh = previousIdentityAt > previousPbAt;
+        user = {userId:accountId,finishes:[],officialCount:0,communityCount:0,permanentCount:0,customCount:0,extraCount:0,pbCount:0,totalPlaytimeMs:0,accountCreatedAt:0,latestPbAt:0,
+          identitySourceAt:previousOverlayIsFresh?previousIdentityAt:-1,identityFromProfile:previousOverlayIsFresh,identityUpdatedAt:previousOverlayIsFresh?previousIdentityAt:0,
+          ...(previousOverlayIsFresh?{name:previous.name,countryCode:previous.countryCode,carId:previous.carId,carColors:previous.carColors,carStyle:previous.carStyle}:{}),
+          profileCosmetics:previous?.profileCosmetics,cosmeticsSourceAt:Object.prototype.hasOwnProperty.call(previous||{},'profileCosmetics')?previousIdentityAt:-1,
+          betaTester:false,groupCode:'',groupCodeUpdatedAt:0};
+      }
+      const pbAt = Number(entry.pbAt || entry.createdAt || 0);
+      const profileAt = Number(entry.identityUpdatedAt || 0);
+      const profileIsFresh = profileAt > pbAt;
+      const identityAt = profileIsFresh ? profileAt : pbAt;
+      if (identityAt > user.identitySourceAt || identityAt === user.identitySourceAt && !profileIsFresh && user.identityFromProfile) {
+        Object.assign(user, {
+          name:entry.name||'Racer',countryCode:entry.countryCode||'',carId:entry.carId||null,
+          carColors:entry.carColors||null,carStyle:entry.carStyle||'',
+          identitySourceAt:identityAt,identityFromProfile:profileIsFresh,identityUpdatedAt:profileIsFresh?profileAt:0
+        });
+      }
+      if (Object.prototype.hasOwnProperty.call(entry,'profileCosmetics') && profileAt >= user.cosmeticsSourceAt) {
+        user.profileCosmetics = sanitizeProfileCosmetics(entry.profileCosmetics);
+        user.cosmeticsSourceAt = profileAt;
+      }
+      const groupCodeUpdatedAt = Number(entry.groupCodeUpdatedAt || 0);
+      if (typeof entry.groupCode === 'string' && (/^\d{6}$/.test(entry.groupCode) || entry.groupCode === '')
+        && (groupCodeUpdatedAt > user.groupCodeUpdatedAt || groupCodeUpdatedAt === user.groupCodeUpdatedAt && groupCodeUpdatedAt > 0)) {
+        user.groupCode = entry.groupCode;
+        user.groupCodeUpdatedAt = groupCodeUpdatedAt;
+      } else if (groupCodeUpdatedAt === 0 && user.groupCodeUpdatedAt === 0 && /^\d{6}$/.test(entry.groupCode || '')) {
+        user.groupCode = entry.groupCode;
+      }
+      user.pbCount = Math.max(user.pbCount, Number(entry.pbCount || 0));
+      user.totalPlaytimeMs = Math.max(user.totalPlaytimeMs, Number(entry.totalPlaytimeMs || 0));
+      user.latestPbAt = Math.max(user.latestPbAt, Number(entry.pbAt || 0));
+        const created = Number(entry.accountCreatedAt || 0);
+      if (created) user.accountCreatedAt = user.accountCreatedAt ? Math.min(user.accountCreatedAt, created) : created;
+      user.betaTester ||= betaTesterIds.has(accountId) || prior.get(accountId)?.badges?.betaTester === true;
+      const type = trackType(trackId);
+      user[`${type}Count`] += 1;
+      if (EXTRA_TRACK_IDS.has(trackId)) user.extraCount += 1;
+      user.finishes.push({ trackId, rank, fieldSize, weight, placementCost: cost, contribution: Math.max(0, (100 - cost) * weight), improvementValue: cost * weight, timeMs: raceTime(entry), pbAt: Number(entry.pbAt || 0), type, competition: Number(entry.competition || 1) });
+      users.set(accountId, user);
+    }
+  }
+  const allRows = [...users.values()].map((user) => {
+    const played = user.finishes.length;
+    const byCost = [...user.finishes].sort((a, b) => a.placementCost - b.placementCost || b.weight - a.weight);
+    const bestTen = byCost.slice(0, 10);
+    const bestTenWeight = bestTen.reduce((sum, finish) => sum + finish.weight, 0);
+    const skillCost = bestTen.reduce((sum, finish) => sum + finish.placementCost * finish.weight, 0) / Math.max(0.0001, bestTenWeight);
+    const middle = median(user.finishes.map((finish) => finish.placementCost), 50);
+    const ceiling = Math.min(82, middle + 24);
+    const allWeight = user.finishes.reduce((sum, finish) => sum + finish.weight, 0);
+    const consistencyCost = user.finishes.reduce((sum, finish) => sum + Math.min(ceiling, Math.max(5, finish.placementCost)) * finish.weight, 0) / Math.max(0.0001, allWeight);
+    const coverageCost = 100 * Math.exp(-played / 10);
+    const byPlace = [...user.finishes].sort((a, b) => a.rank - b.rank || b.fieldSize - a.fieldSize || b.weight - a.weight);
+    const byContribution = [...user.finishes].sort((a, b) => b.contribution - a.contribution || a.rank - b.rank);
+    const byImprovement = [...user.finishes].filter((finish) => finish.rank > 1).sort((a, b) => b.improvementValue - a.improvementValue);
+    const medals = { gold: 0, silver: 0, bronze: 0 };
+    const podiumEligible = user.finishes.filter((finish) => finish.fieldSize >= PODIUM_MIN_FIELD && finish.type !== 'custom');
+    const competitiveAverageEligible = user.finishes.filter((finish) => finish.fieldSize >= PODIUM_MIN_FIELD && finish.type !== 'custom');
+    for (const finish of podiumEligible) if (finish.rank <= 3) medals[finish.rank === 1 ? 'gold' : finish.rank === 2 ? 'silver' : 'bronze'] += 1;
+    const score = Math.max(1.000001, 0.68 * skillCost + 0.20 * coverageCost + 0.12 * consistencyCost);
+    const primaryBest = byPlace[0] || {};
+    const podiums = medals.gold + medals.silver + medals.bronze;
+    return {
+      userId: user.userId, name: safeText(user.name, 24), countryCode: safeText(user.countryCode, 8).toUpperCase(), carId: user.carId, carColors: user.carColors, carStyle: user.carStyle, profileCosmetics: sanitizeProfileCosmetics(user.profileCosmetics), ...(user.identityUpdatedAt ? {identityUpdatedAt: user.identityUpdatedAt} : {}), ...(user.groupCode ? {groupCode: user.groupCode} : {}), ...(user.groupCodeUpdatedAt ? {groupCodeUpdatedAt: user.groupCodeUpdatedAt} : {}),
+      accountCreatedAt: user.accountCreatedAt, latestPbAt: user.latestPbAt, totalPlaytimeMs: user.totalPlaytimeMs, score, raceCount: played, eligibleTrackCount: played,
+      provisional: played < MIN_RANKED_TRACKS, totalTracks: OFFICIAL_IDS.size + COMMUNITY_IDS.size + LEGACY_COMMUNITY_IDS.size, officialCount: user.officialCount, communityCount: user.communityCount, customCount: user.customCount, ...(user.extraCount ? { extraCount: user.extraCount } : {}),
+      weightedTracks: Number(allWeight.toFixed(3)), skillCost: Number(skillCost.toFixed(3)), coverageCost: Number(coverageCost.toFixed(3)), consistencyCost: Number(consistencyCost.toFixed(3)),
+      averageFinish: Number((user.finishes.reduce((sum, finish) => sum + finish.rank, 0) / Math.max(1, played)).toFixed(2)), averageFinishVersion: 2,
+      averagePlacement: Number((user.finishes.reduce((sum, finish) => sum + finish.rank, 0) / Math.max(1, played)).toFixed(2)), averagePlacementVersion: AVERAGE_PLACEMENT_VERSION,
+      competitiveAveragePlacement: competitiveAverageEligible.length ? Number((competitiveAverageEligible.reduce((sum, finish) => sum + finish.rank, 0) / competitiveAverageEligible.length).toFixed(2)) : null,
+      competitiveAverageEligibleTracks: competitiveAverageEligible.length,
+      podiumEligibleTracks: podiumEligible.length, podiumRate: podiumEligible.length >= MIN_RANKED_TRACKS ? Number((podiums / podiumEligible.length * 100).toFixed(1)) : 0, trackWins: medals.gold, pbCount: user.pbCount,
+      bestTracks: byPlace.slice(0, 2).map(finishSummary), strongestTrack: finishSummary(byContribution[0] || primaryBest), worstTrack: finishSummary([...user.finishes].sort((a, b) => b.rank / b.fieldSize - a.rank / a.fieldSize)[0] || primaryBest),
+      improvementTrack: finishSummary(byImprovement[0] || primaryBest), weightedResults: byContribution.slice(0, 2).map(finishSummary), opportunityTracks: byImprovement.slice(0, 3).map(finishSummary),
+      medals, bestTrackId: primaryBest.trackId || null, bestTrackRank: primaryBest.rank || 0, bestTrackField: primaryBest.fieldSize || 0, rankTier: rankTitle(score, played), rankModel: ALGORITHM_VERSION,
+      ...(includePlannerResults ? {resultSamples: user.finishes} : {}),
+      timingVersion: 2, badges: user.betaTester ? { betaTester: true } : null
+    };
+  }).sort((a, b) => Number(a.provisional) - Number(b.provisional) || a.score - b.score || b.raceCount - a.raceCount || a.userId.localeCompare(b.userId));
+  const rows = allRows;
+  const now = Date.now();
+  let ranked = 0;
+  const output = rows.map((row) => {
+    const rank = row.provisional ? 0 : ++ranked;
+    const previous = prior.get(row.userId);
+    const changed = previous && Number(previous.rank) > 0 && rank > 0 ? Number(previous.rank) - rank : 0;
+    return { ...row, rank, movement: changed, movementAt: changed ? now : Number(previous?.movementAt || 0), rankSince: previous && Number(previous.rank) === rank ? Number(previous.rankSince || now) : now, scoreDelta: previous ? Number(row.score - Number(previous.score || 0)) : 0 };
+  });
+  Object.defineProperty(output, 'totalEntries', { value: allRows.length, enumerable: false });
+  return output;
+}
+
+async function stagePublication(env, documents) {
+  for(let offset=0;offset<documents.length;offset+=32) await commitDocuments(env,documents.slice(offset,offset+32));
+}
+async function loadTrackPublicationEntries(env, snapshot, trackId) {
+  let pages;
+  return loadPublicationEntries(snapshot,'track',trackId,async(collection,id)=>{
+    // The loader validates the manifest before invoking this callback and still
+    // validates every immutable page. Batching changes requests, not proof reads.
+    if (!pages) {
+      const p=snapshot.pagination;
+      const ids=Array.from({length:p.pageCount},(_,page)=>publicationPageId('track',trackId,p.generation,page));
+      const base=documentBase(env).replace('https://firestore.googleapis.com/v1/','');
+      const payload=await firestoreRequest(env,':batchGet',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({documents:ids.map(pageId=>`${base}/${collection}/${pageId}`)})});
+      pages=new Map((Array.isArray(payload)?payload:[]).filter(item=>item.found).map(({found})=>
+        [found.name.split('/').at(-1),{data:decodeFields(found.fields||{})}]));
+    }
+    return pages.get(id);
+  });
+}
+async function canonicalTrackPage(env,trackId,afterName='',readTime='',limit=100) {
+  const structuredQuery={from:[{collectionId:COLLECTIONS.raceResults}],limit,
+    where:{fieldFilter:{field:{fieldPath:'trackId'},op:'EQUAL',value:{stringValue:trackId}}},
+    orderBy:[{field:{fieldPath:'__name__'},direction:'ASCENDING'}],
+    ...(afterName?{startAt:{before:false,values:[{referenceValue:afterName}]}}:{})};
+  const payload=await firestoreRequest(env,':runQuery',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({structuredQuery,...(readTime?{readTime}:{})})});
+  if(!Array.isArray(payload))throw Error('TRACK_QUERY_INVALID');
+  const documents=payload.flatMap(item=>item.document?[{name:item.document.name,data:decodeFields(item.document.fields||{})}]:[]);
+  if(documents.length>limit)throw Error('TRACK_QUERY_OVERFLOW');
+  return {readTime:readTime||payload.at(-1)?.readTime||'',documents,ended:documents.length<limit};
+}
+async function normalizeBuildRows(env,trackId,rows,readTime,historicalRoots) {
+  rows=rows.filter(row=>structurallyValidResult(row,trackId));
+  const collection=verificationCollectionForTrack(trackId);
+  const currentRoot=collection===VERIFICATION_COLLECTION?await readDocument(env,collection,trackId):undefined;
+  const state=currentRoot?.data;
+  const reuse=state?.trackId===trackId && state.storageVersion===2 && state.migrationComplete===true &&
+    state.slots && typeof state.slots==='object' && !Array.isArray(state.slots) && Object.keys(state.slots).length===0 &&
+    proofVersionAtOrBefore(currentRoot,readTime);
+  // Only the immutable historical root is shared by this invocation's pages.
+  // Current queues/proofs remain fresh and independent of this readTime cache.
+  if (!historicalRoots.has(readTime)) historicalRoots.set(readTime,reuse?currentRoot:await readDocument(env,collection,trackId,readTime));
+  const root=historicalRoots.get(readTime), verdicts={...root?.data?.slots};
+  const current=reuse?(await readDocumentsForCollections(env,[[collection,
+    rows.map(row=>verificationShardId(trackId,row.accountId||row.userId))]])).get(collection):null;
+  const missing=rows.filter(row=>{
+    const accountId=row.accountId||row.userId;
+    if(verdicts[accountId])return false;
+    const document=current?.get(verificationShardId(trackId,accountId));
+    if(!proofVersionAtOrBefore(document,readTime))return true;
+    verdicts[accountId]=document.data?.slots?.[accountId];
+    return false;
+  });
+  for(let offset=0;offset<missing.length;offset+=100){
+    const batch=missing.slice(offset,offset+100);
+    const documents=(await readDocumentsForCollections(env,[[collection,batch.map(row=>verificationShardId(trackId,row.accountId||row.userId))]],readTime)).get(collection);
+    for(const row of batch){const accountId=row.accountId||row.userId,shard=documents.get(verificationShardId(trackId,accountId));if(shard?.data?.slots?.[accountId])verdicts[accountId]=shard.data.slots[accountId];}
+  }
+  const integrity=await Promise.all(rows.map(row=>replayIntegrityValid(row)));
+  if(current){
+    // Reuse only these fresh page preimages for the existing CAS maintenance.
+    // Fully migrated roots need no migration; never retain shards across pages.
+    await prepareShardedVerification({trackId,collection,rows,root:currentRoot,
+      read:(c,id)=>readDocument(env,c,id),readMany:async()=>current,commit:w=>commitDocuments(env,w)});
+  }else await prepareVerification(env,trackId,rows,false,currentRoot);
+  return computeTrackEntries(rows.map((row,i)=>({...row,integrityVerified:integrity[i]})),trackId,env,verdicts);
+}
+async function prepareVerification(env, trackId, rows, complete = false, currentRoot = undefined) {
+  // One queue document per track avoids a verification read per racer on every PB.
+  await requireExtraQueueMigration(env, trackId);
+  const queueCollection=verificationCollectionForTrack(trackId);
+  const prior=currentRoot===undefined?await readDocument(env,queueCollection,trackId):currentRoot;
+  return persistVerificationRows(env, trackId, rows, prior, complete);
+}
+
+async function persistVerificationRows(env, trackId, rows, prior, complete = false, beforeWrite = async () => {}) {
+  const queueCollection=verificationCollectionForTrack(trackId);
+  const commit = async writes => { await beforeWrite(); return commitDocuments(env,writes); };
+  const slots=Object.assign(Object.create(null),prior?.data?.slots||{});let changed=false;
+  if(complete){const present=new Set(rows.map(row=>safeText(row.accountId||row.userId,128)));for(const id of Object.keys(slots))if(!present.has(id)){delete slots[id];changed=true;}}
+  for(const row of rows){
+    if(!structurallyValidResult(row,trackId))continue;
+    const id=safeText(row.accountId||row.userId,128);
+    if(hasMatchingCompetitiveReviewHold(row,slots[id]))continue;
+    if(slots[id]?.reason==='canonical_missing'||slots[id]?.key!==verificationKey(row)&&!hasAcceptedVerifiedProof(row,slots[id])){slots[id]=pendingSlot(row);changed=true;}
+  }
+  if (prior?.data?.storageVersion === 2 || Object.keys(slots).length > TRACK_LIMIT) {
+    const root = await migrateVerificationChunk({trackId,collection:queueCollection,root:prior,
+      ...(!complete&&rows.length<=VERIFICATION_MIGRATION_BATCH?{accountIds:rows.filter(row=>structurallyValidResult(row,trackId)).map(row=>safeText(row.accountId||row.userId,128))}:{}),
+      read:(c,id)=>readDocument(env,c,id),readMany:async(c,ids)=>(await readDocumentsForCollections(env,[[c,ids]])).get(c),commit});
+    return prepareShardedVerification({trackId,collection:queueCollection,rows:rows.filter(row=>structurallyValidResult(row,trackId)),root,
+      read:(c,id)=>readDocument(env,c,id),readMany:async(c,ids)=>(await readDocumentsForCollections(env,[[c,ids]])).get(c),commit});
+  }
+  if(changed)await commit([{collection:queueCollection,id:trackId,prior,data:{...prior?.data,trackId,slots,...verificationSchedule(slots),updatedAt:Date.now()}}]);
+  return slots;
+}
+
+export async function rebuildTrack(env, trackId, identityOverride = null,
+  {deferPublication = false, prepared, recovery = false, continuation = false} = {}) {
+  const prior = prepared ? prepared.prior : await readDocument(env, COLLECTIONS.track, trackId);
+  const job = prepared ? prepared.job : await readDocument(env,TRACK_BUILD_JOBS,trackBuildId(trackId));
+  let initial = null;
+  if (recovery || trackBuildDisposition({prior,job}).action === 'start') initial = await canonicalTrackPage(env,trackId,'','',TRACK_BUILD_PAGE_SIZE);
+  if (recovery || !initial || !initial.ended) {
+    const historicalRoots = new Map();
+    const build = await advanceTrackBuild({trackId,prior,job,initial,recovery,continuation,
+      readPage:(cursor,readTime,limit)=>canonicalTrackPage(env,trackId,cursor,readTime,limit),
+      normalize:(rows,readTime)=>normalizeBuildRows(env,trackId,rows,readTime,historicalRoots),
+      read:(c,id)=>readDocument(env,c,id),
+      readMany:async(c,ids)=>(await readDocumentsForCollections(env,[[c,ids]])).get(c),commit:w=>commitDocuments(env,w)});
+    if(build.pending){
+      if (deferPublication) return build;
+      const queue=await readDocument(env,COLLECTIONS.jobs,'canonical_reconcile_v2'),state=queue?.data||{};
+      if(!(state.pendingFullRebuildTrackIds||[]).includes(trackId)||!state.activeFullRebuildTrackId)await commitDocuments(env,[{collection:COLLECTIONS.jobs,id:'canonical_reconcile_v2',prior:queue,data:{...state,activeFullRebuildTrackId:state.activeFullRebuildTrackId||trackId,pendingTrackIds:[...new Set([...(state.pendingTrackIds||[]),trackId])],pendingFullRebuildTrackIds:[...new Set([...(state.pendingFullRebuildTrackIds||[]),trackId])]}}]);
+      return build;
+    }
+    if (build.restart) throw Error('TRACK_BUILD_RESTART_REQUIRED');
+    const previous = await loadTrackPublicationEntries(env,prior?.data,trackId);
+    const byId = new Map(previous.map(row=>[row.accountId||row.userId,row]));
+    const entries = rankTrustedTrackEntries(build.entries.map(row=>preservePublishedIdentity(row,byId.get(row.accountId))),trackId);
+    return persistTrackSnapshot(env,trackId,entries,prior,{...build,previousEntries:previous,deferPublication});
+  }
+  const candidates = initial.documents.map(document=>document.data);
+  const integrity = await Promise.all(candidates.map((row) => replayIntegrityValid(row)));
+  const rows = candidates.map((row, index) => ({ ...row, integrityVerified: integrity[index], validationState: integrity[index] ? 'integrity' : 'pending' }));
+  if (identityOverride?.accountId) {
+    for (const row of rows) {
+      if (safeText(row.accountId, 128) !== identityOverride.accountId) continue;
+      row.name = identityOverride.name;
+      row.nickname = identityOverride.name;
+      row.countryCode = identityOverride.countryCode;
+      row.carId = identityOverride.carId;
+      row.carColors = identityOverride.carColors;
+      row.carStyle = identityOverride.carStyle;
+      row.profileCosmetics = identityOverride.profileCosmetics;
+      row.groupCode = /^\d{6}$/.test(identityOverride.groupCode || '') ? identityOverride.groupCode : '';
+      row.groupCodeUpdatedAt = Number(identityOverride.groupCodeUpdatedAt || 0);
+    }
+  }
+  const verdicts=await prepareVerification(env,trackId,rows,true);
+  const entries = computeTrackEntries(rows, trackId, env, verdicts);
+  const previousByAccount = new Map((prior?.data?.entries || []).map(entry => [safeText(entry.accountId || entry.userId,128),entry]));
+  for (let index = 0; index < entries.length; index++) {
+    const entry = entries[index];
+    if (identityOverride?.accountId === entry.accountId) {
+      entry.identityUpdatedAt = Number(identityOverride.identityUpdatedAt || 0);
+    } else {
+      entries[index] = preservePublishedIdentity(entry,previousByAccount.get(entry.accountId));
+    }
+  }
+  return persistTrackSnapshot(env, trackId, entries, prior, {deferPublication});
+}
+
+function currentInlineTrackPrefix(prior, trackId) {
+  const snapshot = prior?.data, pagination = snapshot?.pagination;
+  return Boolean(prior?.updateTime && snapshot.trackId === trackId &&
+    typeof snapshot.signature === 'string' && snapshot.signature.length > 0 &&
+    Number(snapshot.schemaVersion) === TRACK_SCHEMA_VERSION && trackSnapshotIsCurrent(snapshot, snapshot.signature) &&
+    pagination?.version === 1 && pagination.pageSize === 100 &&
+    Number.isSafeInteger(pagination.totalEntries) && pagination.totalEntries > TRACK_LIMIT &&
+    pagination.pageCount === Math.ceil(pagination.totalEntries / 100) &&
+    /^[a-f0-9]{64}$/.test(pagination.generation) && snapshot.entries.length === TRACK_LIMIT);
+}
+
+export async function mergeCanonicalResultIntoTrack(env, trackId, canonicalResult, integrityVerified = false) {
+  const prior = await readDocument(env, COLLECTIONS.track, trackId);
+  if (!prior || prior.data?.algorithmVersion !== ALGORITHM_VERSION || !Array.isArray(prior.data?.entries)) return rebuildTrack(env, trackId);
+  let normalized = computeTrackEntries([{ ...canonicalResult, integrityVerified, validationState: integrityVerified ? 'integrity' : 'pending' }], trackId, env)[0];
+  if (!normalized) throw new Error('Canonical PB failed structural validation');
+  const snapshot = prior.data;
+  if (currentInlineTrackPrefix(prior, trackId)) {
+    const inline = snapshot.entries.find(row => safeText(row.accountId || row.userId, 128) === normalized.accountId);
+    // The fresh root atomically binds this prefix to immutable pages. An exact
+    // no-op needs current proof maintenance, not hydration of unrelated racers.
+    if (inline && Number(inline.timeMs) === normalized.timeMs &&
+        Number(inline.uploadId || 0) === Number(normalized.uploadId || 0) &&
+        inline.replayHash === normalized.replayHash &&
+        (inline.integrityVerified === true) === (normalized.integrityVerified === true)) {
+      await prepareVerification(env, trackId, [canonicalResult]);
+      return {changed:false,revision:Number(snapshot.revision || 0)};
+    }
+  }
+  if (prior.data.pagination) prior.data.entries = await loadTrackPublicationEntries(env,prior.data,trackId);
+  const existing=prior.data.entries.find(row=>safeText(row.accountId||row.userId,128)===normalized.accountId);
+  // Equal PB repair must use current canonical data, not a delayed notification payload.
+  const bindingRepair=existing && Number(existing.timeMs)===normalized.timeMs && Number(existing.uploadId||0)===Number(normalized.uploadId||0) &&
+    (existing.replayHash!==normalized.replayHash || (existing.integrityVerified===true)!==(normalized.integrityVerified===true));
+  // One canonical replay repair must not rescan every other racer. Incomplete
+  // publications still require authoritative reconstruction before reranking.
+  if(bindingRepair && !trackSnapshotIsCurrent(prior.data,prior.data.signature))return rebuildTrack(env,trackId);
+  if(!bindingRepair && existing && (Number(existing.timeMs)<normalized.timeMs || (Number(existing.timeMs)===normalized.timeMs && Number(existing.uploadId||0)>=Number(normalized.uploadId||0)))) {
+    if (Number(existing.timeMs) === normalized.timeMs && Number(existing.uploadId || 0) === Number(normalized.uploadId || 0)) {
+      await prepareVerification(env, trackId, [canonicalResult]);
+    }
+    return {changed:false,entries:prior.data.entries,revision:Number(prior.data.revision||0)};
+  }
+  const verdicts=await prepareVerification(env,trackId,[canonicalResult]);
+  normalized=computeTrackEntries([{...canonicalResult,integrityVerified}],trackId,env,verdicts)[0];
+  normalized = preservePublishedIdentity(normalized, existing);
+  const entries = rankTrustedTrackEntries([
+    ...prior.data.entries.filter((entry) => safeText(entry.accountId || entry.userId, 128) !== normalized.accountId),
+    normalized
+  ], trackId);
+  return persistTrackSnapshot(env, trackId, entries, prior);
+}
+
+export async function mergeCanonicalResultsIntoTrack(env, trackId, resultIds, canonicalById, prepared = null) {
+  const prior = prepared ? prepared.prior : await readDocument(env, COLLECTIONS.track, trackId);
+  const snapshot = prior?.data;
+  if (!trackSnapshotIsCurrent(snapshot, snapshot?.signature) || (snapshot.complete !== true && snapshot.sourceComplete !== true)) return {fallback: true};
+  const rows = resultIds.map(id => canonicalById.get(id)?.data);
+  if (rows.some(row => !row || !structurallyValidResult(row, trackId))) return {fallback: true};
+  for (let index = 0; index < rows.length; index++) {
+    const accountId = safeText(rows[index].accountId || rows[index].userId, 128);
+    if (!accountId || resultIds[index] !== `${accountId}_${trackId}`) return {fallback: true};
+  }
+  const integrity = await Promise.all(rows.map(row => replayIntegrityValid(row)));
+  const normalize = (row, index, slots) => preservePublishedIdentity(computeTrackEntries(
+    [{...row,integrityVerified:integrity[index]}],trackId,env,slots)[0],
+    snapshot.entries.find(entry => entry.accountId === (row.accountId || row.userId)));
+  // Restrict the shortcut to the complete root prefix and unchanged public input.
+  // Proof state is deliberately excluded only from this first candidate check.
+  const inlineCandidate = !prepared?.entriesLoaded && currentInlineTrackPrefix(prior,trackId) && rows.every((row,index) => {
+    const current = snapshot.entries.find(entry => entry.accountId === (row.accountId || row.userId));
+    const next = normalize(row,index,{});
+    return current && next && trackEntrySignature({...next,runVerified:current.runVerified}) === trackEntrySignature(current);
+  });
+  let entriesLoaded = !snapshot.pagination || prepared?.entriesLoaded === true;
+  const loadEntries = async () => {
+    if (!entriesLoaded) { snapshot.entries = await loadTrackPublicationEntries(env,snapshot,trackId); entriesLoaded = true; }
+  };
+  if (!inlineCandidate) await loadEntries();
+  const queueCollection = verificationCollectionForTrack(trackId);
+  const queue = prepared && Object.hasOwn(prepared,'queue') ? prepared.queue : await readDocument(env, queueCollection, trackId);
+  if (!queue && queueCollection === EXTRA_VERIFICATION_COLLECTION && await readDocument(env, VERIFICATION_COLLECTION, trackId)) {
+    throw new Error('EXTRA_QUEUE_BACKFILL_REQUIRED');
+  }
+  // Enqueue missed notifications before acknowledging discovery; reuse this queue's CAS version.
+  // Malformed/missing public pages must still fail before any proof mutation.
+  const slots = await persistVerificationRows(env, trackId, rows, queue, false, loadEntries);
+  if (inlineCandidate) {
+    // Fresh proof maintenance is not a publication. A newly accepted proof or
+    // review hold must still hydrate the complete field and change the board.
+    if (rows.every((row,index) => {
+      const current = snapshot.entries.find(entry => entry.accountId === (row.accountId || row.userId));
+      return trackEntrySignature(normalize(row,index,slots)) === trackEntrySignature(current);
+    })) return {fallback:false,changed:false,revision:Number(snapshot.revision || 0)};
+    await loadEntries();
+  }
+  const entries = snapshot.entries.slice();
+  const positions = new Map(entries.map((entry, index) => [safeText(entry.accountId || entry.userId, 128), index]));
+  let changed = false;
+  for (let index = 0; index < rows.length; index++) {
+    const row = rows[index], accountId = safeText(row.accountId || row.userId, 128);
+    const position = positions.get(accountId);
+    const current = position === undefined ? null : entries[position];
+    const canonicalTime = raceTime(row), canonicalUpload = Number(row.uploadId || row.id || 0);
+    if (current && (Number(current.timeMs) < canonicalTime ||
+      Number(current.timeMs) === canonicalTime && Number(current.uploadId || 0) > canonicalUpload)) continue;
+    let normalized = computeTrackEntries([{...row, integrityVerified: integrity[index],
+      validationState: integrity[index] ? 'integrity' : 'pending'}], trackId, env,
+      {[accountId]: slots[accountId]})[0];
+    if (!normalized) return {fallback: true};
+    normalized = preservePublishedIdentity(normalized, current);
+    if (position === undefined) {
+      entries.push(normalized);
+      positions.set(accountId, entries.length - 1);
+    } else {
+      entries[position] = normalized;
+    }
+    changed = true;
+  }
+  if (!changed) return {fallback: false, changed: false, revision: Number(snapshot.revision || 0)};
+  const ranked = rankTrustedTrackEntries(entries, trackId);
+  return {fallback: false, ...await persistTrackSnapshot(env, trackId, ranked, prior)};
+}
+
+export async function bootstrapSnapshotVerification(env) {
+  const prior = await readDocument(env, COLLECTIONS.jobs, VERIFICATION_BOOTSTRAP_ID);
+  const job = prior?.data || {};
+  if (job.complete === true) return { scanned: 0, complete: true };
+  const structuredQuery = {
+    from: [{ collectionId: COLLECTIONS.track }],
+    orderBy: [{ field: { fieldPath: '__name__' }, direction: 'ASCENDING' }],
+    limit: VERIFICATION_BOOTSTRAP_BATCH,
+    ...(job.cursor ? { startAt: { before: false, values: [{ referenceValue: job.cursor }] } } : {})
+  };
+  const response = await firestoreRequest(env, ':runQuery', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ structuredQuery })
+  });
+  const boards = (response || []).filter(item => item.document).map(item => item.document);
+  const writes = [];
+  let completedCursor=job.cursor||'';
+  for (const board of boards) {
+    const trackId = decodeURIComponent(board.name.split('/').pop());
+    if (!/^[A-Za-z0-9_-]{8,80}$/.test(trackId)) throw Error('INVALID_BOOTSTRAP_TRACK');
+    const data = decodeFields(board.fields || {});
+    if (!Array.isArray(data.entries) || data.entries.length > TRACK_LIMIT) throw Error('INVALID_BOOTSTRAP_BOARD');
+    await requireExtraQueueMigration(env, trackId);
+    const queueCollection = verificationCollectionForTrack(trackId);
+    const queue = await readDocument(env, queueCollection, trackId);
+    if(data.pagination||queue?.data?.storageVersion===2){
+      const page=job.pendingTrackId===trackId?Number(job.pendingPage||0):0;
+      const count=data.pagination?.pageCount||Math.ceil(data.entries.length/100);
+      const pageDocument=data.pagination?await readDocument(env,PUBLIC_PAGE_COLLECTION,publicationPageId('track',trackId,data.pagination.generation,page)):null;
+      const rows=pageDocument?(await decodePublicationPage(pageDocument.data)).entries:data.entries.slice(page*100,(page+1)*100);
+      if(!Array.isArray(rows)||rows.length>100)throw Error('INVALID_BOOTSTRAP_PAGE');
+      const root=await migrateVerificationChunk({trackId,collection:queueCollection,root:queue,read:(c,id)=>readDocument(env,c,id),readMany:async(c,ids)=>(await readDocumentsForCollections(env,[[c,ids]])).get(c),commit:w=>commitDocuments(env,w)});
+      await prepareShardedVerification({trackId,collection:queueCollection,rows,root,read:(c,id)=>readDocument(env,c,id),readMany:async(c,ids)=>(await readDocumentsForCollections(env,[[c,ids]])).get(c),commit:w=>commitDocuments(env,w)});
+      const done=page+1>=count;
+      writes.push({collection:COLLECTIONS.jobs,id:VERIFICATION_BOOTSTRAP_ID,prior,data:{...job,cursor:done?board.name:completedCursor,pendingTrackId:done?'':trackId,pendingPage:done?0:page+1,complete:false,processed:Number(job.processed||0)+(done?1:0),updatedAt:Date.now()}});
+      await commitDocuments(env,writes);return {scanned:1,complete:false,paged:true};
+    }
+    const slots = bootstrapSlots(trackId, data.entries, queue?.data?.slots);
+    completedCursor=board.name;
+    writes.push({ collection: queueCollection, id: trackId, prior: queue,
+      data: { ...queue?.data, trackId, slots, ...verificationSchedule(slots), updatedAt: Date.now() } });
+  }
+  const complete = boards.length < VERIFICATION_BOOTSTRAP_BATCH;
+  writes.push({ collection: COLLECTIONS.jobs, id: VERIFICATION_BOOTSTRAP_ID, prior,
+    data: { ...job, cursor: boards.at(-1)?.name || job.cursor || '', complete,
+      processed: Number(job.processed || 0) + boards.length, updatedAt: Date.now() } });
+  // Queue merges and cursor advancement succeed together, or the same page retries.
+  await commitDocuments(env, writes);
+  return { scanned: boards.length, complete };
+}
+
+export async function reconcileCanonicalChanges(env, {scanResults = true, now = Date.now()} = {}) {
+  env = {...env,__OVERALL_REQUEST_BUDGET:{used:Number(env.__FIRESTORE_READ_AUDIT?.operationAttempts ?? env.__FIRESTORE_READ_AUDIT?.httpRequests ?? 0),limit:42}};
+  // New namespace discards any cursor poisoned by legacy client-clock timestamps.
+  const jobId='canonical_reconcile_v2';
+  const document=await readDocument(env,COLLECTIONS.jobs,jobId);
+  const job=document?.data||{};
+  const reconcileNow = Number.isSafeInteger(now) && now >= 0 ? now : Date.now();
+  const retryAtLimit = Math.min(Number.MAX_SAFE_INTEGER, reconcileNow + RECONCILE_REBUILD_BACKOFF_MAX_MS);
+  const timestamp=typeof job.cursorIngestedAt==='string'?job.cursorIngestedAt:'1970-01-01T00:00:00.000000000Z';
+  const queued=new Set((job.pendingTrackIds||[]).map(id=>safeText(id,80)).filter(Boolean));
+  let pendingResultIds=Object.fromEntries(Object.entries(job.pendingResultIds||{})
+    .filter(([trackId,ids])=>/^[A-Za-z0-9_-]{1,80}$/.test(trackId)&&Array.isArray(ids)&&ids.length)
+    .map(([trackId,ids])=>[trackId,[...new Set(ids.filter(id=>typeof id==='string'&&/^[A-Za-z0-9_.:-]{1,128}_[A-Za-z0-9_-]{1,80}$/.test(id)))]]));
+  const pendingFullRebuildTrackIds=new Set((job.pendingFullRebuildTrackIds||[])
+    .filter(id=>typeof id==='string'&&/^[A-Za-z0-9_-]{1,80}$/.test(id)));
+  const backfillTracks = field => {
+    const ids=job[field] ?? [];
+    if(!Array.isArray(ids)||ids.length>RECONCILE_FULL_TRACK_LIMIT||
+      ids.some(id=>typeof id!=='string'||!/^[A-Za-z0-9_-]{1,80}$/.test(id)))throw Error('RECONCILE_BACKFILL_STATE_INVALID');
+    return new Set(ids);
+  };
+  const backfillQueuedTrackIds=backfillTracks('backfillQueuedTrackIds');
+  const backfillCatchupTrackIds=backfillTracks('backfillCatchupTrackIds');
+  // A final catch-up must start after enumeration, not borrow an older active build.
+  for(const trackId of backfillCatchupTrackIds){
+    queued.add(trackId);
+    if(job.backfillComplete&&!pendingFullRebuildTrackIds.has(trackId)&&job.activeFullRebuildTrackId!==trackId){
+      pendingFullRebuildTrackIds.add(trackId);
+      backfillCatchupTrackIds.delete(trackId);
+    }
+  }
+  const failedFullRebuilds = Object.create(null);
+  for (const [trackId, failure] of Object.entries(job.failedFullRebuilds || {})) {
+    if (!/^[A-Za-z0-9_-]{1,80}$/.test(trackId) || !failure || typeof failure !== 'object') continue;
+    const attempts = Number.isSafeInteger(failure.attempts) ? Math.max(0, Math.min(8, failure.attempts)) : 0;
+    const retryAt = Number.isSafeInteger(failure.retryAt) ? Math.min(retryAtLimit, Math.max(0, failure.retryAt)) : 0;
+    if (!attempts || !retryAt) continue;
+    if (Object.keys(failedFullRebuilds).length < RECONCILE_REBUILD_FAILURE_LIMIT) failedFullRebuilds[trackId] = {attempts, retryAt, ...(failure.targeted === true ? {targeted:true} : {})};
+  }
+  let forceFullRebuildAll=job.forceFullRebuildAll===true;
+  if(Object.values(pendingResultIds).reduce((total,ids)=>total+ids.length,0)>RECONCILE_PENDING_ID_LIMIT){
+    for(const trackId of Object.keys(pendingResultIds)){queued.add(trackId);pendingFullRebuildTrackIds.add(trackId);}
+    pendingResultIds={};
+  }
+  if(pendingFullRebuildTrackIds.size>RECONCILE_FULL_TRACK_LIMIT)throw Error('RECONCILE_FULL_REBUILD_QUEUE_CAPACITY');
+  for(const trackId of Object.keys(pendingResultIds))queued.add(trackId);
+  for(const trackId of pendingFullRebuildTrackIds)queued.add(trackId);
+  if (forceFullRebuildAll) {
+    if (queued.size > RECONCILE_FULL_TRACK_LIMIT) throw Error('RECONCILE_FULL_REBUILD_QUEUE_CAPACITY');
+    // Consume the legacy global request once, before discovery can add work.
+    for (const trackId of queued) pendingFullRebuildTrackIds.add(trackId);
+    forceFullRebuildAll=false;
+  }
+  for (const trackId of Object.keys(failedFullRebuilds)) if (!queued.has(trackId)) delete failedFullRebuilds[trackId];
+  const rebuildCoolingDown = trackId => (failedFullRebuilds[trackId]?.retryAt || 0) > reconcileNow;
+  const keyedBackpressure=env.CANONICAL_DISCOVERY_BACKPRESSURE==='enabled';
+  const capacity=Math.max(0,200-queued.size);
+  const budget=Math.min(RECONCILE_RESULT_BATCH,Math.floor(capacity/2));
+  let pendingResultCount=Object.values(pendingResultIds).reduce((total,ids)=>total+ids.length,0);
+  // Opt-in only: reserve keyed capacity before reading. More incremental page
+  // publications save reads but increase writes, so legacy remains the default.
+  const changedBudget=keyedBackpressure
+    ?Math.min(budget,Math.max(0,RECONCILE_PENDING_ID_LIMIT-pendingResultCount)):budget;
+  const changed=changedBudget&&(scanResults||!job.backfillComplete)
+    ?await runChangedResultsQuery(env,timestamp,changedBudget,safeText(job.cursorDocumentId,256)):[];
+  const legacy=budget&&!job.backfillComplete?await runChangedResultsQuery(env,timestamp,budget,safeText(job.backfillDocumentId,256),true):[];
+  const fullRebuildTracks=new Set(pendingFullRebuildTrackIds);
+  let changedCursor, changedCursorDeferred=false;
+  for(const row of changed){
+    const trackId=safeText(row.data?.trackId,80);
+    if(!trackId||!structurallyValidResult(row.data,trackId)){changedCursor=row;continue;}
+    const ids=pendingResultIds[trackId]||[];
+    if(!ids.includes(row.id)){
+      // Defensive prefix fence: never acknowledge any suffix after an unaccepted
+      // result, even if a malformed adapter returns more than the requested limit.
+      if(pendingResultCount>=RECONCILE_PENDING_ID_LIMIT){
+        if(keyedBackpressure)break;
+        // Default legacy behavior is retained until the write tradeoff is approved.
+        if(fullRebuildTracks.has(trackId)){changedCursorDeferred=true;continue;}
+        pendingResultCount-=ids.length;
+        delete pendingResultIds[trackId];
+        pendingFullRebuildTrackIds.add(trackId);
+        fullRebuildTracks.add(trackId);
+      }else{
+        ids.push(row.id);
+        pendingResultIds[trackId]=ids;
+        pendingResultCount++;
+      }
+    }
+    queued.add(trackId);
+    changedCursor=row;
+  }
+  for(const row of legacy){
+    const trackId=safeText(row.data?.trackId,80);
+    if(trackId&&structurallyValidResult(row.data,trackId)){
+      if(!/^[A-Za-z0-9_-]{1,80}$/.test(trackId))throw Error('RECONCILE_BACKFILL_STATE_INVALID');
+      if(backfillQueuedTrackIds.has(trackId))continue;
+      if(backfillQueuedTrackIds.size>=RECONCILE_FULL_TRACK_LIMIT)throw Error('RECONCILE_BACKFILL_TRACK_CAPACITY');
+      backfillQueuedTrackIds.add(trackId);
+      queued.add(trackId);fullRebuildTracks.add(trackId);
+      // Keep legacy publication requirements when this track waits for a later batch.
+      pendingFullRebuildTrackIds.add(trackId);
+    }
+  }
+  let rebuilt=0,targeted=0,fullRebuildAttempts=0;
+  let publicationDocuments = [];
+  let activeFullRebuildTrackId = queued.has(job.activeFullRebuildTrackId) ? job.activeFullRebuildTrackId : '';
+  const fallbackOnly = trackId => fullRebuildTracks.has(trackId) || !pendingResultIds[trackId]?.length;
+  // Firestore map key order is not a durable cursor; rotate using the persisted array.
+  const eligible=[...queued].filter(id=>!(rebuildCoolingDown(id) && (fallbackOnly(id) || failedFullRebuilds[id]?.targeted === true))
+    &&!(fallbackOnly(id)&&!failedFullRebuilds[id]
+      &&Object.keys(failedFullRebuilds).length>=RECONCILE_REBUILD_FAILURE_LIMIT));
+  const fullCandidates=eligible.filter(fallbackOnly);
+  // A fixed-readTime build must get its next page before starting another full build.
+  const activeIndex=fullCandidates.indexOf(activeFullRebuildTrackId);
+  if(activeIndex>0)fullCandidates.unshift(...fullCandidates.splice(activeIndex,1));
+  // One full build per invocation leaves room for checkpointing and targeted work.
+  // Never run several capacity assemblies in the same fifty-subrequest budget.
+  const reservedFull=fullCandidates.slice(0,1);
+  // Targeted publications must precede the deferred full publication: its final
+  // root/meta/queue CAS ends this invocation, so siblings after it never ran.
+  const selected=[...eligible.filter(id=>!fallbackOnly(id)).slice(0,RECONCILE_TRACK_BATCH-reservedFull.length),...reservedFull];
+  const preparedTracks=new Map();
+  let adaptive=false;
+  const resourceBytes=value=>(JSON.stringify(value)||'').length*2;
+  const busyTrack=selected.length===1?selected[0]:'';
+  const remainingRequests=env.__OVERALL_REQUEST_BUDGET.limit-env.__OVERALL_REQUEST_BUDGET.used;
+  // Reuse current preimages only within this invocation; no extra authority cache.
+  // Unknown/migrating/small/mixed sources keep 16, including every reserved-full turn.
+  if(keyedBackpressure && !reservedFull.length && busyTrack && pendingResultCount>=64 &&
+    pendingResultIds[busyTrack]?.length>=64 && verificationCollectionForTrack(busyTrack)===VERIFICATION_COLLECTION &&
+    MAX_REPLAY_LENGTH<=10000 && Number.isSafeInteger(remainingRequests) && remainingRequests>=21 &&
+    changed.reduce((size,row)=>size+resourceBytes(row.data),0)<=RECONCILE_PRESSURE_RETAINED_BYTES){
+    const prior=await readDocument(env,COLLECTIONS.track,busyTrack),snapshot=prior?.data;
+    const prepared={prior};preparedTracks.set(busyTrack,prepared);
+    const pages=snapshot?.pagination;
+    if(prior?.updateTime && snapshot?.trackId===busyTrack && Number(snapshot.schemaVersion)===TRACK_SCHEMA_VERSION && trackSnapshotIsCurrent(snapshot,snapshot.signature) &&
+      pages?.version===1 && pages.pageSize===100 && Number.isSafeInteger(pages.pageCount) &&
+      pages.pageCount>5 && pages.pageCount<=32 && pages.pageCount===Math.ceil(snapshot.totalEntries/100)){
+      prepared.queue=await readDocument(env,VERIFICATION_COLLECTION,busyTrack);
+      const root=prepared.queue?.data;
+      if(prepared.queue?.updateTime && root.trackId===busyTrack && root.storageVersion===2 &&
+        root.migrationComplete===true && root.slots && typeof root.slots==='object' && !Array.isArray(root.slots) &&
+        Object.keys(root.slots).length===0){
+        snapshot.entries=await loadTrackPublicationEntries(env,snapshot,busyTrack);
+        prepared.entriesLoaded=true;
+        adaptive=resourceBytes(snapshot.entries)<=RECONCILE_PRESSURE_RETAINED_BYTES;
+      }
+    }
+  }
+  const targetGroups=[];let targetBudget=adaptive?RECONCILE_PRESSURE_ID_BATCH:RECONCILE_TARGET_ID_BATCH;
+  for(const trackId of selected){
+    if(fullRebuildTracks.has(trackId)||!pendingResultIds[trackId]?.length)continue;
+    const ids=pendingResultIds[trackId].slice(0,targetBudget);
+    if(ids.length){targetGroups.push([trackId,ids]);targetBudget-=ids.length;}
+    if(!targetBudget)break;
+  }
+  const targetIds=targetGroups.flatMap(([,ids])=>ids);
+  const canonicalDocuments=new Map(changed.map(row=>[row.id,row]));
+  const missingTargetIds=targetIds.filter(id=>!canonicalDocuments.has(id));
+  if(missingTargetIds.length){
+    // Fetch adaptive candidates in existing 16-ID units. Stop at the memory
+    // threshold, retain the first 16 IDs, and leave the rest durably queued.
+    const chunkSize=adaptive?RECONCILE_TARGET_ID_BATCH:missingTargetIds.length;
+    let retainedBytes=0;
+    for(let offset=0;offset<missingTargetIds.length;offset+=chunkSize){
+      const fetched=(await readDocumentsForCollections(env,[[COLLECTIONS.raceResults,missingTargetIds.slice(offset,offset+chunkSize)]])).get(COLLECTIONS.raceResults);
+      for(const [id,document] of fetched){canonicalDocuments.set(id,document);if(adaptive)retainedBytes+=resourceBytes(document?.data);}
+      if(adaptive && retainedBytes>RECONCILE_PRESSURE_RETAINED_BYTES){
+        targetGroups[0][1].splice(RECONCILE_TARGET_ID_BATCH);
+        const keep=new Set([...changed.map(row=>row.id),...targetGroups[0][1]]);
+        for(const id of canonicalDocuments.keys())if(!keep.has(id))canonicalDocuments.delete(id);
+        adaptive=false;break;
+      }
+    }
+  }
+  for(const trackId of selected){
+    const ids=pendingResultIds[trackId]||[];
+    const targetedIds=targetGroups.find(([id])=>id===trackId)?.[1]||[];
+    if(ids.length&&!targetedIds.length&&!fullRebuildTracks.has(trackId))continue;
+    // Failed, cooling and partially processed tracks yield to other pending tracks.
+    queued.delete(trackId);queued.add(trackId);
+    let attemptedFullRebuild = false;
+    try{
+      let result;
+      if(targetedIds.length&&!fullRebuildTracks.has(trackId)){
+        for(const resultId of targetedIds){
+          if(!resultId.endsWith(`_${trackId}`))throw new Error('INVALID_CANONICAL_PENDING_ID');
+          const accountId=resultId.slice(0,-trackId.length-1);
+          if(!/^[A-Za-z0-9_.:-]{1,128}$/.test(accountId))throw new Error('INVALID_CANONICAL_PENDING_ID');
+        }
+        const requestBudget=env.__OVERALL_REQUEST_BUDGET,limit=requestBudget.limit;
+        if (reservedFull.length) requestBudget.limit=Math.min(limit,RECONCILE_TARGETED_REQUEST_LIMIT);
+        try { result=await mergeCanonicalResultsIntoTrack(env,trackId,targetedIds,canonicalDocuments,preparedTracks.get(trackId)); }
+        finally { requestBudget.limit=limit; }
+      }else result={fallback:true};
+      if(result.fallback) {
+        // Persist the fallback so its cooldown skips targeted reads and selection too.
+        pendingFullRebuildTrackIds.add(trackId);
+        // A newly discovered fallback must not take the active fixed-snapshot
+        // build's reserved turn. Its full intent remains durable for a later turn.
+        if (reservedFull.length && trackId!==reservedFull[0]) continue;
+        if (rebuildCoolingDown(trackId)
+          || !failedFullRebuilds[trackId] && Object.keys(failedFullRebuilds).length >= RECONCILE_REBUILD_FAILURE_LIMIT) continue;
+        // Targeted merges can discover stale/missing boards after selection.
+        // They share the same full-build allowance, including failed attempts.
+        if (fullRebuildAttempts >= 1) continue;
+        fullRebuildAttempts++;
+        attemptedFullRebuild = true;
+        const full = await rebuildTrack(env,trackId,null,{deferPublication:true});
+        if(full.blocked)throw Error('TRACK_BUILD_BLOCKED: '+full.reason);
+        if(full.pending){activeFullRebuildTrackId=trackId;break;}
+        publicationDocuments = full.publicationDocuments || [];
+      }
+      if(activeFullRebuildTrackId===trackId)activeFullRebuildTrackId='';
+      rebuilt++;
+      delete failedFullRebuilds[trackId];
+      if(targetedIds.length)targeted+=targetedIds.length;
+      // Queue bindings may postdate the full build's fixed readTime. Keep them
+      // for a fresh targeted merge after discharging only the full-build request.
+      if(!attemptedFullRebuild) {
+        const remaining=ids.slice(targetedIds.length);
+        if(remaining.length)pendingResultIds[trackId]=remaining;
+        else delete pendingResultIds[trackId];
+      }
+      if(result.fallback||fullRebuildTracks.has(trackId))pendingFullRebuildTrackIds.delete(trackId);
+      if(!pendingResultIds[trackId]?.length&&!backfillCatchupTrackIds.has(trackId))queued.delete(trackId);
+      // Leave siblings queued; no later publication may escape this atomic handoff.
+      if (attemptedFullRebuild) break;
+    }catch(error){
+      // Capacity deferral is not a source failure. Keep its PBs/bindings queued
+      // without backoff, then spend the reserved budget on the full continuation.
+      if (!attemptedFullRebuild && reservedFull.length && error?.message==='OVERALL_REQUEST_BUDGET_EXHAUSTED') continue;
+      if(activeFullRebuildTrackId===trackId)activeFullRebuildTrackId='';
+      console.error('Canonical track reconciliation failed',trackId,String(error?.message||error));
+      if (!/^FIRESTORE_(409|412)$/.test(String(error?.message || '')) &&
+          (failedFullRebuilds[trackId] || Object.keys(failedFullRebuilds).length < RECONCILE_REBUILD_FAILURE_LIMIT)) {
+        const previous = failedFullRebuilds[trackId];
+        const attempts = Math.min(8, (previous?.attempts || 0) + 1);
+        const delay = Math.min(RECONCILE_REBUILD_BACKOFF_MAX_MS,
+          RECONCILE_REBUILD_BACKOFF_BASE_MS * (2 ** (attempts - 1)));
+        failedFullRebuilds[trackId] = {attempts, retryAt: reconcileNow + delay, ...(!attemptedFullRebuild ? {targeted:true} : {})};
+      }
+      queued.delete(trackId);queued.add(trackId);
+    }
+  }
+  const backfillComplete=Boolean(job.backfillComplete||(budget&&legacy.length<budget));
+  if(!job.backfillComplete&&backfillComplete){
+    // Legacy writers may update an already scanned row without advancing ingestedAt.
+    // Persist one final pass per seen track, independent of unfinished/failed work.
+    for(const trackId of backfillQueuedTrackIds){backfillCatchupTrackIds.add(trackId);queued.add(trackId);}
+  }
+  const normalizedJobState = Array.isArray(job.pendingTrackIds)
+    &&JSON.stringify([...queued])===JSON.stringify(job.pendingTrackIds)
+    &&JSON.stringify(pendingResultIds)===JSON.stringify(job.pendingResultIds||{})
+    &&Array.isArray(job.pendingFullRebuildTrackIds)
+    &&JSON.stringify([...pendingFullRebuildTrackIds])===JSON.stringify(job.pendingFullRebuildTrackIds)
+    &&Boolean(forceFullRebuildAll&&queued.size)===Boolean(job.forceFullRebuildAll)
+    &&String(job.activeFullRebuildTrackId||'')===activeFullRebuildTrackId
+    &&JSON.stringify([...backfillQueuedTrackIds])===JSON.stringify(job.backfillQueuedTrackIds||[])
+    &&JSON.stringify([...backfillCatchupTrackIds])===JSON.stringify(job.backfillCatchupTrackIds||[])
+    &&Number(job.schemaVersion||0)===2
+    &&JSON.stringify(failedFullRebuilds)===JSON.stringify(job.failedFullRebuilds||{});
+  if(document&&!changed.length&&!legacy.length&&!rebuilt&&job.backfillComplete&&job.forceFullRebuildAll!==true
+    &&(!queued.size||selected.length===0&&normalizedJobState))
+    return {scanned:0,rebuilt:0,targeted:0,pending:queued.size,unchanged:true};
+  env.__OVERALL_REQUEST_BUDGET.limit = 45; // Reserve three calls for durable reconciliation state.
+  // At most build completion, manifest, track, meta, Rolling invalidation and queue.
+  if (publicationDocuments.length > 5) throw Error('RECONCILE_PUBLICATION_WRITE_BUDGET');
+  const pendingResultBindings = Object.fromEntries(Object.values(pendingResultIds).flat()
+    .filter(id => Object.hasOwn(job.pendingResultBindings || {},id))
+    .map(id => [id,job.pendingResultBindings[id]]));
+  const checkpoint = {collection:COLLECTIONS.jobs,id:jobId,prior:document,data:{
+    ...job,
+    cursorIngestedAt:changedCursor&&!changedCursorDeferred?changedCursor.ingestedAt:timestamp,
+    cursorDocumentId:changedCursor&&!changedCursorDeferred?changedCursor.id:safeText(job.cursorDocumentId,256),
+    backfillDocumentId:legacy.length?legacy.at(-1).id:safeText(job.backfillDocumentId,256),
+    backfillComplete,backfillQueuedTrackIds:[...backfillQueuedTrackIds],backfillCatchupTrackIds:[...backfillCatchupTrackIds],
+    pendingTrackIds:[...queued],pendingResultIds,pendingResultBindings,pendingFullRebuildTrackIds:[...pendingFullRebuildTrackIds],
+    failedFullRebuilds,activeFullRebuildTrackId,
+    forceFullRebuildAll:Boolean(forceFullRebuildAll&&queued.size),lastScanAt:Date.now(),schemaVersion:2
+  }};
+  const checkpointDocument = {name:documentBase(env).replace('https://firestore.googleapis.com/v1/','')+'/'+COLLECTIONS.jobs+'/'+jobId,
+    fields:encodeFields(checkpoint.data)};
+  if (new TextEncoder().encode(JSON.stringify(checkpointDocument)).length > RECONCILE_JOB_DOCUMENT_BUDGET)
+    throw Error('RECONCILE_JOB_DOCUMENT_BUDGET');
+  await commitDocuments(env,[...publicationDocuments,checkpoint]);
+  return {scanned:changed.length+legacy.length,rebuilt,targeted,pending:queued.size};
+}
+
+async function mapConcurrent(values, concurrency, mapper) {
+  const output = new Array(values.length);
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(Math.max(1, concurrency), values.length) }, async () => {
+    while (cursor < values.length) {
+      const index = cursor++;
+      output[index] = await mapper(values[index], index);
+    }
+  });
+  await Promise.all(workers);
+  return output;
+}
+
+export function rebuildOverall(env, force = false, {adminRecovery = false} = {}) {
+  // Only an explicit authenticated admin recovery may bypass external publication.
+  // Gate before single-flight and metadata reads, including forced background calls.
+  if (env.OVERALL_PUBLICATION_MODE === 'external' && !(force === true && adminRecovery === true))
+    return Promise.resolve({rebuilt:false, reason:'externally_published', publicationMode:'external'});
+  const key=env.__FIRESTORE_ROOT_ENV || env;
+  const pending = overallBuildRequests.get(key);
+  if (pending) {
+    // A forced admin call must not inherit a non-forced cache-only build.
+    if (force && !pending.force) return pending.request.then(
+      () => rebuildOverall(env,true,{adminRecovery}), () => rebuildOverall(env,true,{adminRecovery}));
+    return pending.request;
+  }
+  const request = loadOverallRebuild(env, force);
+  const state = {request,force};
+  overallBuildRequests.set(key, state);
+  request.finally(() => { if (overallBuildRequests.get(key) === state) overallBuildRequests.delete(key); }).catch(() => {});
+  return request;
+}
+
+async function loadOverallRebuild(env, force = false) {
+  // Include earlier scheduled/request Firestore work; reserve five of an assumed
+  // fifty subrequests for cold auth/other external work. Cache calls count too.
+  env = {...env,__OVERALL_REQUEST_BUDGET:{used:Number(env.__FIRESTORE_READ_AUDIT?.operationAttempts ?? env.__FIRESTORE_READ_AUDIT?.httpRequests ?? 0),limit:42}};
+  const metaDoc = await readDocument(env, COLLECTIONS.meta, 'current');
+  const meta = metaDoc?.data || {};
+  const now = Date.now();
+  const policyKey = await entitlementPolicyKey({cosmetics: COSMETIC_ENTITLEMENT_VERSION,
+    achievements: SERVER_ACHIEVEMENT_VERSION, catalog: SERVER_ACHIEVEMENT_CATALOG,
+    eligibleTrackIds: [...OFFICIAL_IDS, ...COMMUNITY_IDS, ...LEGACY_COMMUNITY_IDS],
+    beatOwnerTrackIds: [...OFFICIAL_IDS, SPECIAL_ROLLING_HILLS_TRACK_ID], owner: OWNER_PUBLIC_ID,
+    openBeta: openBetaEnabled(env), cutoffAt: betaCutoff(env)});
+  const entitlementsChanged = entitlementChanged(meta, policyKey);
+  const entitlementScanDue = entitlementAuditDue(meta, now, force);
+  const entitlementAuditExpired = Number.isSafeInteger(meta.entitlementAuditedAt) && entitlementScanDue;
+  const retryAt = Number(meta.overallRebuildRetryAt || 0);
+  const blocked = meta.overallRebuildBlockedSource;
+  const sameBlockedSource = blocked && blocked.revision === Number(meta.revision || 0) &&
+    blocked.sourceDigest === String(meta.sourceBundle?.digest || '') &&
+    blocked.catalogScannedAt === Number(meta.sourceCatalog?.scannedAt || 0);
+  if (!force && Number.isSafeInteger(retryAt) && retryAt > now && (!blocked || sameBlockedSource)) {
+    return {rebuilt: false, reason: 'failure_cooldown', retryAt,
+      attempts: Number(meta.overallRebuildFailureAttempts || 0)};
+  }
+  const metricsOutdated = Number(meta.ownerChallengePolicyVersion || 0) < OWNER_CHALLENGE_POLICY_VERSION || Number(meta.plannerPublicationVersion || 0) < PLANNER_PUBLICATION_VERSION || Number(meta.plannerBundleVersion || 0) < PLANNER_BUNDLE_VERSION || Number(meta.cosmeticEntitlementVersion||0)<COSMETIC_ENTITLEMENT_VERSION || Number(meta.averagePlacementVersion || 0) < AVERAGE_PLACEMENT_VERSION || Number(meta.derivedMetricsVersion || 0) < DERIVED_METRICS_VERSION;
+  const catalogScanDue = sourceCatalogNeedsScan(meta.sourceCatalog, {now,force});
+  const lastBuild = Number(meta.lastOverallBuildAt || 0), age = now - lastBuild;
+  const coolingDown = lastBuild > 0 && age >= 0 && age < REBUILD_COOLDOWN_MS &&
+    (!catalogScanDue || !sourceCatalogIsReady(meta.sourceCatalog));
+  const incompleteCoolingDown = meta.overallRetryExhausted === true && !meta.dirty &&
+    lastBuild > 0 && age >= 0 && age < SOURCE_CATALOG_RESCAN_MS;
+  // A missing/incomplete source catalog is not permission to rescan every cron.
+  // Real source changes set dirty; forced admin repair still bypasses this gate.
+  if (!force && !metricsOutdated && !entitlementsChanged &&
+      ((coolingDown || incompleteCoolingDown) && !entitlementAuditExpired || !catalogScanDue && !meta.dirty && !entitlementScanDue))
+    return {rebuilt:false, reason:!catalogScanDue && !meta.dirty ? 'clean' : incompleteCoolingDown ? 'incomplete_cooldown' : coolingDown ? 'cooldown' : 'clean', revision:Number(meta.builtRevision || 0)};
+  try {
+    return await buildOverallSnapshot(env, metaDoc, meta, now, force,
+      !meta.dirty && !metricsOutdated && !entitlementsChanged && !entitlementScanDue, policyKey);
+  } catch (error) {
+    // Recovery could not prove this build still owns the metadata generation.
+    // Do not reread or write backoff onto potentially newer state.
+    if (error?.sourceRecoveryGuardFailed !== true && error?.entitlementFenceFailed !== true) await recordOverallRebuildFailure(env, meta, error);
+    throw error;
+  }
+}
+
+async function recordOverallRebuildFailure(env, initialMeta, sourceError) {
+  const budget = env.__OVERALL_REQUEST_BUDGET;
+  const previousLimit = budget?.limit;
+  // Three slots are reserved from normal work for fresh-meta guarded backoff.
+  if (budget) budget.limit = 45;
+  try {
+    const currentDoc = await readDocument(env, COLLECTIONS.meta, 'current');
+    const current = currentDoc?.data || {};
+    const buildTime = Number(current.lastOverallBuildAt || 0);
+    if (buildTime > Number(initialMeta.lastOverallBuildAt || 0) &&
+        Number(current.builtRevision || 0) >= Number(current.revision || 0)) return;
+
+    const previousAttempts = Number.isSafeInteger(current.overallRebuildFailureAttempts)
+      ? Math.max(0, current.overallRebuildFailureAttempts) : 0;
+    const attempts = Math.min(previousAttempts + 1, 5);
+    const sourceBudgetBlocked = ['OVERALL_SOURCE_REQUEST_BUDGET_EXHAUSTED', 'OVERALL_REQUEST_BUDGET_EXHAUSTED'].includes(sourceError?.message);
+    if (sourceBudgetBlocked && Number(current.revision || 0) !== Number(initialMeta.revision || 0)) return;
+    const retryDelay = sourceBudgetBlocked ? 24 * 60 * 60 * 1000 : Math.min(OVERALL_REBUILD_FAILURE_MAX_MS,
+      OVERALL_REBUILD_FAILURE_BASE_MS * 2 ** Math.min(attempts - 1, 4));
+    await commitDocuments(env, [{collection: COLLECTIONS.meta, id: 'current', prior: currentDoc,
+      data: {...current, ...(sourceError?.invalidateSourceBundle ? {sourceBundle:{version:1,ready:false}} : {}),
+        overallRebuildFailureAttempts: attempts, overallRebuildRetryAt: Date.now() + retryDelay,
+        overallRebuildBlockedSource: sourceBudgetBlocked ? {revision:Number(current.revision || 0),
+          sourceDigest:sourceError?.invalidateSourceBundle ? '' : String(current.sourceBundle?.digest || ''), catalogScannedAt:Number(current.sourceCatalog?.scannedAt || 0)} : null}}]);
+  } catch {
+    // Failure bookkeeping must not hide the original build error or weaken CAS.
+  } finally {
+    if (budget) budget.limit = previousLimit;
+  }
+}
+
+async function buildOverallSnapshot(env, metaDoc, meta, now, force = false, allowUnchangedAudit = false, policyKey) {
+  const sourceCache = env.__TEST_OVERALL_SOURCE_CACHE ?? globalThis.caches?.default;
+  const cache = sourceCache ? {
+    match: key => { takeOverallRequest(env); return sourceCache.match(key); },
+    put: (key, response) => { takeOverallRequest(env); return sourceCache.put(key,response); }
+  } : null;
+  const sources = await loadOverallSources({meta, now, forceScan:force, cache,
+    scope:documentBase(env)+'/'+COLLECTIONS.track+'/overall-bundle-loader-v1',
+    scanSources:({request})=>scanOverallSourceDocuments(env,request),
+    readDocuments:async ids=>(await readDocumentsForCollections(env,[[COLLECTIONS.track,ids]])).get(COLLECTIONS.track),
+    loadEntries:(root,id,read)=>loadPublicationEntries(root,'track',id,read),
+    readPage:(collection,id)=>readDocument(env,collection,id),
+    readPublishedBundle:async marker=>{
+      const documents=(await readDocumentsForCollections(env,[[SOURCE_PUBLICATION_COLLECTION,sourcePublicationIds(marker)]]))
+        .get(SOURCE_PUBLICATION_COLLECTION);
+      try {return await decodeSourcePublication(marker,documents);}
+      catch(error){error.sourcePublicationRejected=true;throw error;}
+    },
+    beforeRecoveryScan:async()=>{
+      try {
+        const latest=await readDocument(env,COLLECTIONS.meta,'current');
+        if(!metaDoc?.updateTime || latest?.updateTime!==metaDoc.updateTime)
+          throw Error('OVERALL_BUILD_SUPERSEDED');
+      } catch(error) {error.sourceRecoveryGuardFailed=true;throw error;}
+    }});
+  const publication = await prepareSourcePublication(sources.bundleBody, sources.sourceBundle);
+  if (publication) sources.sourceBundle = publication.marker;
+  const sourceWrites = publication?.documents || [];
+  const sourceMeta = {...meta,
+    ...(sources.sourceCatalog ? {sourceCatalog:sources.sourceCatalog} : {}),
+    ...(sources.sourceBundle ? {sourceBundle:sources.sourceBundle} : {})};
+  if (!force && allowUnchangedAudit && sources.unchanged) {
+    // A fresh source audit is not a score change. CAS still fences concurrent writers.
+    await commitDocuments(env,[...sourceWrites,{collection:COLLECTIONS.meta,id:'current',prior:metaDoc,data:sourceMeta}]);
+    return {rebuilt:false,reason:'sources_unchanged',revision:Number(meta.builtRevision || 0),sourceRequests:sources.requests};
+  }
+  const {boards, trackCatalog, limitReached: boardLimitReached} = sources;
+  const priorDoc = await readOverallSnapshot(env);
+  const prior = priorDoc?.data || {};
+  const revision = Number(meta.revision || 0);
+  const migration = (await readDocument(env, COLLECTIONS.jobs, 'release_migration'))?.data || {};
+  const betaTesterIds = new Set([...(migration.awardedBadgeIds || []),...(migration.pendingBadges || [])].map((value) => safeText(value, 128)).filter(Boolean));
+  const computedBase = computeOverall(boards, prior.entries || [], betaTesterIds, {includePlannerResults: true});
+  const accountIds = computedBase.map(row => row.userId);
+  let groupTagDirectory;
+  const entitlementScope = documentBase(env) + '/' + ENTITLEMENT_COLLECTION;
+  const readEntitlementInputs = async (collection, ids) => {
+    const requests = [[collection, ids]];
+    if (accountIds.length && groupTagDirectory === undefined) requests.push([COLLECTIONS.groupTags, ['current']]);
+    const documents = await readDocumentsForCollections(env, requests);
+    if (groupTagDirectory === undefined) groupTagDirectory = documents.get(COLLECTIONS.groupTags)?.get('current') || null;
+    return documents.get(collection);
+  };
+  const entitlements = await loadOverallEntitlements({meta, accountIds, scope: entitlementScope, policyKey, now, force,
+    readPublished: ids => readEntitlementInputs(ENTITLEMENT_CACHE_COLLECTION, ids),
+    readCanonical: ids => readEntitlementInputs(ENTITLEMENT_COLLECTION, ids),
+    beforeRecovery: async () => {
+      try {
+        const latest = await readDocument(env, COLLECTIONS.meta, 'current');
+        if (!metaDoc?.updateTime || latest?.updateTime !== metaDoc.updateTime) throw Error('OVERALL_ENTITLEMENT_SUPERSEDED');
+      } catch (error) { error.entitlementFenceFailed = true; throw error; }
+    }});
+  const priorEntitlements = entitlements.documents;
+  const groupTagDirectoryEntries = groupTagDirectory?.data?.accounts && typeof groupTagDirectory.data.accounts === 'object' && !Array.isArray(groupTagDirectory.data.accounts)
+    ? groupTagDirectory.data.accounts : {};
+  const priorById = new Map((prior.entries || []).map(row => [row.userId, row]));
+  const priorIssuedById = new Map(computedBase.map(row => {
+    const oldEntry = priorById.get(row.userId) || {};
+    const serverIssued = priorEntitlements.get(row.userId)?.data?.serverIssued || {};
+    return [row.userId, { ...oldEntry, ...(serverIssued.achievements ? {serverAchievements: serverIssued.achievements} : {}) }];
+  }));
+  const aggregated = aggregateServerAchievements(computedBase, boards, priorIssuedById, {
+    eligibleTrackIds: [...OFFICIAL_IDS, ...COMMUNITY_IDS, ...LEGACY_COMMUNITY_IDS],
+    beatOwnerTrackIds: [...OFFICIAL_IDS, SPECIAL_ROLLING_HILLS_TRACK_ID],
+    ownerPublicId: OWNER_PUBLIC_ID,
+    now
+  });
+  const migrationSource = {...migration, open:openBetaEnabled(env), sourceRevision:Math.max(1, revision), issuedAt:now, cutoffAt: betaCutoff(env)};
+  const computedEntries = aggregated.entries.map(row => {
+    const oldEntry = priorById.get(row.userId) || {};
+    const betaEntitlement = betaEntitlementFor(row.userId, row.accountCreatedAt, oldEntry, priorEntitlements.get(row.userId), migrationSource, prior);
+    const rowCodeAt = Number(row.groupCodeUpdatedAt || 0), oldCodeAt = Number(oldEntry.groupCodeUpdatedAt || 0);
+    const selectedCode = rowCodeAt > oldCodeAt ? row.groupCode : oldCodeAt > rowCodeAt ? oldEntry.groupCode
+      : /^\d{6}$/.test(row.groupCode || '') ? row.groupCode : oldEntry.groupCode;
+    const tag = groupTagDirectoryEntries[row.userId];
+    const groupCode = groupTagDirectory
+      ? (/^\d{6}$/.test(tag?.groupCode || '') ? tag.groupCode : '')
+      : (/^\d{6}$/.test(selectedCode || '') ? selectedCode : '');
+    const groupCodeUpdatedAt = groupTagDirectory ? Number(tag?.updatedAt || 0) : Math.max(rowCodeAt, oldCodeAt);
+    const result = {...row, ...(groupCodeUpdatedAt > 0 ? {groupCodeUpdatedAt} : {}), betaEntitlement, badges: betaEntitlement ? {betaTester:true} : null};
+    if (groupCode) result.groupCode = groupCode;
+    else delete result.groupCode;
+    return result;
+  });
+  const entries = computedEntries.map(({resultSamples, ...entry}) => entry);
+  const extraCap = extraWeightCap(boards);
+  const trackSummaries = boards.map((board) => ({...board,entries:rankTrustedTrackEntries((Array.isArray(board.entries)?board.entries:[]).filter((entry)=>entry.integrityVerified===true&&entry.runVerified===true),safeText(board.trackId,80))})).filter((board) => board.entries.length >= 2).map((board) => {
+    const leader = board.entries[0] || {};
+    return {
+      trackId: safeText(board.trackId, 80),
+      type: EXTRA_TRACK_IDS.has(board.trackId) ? 'extra' : trackType(board.trackId),
+      fieldSize: board.entries.length,
+      weight: EXTRA_TRACK_IDS.has(board.trackId) ? Math.min(extraCap, Number(leader.weight || 0)) : Number(leader.weight || 0),
+      recordMs: raceTime(leader),
+      updatedAt: Number(board.updatedAt || board.builtAt || now),
+      leader: {
+        accountId: safeText(leader.accountId || leader.userId, 128),
+        name: safeText(leader.name || leader.nickname || 'Racer', 24),
+        countryCode: safeText(leader.countryCode, 8).toUpperCase(),
+        carStyle: safeText(leader.carStyle, 256),
+        timeMs: raceTime(leader),
+        rank: 1
+      }
+    };
+  }).filter((summary) => summary.trackId).sort((a, b) => b.weight - a.weight || b.fieldSize - a.fieldSize || a.trackId.localeCompare(b.trackId));
+  let entitlementWrites=[];
+  const nextEntitlements = new Map();
+  for(const row of entries){
+    const old=priorEntitlements.get(row.userId)?.data;
+    const allowance=mergeEarnedAndPurchasedEntitlements(
+      cosmeticEntitlement(row,row.badges?.betaTester===true),old,{accountId:row.userId});
+    const changed = Number(meta.cosmeticEntitlementVersion||0)<COSMETIC_ENTITLEMENT_VERSION||!old||stableJson(allowance)!==stableJson(old);
+    if(changed)entitlementWrites.push({collection:ENTITLEMENT_COLLECTION,id:row.userId,data:allowance});
+    // New allowances already contain normalized beta evidence. Do not invent a server updateTime.
+    nextEntitlements.set(row.userId, changed ? {id: row.userId, data: allowance, updateTime: ''} : priorEntitlements.get(row.userId));
+  }
+  const rejectEntitlementConflict = async (ids, error) => {
+    error.entitlementFenceFailed = true;
+    try {
+      // A conflict can invalidate this calculation, never authorize it with fresh CAS.
+      await commitDocuments(env, [{collection: COLLECTIONS.meta, id: 'current', prior: metaDoc,
+        data: invalidateEntitlements(meta, ids)}]);
+    } catch { /* A newer metadata generation owns recovery; do not replace it. */ }
+    throw error;
+  };
+  const commitEntitlementChanges = async (documents, changed) => {
+    try {
+      const result = await commitDocuments(env, documents);
+      if (result == null && changed.length) throw Error('FIRESTORE_404');
+      return result;
+    } catch (error) {
+      if (changed.length && /^FIRESTORE_(400|404|409|412)$/.test(error?.message || ''))
+        return rejectEntitlementConflict(changed.map(document => document.id), error);
+      throw error;
+    }
+  };
+  try {
+    const fenced = await fenceEntitlementWrites(entitlementWrites, priorEntitlements,
+      ids => readEntitlementInputs(ENTITLEMENT_COLLECTION, ids));
+    entitlementWrites = fenced.writes;
+    entitlements.canonicalReads += fenced.canonicalReads;
+  } catch (error) {
+    if (error.entitlementConflictIds) return rejectEntitlementConflict(error.entitlementConflictIds, error);
+    throw error;
+  }
+  const totalEntries = Number(computedBase.totalEntries || entries.length);
+  const sourceTracksComplete = !boardLimitReached && boards.every(board => board?.sourceComplete === true || board?.complete === true);
+  const sourceIncomplete = !sourceTracksComplete;
+  const sameIncompleteRevision = Number(meta.overallIncompleteRevision ?? -1) === revision;
+  const priorIncompleteObservations = sameIncompleteRevision ? Math.max(0, Number(meta.overallIncompleteObservations || 0)) : 0;
+  const incompleteObservations = sourceIncomplete ? priorIncompleteObservations + 1 : 0;
+  const incompleteRetryPending = sourceIncomplete && incompleteObservations <= OVERALL_INCOMPLETE_RETRY_LIMIT;
+  const overallIncompleteReason = boardLimitReached ? 'board-query-limit'
+    : sourceIncomplete ? 'source-track-incomplete'
+      : totalEntries > OVERALL_LIMIT ? 'publication-limit' : '';
+  const compacted = await compactOverallEntries(entries.slice(0,OVERALL_LIMIT));
+  const snapshot = { entries: compacted.entries, trackSummaries, trackCatalog, complete: sourceTracksComplete && totalEntries <= OVERALL_LIMIT,
+    totalEntries, totalEntriesExact: sourceTracksComplete, publishedEntries: Math.min(entries.length,OVERALL_LIMIT),sourceComplete:sourceTracksComplete,
+    authorityAudit: aggregated.audit, betaPolicy: {version: 1, open: openBetaEnabled(env), config: 'OPEN_BETA_ENABLED'},
+    updatedAt: now, builtAt: now, seededBy: 'polytrack-ranked-worker',
+    revision, builtRevision: revision, sourceRevision: revision, algorithmVersion: ALGORITHM_VERSION,
+    schemaVersion: TRACK_SCHEMA_VERSION, averagePlacementVersion: AVERAGE_PLACEMENT_VERSION,
+    derivedMetricsVersion: DERIVED_METRICS_VERSION, serverAchievementVersion: SERVER_ACHIEVEMENT_VERSION,
+    entryLimit: OVERALL_LIMIT, trackLimit: TRACK_LIMIT };
+  if (compacted.entryDetailsBundle) {
+    snapshot.entryDetailsBundle = compacted.entryDetailsBundle;
+    snapshot.entryDetailsVersion = compacted.entryDetailsVersion;
+  }
+  const paged = entries.length > OVERALL_LIMIT ? await preparePublicationPages('overall','main',computedEntries,{sourceRevision:revision,sourceComplete:sourceTracksComplete}) : null;
+  if (paged) {await stagePublication(env,paged.documents);snapshot.pagination=paged.pagination;}
+  const packed = await packPlannerResults(computedEntries.slice(0,OVERALL_LIMIT), snapshot, {
+    boardCount: boards.length, boardLimit: OVERALL_BOARD_LIMIT, boardLimitReached
+  });
+  const resultWrites = paged?[{collection:PUBLIC_MANIFEST_COLLECTION,id:publicationManifestId('overall','main',paged.pagination.generation),data:{...paged.pagination,sourceRevision:revision},unconditional:true}]:[];
+  if (packed.resultBundleStatus === 'sidecar') {
+    const {resultBundle, ...metadata} = packed;
+    Object.assign(snapshot, metadata, {resultBundleLocation: 'main_results'});
+    const sidecar = {...packed, resultBundleStatus: 'complete', sourceRevision: snapshot.sourceRevision,
+      builtRevision: snapshot.builtRevision, updatedAt: snapshot.updatedAt, algorithmVersion: snapshot.algorithmVersion};
+    // The guarded main/meta writes protect this sidecar in the same atomic commit, without another read.
+    resultWrites.push({collection: COLLECTIONS.overall, id: 'main_results', data: sidecar, unconditional: true});
+  } else {
+    Object.assign(snapshot, packed);
+  }
+  if (plannerDocumentBytes(snapshot) >= PLANNER_DOCUMENT_BUDGET) throw Error('OVERALL_DOCUMENT_CAP');
+  const successMeta = {...sourceMeta};
+  delete successMeta.overallRebuildFailureAttempts;
+  delete successMeta.overallRebuildRetryAt;
+  delete successMeta.overallRebuildBlockedSource;
+  const writeBytes = documents => documents.reduce((size,doc)=>size+1024+new TextEncoder().encode(JSON.stringify(encodeFields(doc.data))).length,0);
+  // Journal each intermediate chunk atomically, even if the build later dies.
+  // Never adopt a freshly read metadata precondition for this old calculation.
+  while(entitlementWrites.length>400 || writeBytes(entitlementWrites)>4*1024*1024){
+    const batch = [];
+    let batchBytes = 0;
+    while (entitlementWrites.length && batch.length < 400) {
+      const size = writeBytes([entitlementWrites[0]]);
+      if (batchBytes + size > 4*1024*1024) break;
+      batchBytes += size;
+      batch.push(entitlementWrites.shift());
+    }
+    if (!batch.length) throw Error('OVERALL_ENTITLEMENT_WRITE_CAP');
+    const chunkMeta = invalidateEntitlements(meta, batch.map(document => document.id));
+    const committed=await commitEntitlementChanges([...batch,{collection:COLLECTIONS.meta,id:'current',prior:metaDoc,data:chunkMeta}], batch);
+    const updateTime=committed?.writeResults?.at(-1)?.updateTime;
+    if (!updateTime || committed.writeResults.length !== batch.length + 1) {
+      const error = Error('OVERALL_ENTITLEMENT_COMMIT_FENCE_MISSING'); error.entitlementFenceFailed = true; throw error;
+    }
+    captureEntitlementCommitTimes(nextEntitlements, batch, committed, batch.length + 1);
+    meta = chunkMeta;
+    metaDoc={data:meta,updateTime};
+  }
+  const finalEpoch = entitlementEpoch(meta) + (entitlementWrites.length ? 1 : 0);
+  const entitlementPublication = await prepareEntitlementPublication(nextEntitlements,
+    {scope: entitlementScope, policyKey, epoch: finalEpoch, auditedAt: entitlements.auditedAt});
+  const entitlementCacheWrites = entitlementPublication?.documents || [];
+  Object.assign(successMeta, {entitlementEpoch: finalEpoch, entitlementBuiltEpoch: finalEpoch,
+    entitlementPolicyKey: policyKey, entitlementAuditedAt: entitlements.auditedAt, entitlementInvalidations: null,
+    entitlementBundle: entitlementPublication?.marker || {version:1,ready:false}});
+  // The optional source projection must never push a previously valid score commit
+  // over Firestore's request-size ceiling. Leave headroom for write envelopes.
+  const finalData = () => [...sourceWrites,...entitlementCacheWrites,...entitlementWrites,...resultWrites,{data:snapshot},{data:successMeta}];
+  if(sourceWrites.length && writeBytes(finalData())>8*1024*1024){
+    sourceWrites.length=0;successMeta.sourceBundle={version:1,ready:false};
+  }
+  if (writeBytes(finalData())>8*1024*1024) {
+    entitlementCacheWrites.length=0;successMeta.entitlementBundle={version:1,ready:false};
+  }
+  if (writeBytes(finalData())>8*1024*1024 || finalData().length>450) throw Error('OVERALL_COMMIT_CAP');
+  const publishedMeta = { ...successMeta, ownerChallengePolicyVersion:OWNER_CHALLENGE_POLICY_VERSION, plannerPublicationVersion:PLANNER_PUBLICATION_VERSION, plannerBundleVersion:PLANNER_BUNDLE_VERSION, cosmeticEntitlementVersion:COSMETIC_ENTITLEMENT_VERSION, serverAchievementVersion:SERVER_ACHIEVEMENT_VERSION,
+    dirty: incompleteRetryPending, overallComplete: snapshot.complete, overallSourceComplete: sourceTracksComplete,
+    overallIncompleteReason, overallIncompleteRevision: sourceIncomplete ? revision : 0,
+    overallIncompleteObservations: incompleteObservations, overallRetryPending: incompleteRetryPending,
+    overallRetryExhausted: sourceIncomplete && !incompleteRetryPending,
+    revision, builtRevision: revision, lastOverallBuildAt: now, updatedAt: now, algorithmVersion: ALGORITHM_VERSION, schemaVersion: TRACK_SCHEMA_VERSION, averagePlacementVersion: AVERAGE_PLACEMENT_VERSION, derivedMetricsVersion: DERIVED_METRICS_VERSION, rankedWritesEnabled: String(env.RANKED_WRITES_ENABLED) !== 'false', multiplayerEnabled: String(env.MULTIPLAYER_ENABLED) !== 'false' };
+  const publicationWrites = [...entitlementWrites,...resultWrites,...sourceWrites,...entitlementCacheWrites,
+    {collection:COLLECTIONS.overall,id:'main',prior:priorDoc,data:snapshot},
+    {collection:COLLECTIONS.meta,id:'current',prior:metaDoc,data:publishedMeta}];
+  const committed = await commitEntitlementChanges(publicationWrites, entitlementWrites);
+  let entitlementTimestampsRefined = false;
+  // The authoritative publication already succeeded. Refinement is optional and may
+  // only use its returned metadata CAS, never a fresh read or a retry of stale output.
+  try {
+    const budget = env.__OVERALL_REQUEST_BUDGET;
+    if (entitlementCacheWrites.length && entitlementWrites.length && (!budget || budget.used < budget.limit)) {
+      const updateTime = captureEntitlementCommitTimes(nextEntitlements, entitlementWrites, committed, publicationWrites.length);
+      if (updateTime) {
+        const refined = await prepareEntitlementPublication(nextEntitlements,
+          {scope: entitlementScope, policyKey, epoch: finalEpoch, auditedAt: entitlements.auditedAt});
+        if (refined) {
+          const writes = [...refined.documents, {collection:COLLECTIONS.meta,id:'current',prior:{updateTime},
+            data:{...publishedMeta,entitlementBundle:refined.marker}}];
+          if (writeBytes(writes) <= 8*1024*1024) {
+            await commitDocuments(env, writes);
+            entitlementTimestampsRefined = true;
+          }
+        }
+      }
+    }
+  } catch { /* Keep the correct publication and its safe unknown-timestamp fallback. */ }
+  console.log('Ranked overall source reads', JSON.stringify({revision,sourceBoards:boards.length,
+    entitlementDocuments:entitlements.canonicalReads,entitlementCompanionReused:entitlements.reused,
+    entitlementTimestampsRefined,usedSourceCatalog:sources.usedSourceCatalog,
+    recoveredCorruptBundle:sources.recoveredCorruptBundle,
+    sourceRequests:sources.requests,invocationCountedRequests:env.__OVERALL_REQUEST_BUDGET.used}));
+  return { rebuilt: true, revision, racers: entries.length, tracks: trackSummaries.length };
+}
+
+async function notifyProfile(request, env, context, uid, body) {
+  const accountId = safeText(body.accountId, 128);
+  if (!accountId) return json(request.headers.get('Origin') || '', env, 400, { error: 'invalid_account_id' });
+  const profile = await readDocument(env, COLLECTIONS.profiles, accountId);
+  if (!profile || profile.data.ownerUid !== uid || safeText(profile.data.accountId, 128) !== accountId) {
+    return json(request.headers.get('Origin') || '', env, 403, { error: 'profile_not_owned' });
+  }
+  const betaEntitlement = await ensureProfileBetaEntitlement(env, accountId, profile.data.accountCreatedAt);
+  const identity = {
+    accountId,
+    name: safePublicName(profile.data.nickname || profile.data.name || 'Racer', accountId),
+    countryCode: safeText(profile.data.countryCode, 8).toUpperCase(),
+    carId: safeText(profile.data.carId, 64) || null,
+    carColors: safeText(profile.data.carColors, 64) || null,
+    carStyle: safeText(profile.data.carStyle, 256),
+    profileCosmetics: sanitizeProfileCosmetics(profile.data.profileCosmetics)
+  };
+  const groupTag = await readDocument(env, COLLECTIONS.groupTags, `account_${accountId}`);
+  identity.groupCode = groupTag?.data?.groupCode || '';
+  identity.groupCodeUpdatedAt = Number(groupTag?.data?.updatedAt || 0);
+  const jobId = `profile_${accountId}`;
+  const existingDoc=await readDocument(env,COLLECTIONS.jobs,jobId);
+  const existing=existingDoc?.data||{};
+  const identityFields = ['accountId', 'name', 'countryCode', 'carId', 'carColors', 'carStyle', 'profileCosmetics', 'groupCode', 'groupCodeUpdatedAt'];
+  const canonicalize = (value) => Array.isArray(value)
+    ? value.map(canonicalize)
+    : value && typeof value === 'object'
+      ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalize(value[key])]))
+      : value;
+  const identityChanged = !existing.identity || identityFields.some((key) =>
+    JSON.stringify(canonicalize(existing.identity[key])) !== JSON.stringify(canonicalize(identity[key])));
+  const priorIdentityUpdatedAt = Number(existing.identity?.identityUpdatedAt || 0);
+  const profileUpdatedAt = Date.parse(profile.updateTime || '');
+  identity.identityUpdatedAt = identityChanged || priorIdentityUpdatedAt <= 0
+    ? (Number.isFinite(profileUpdatedAt) && profileUpdatedAt > 0 ? profileUpdatedAt : Date.now())
+    : priorIdentityUpdatedAt;
+  const signatureWithTimestamp = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(identity))).then((bytes) => base64Url(new Uint8Array(bytes)));
+  if (!identityChanged && priorIdentityUpdatedAt > 0) {
+    const queued = Array.isArray(existing.pendingTrackIds) ? existing.pendingTrackIds.length : 0;
+    if ((!queued&&existing.trackDiscovery?.complete!==false) || existing.active === true || deferredProfileJob(existing, Date.now())) {
+      // Scheduled processing continues existing work without re-reading completed tracks.
+      return json(request.headers.get('Origin') || '', env, queued ? 202 : 200, { accepted: true, accountId, queued, unchanged: true, betaEntitlement });
+    }
+  }
+  const page=await profileTrackPage(env,accountId);
+  const trackIds=page.tracks;
+  const pendingTrackIds = existing.signature === signatureWithTimestamp
+    ? [...new Set([...(existing.pendingTrackIds || []), ...trackIds])]
+    : trackIds;
+  const trackDiscovery={version:1,cursor:page.cursor,complete:page.complete};
+  const active=pendingTrackIds.length>0||!page.complete;
+  if (existingDoc && !existingDoc.updateTime) throw Error('PROFILE_JOB_PREIMAGE_REQUIRED');
+  const committed=await commitDocuments(env,[{collection:COLLECTIONS.jobs,id:jobId,prior:existingDoc,
+    data:{kind:'profile',active,accountId,identity,signature:signatureWithTimestamp,pendingTrackIds,trackDiscovery,
+      createdAt:Number(existing.createdAt||Date.now()),updatedAt:Date.now(),
+      ...(!active?{completedAt:Date.now(),processed:0,changed:0}:{})}}]);
+  const written={updateTime:committed?.writeResults?.[0]?.updateTime||''};
+  if(!active)return json(request.headers.get('Origin')||'',env,202,{accepted:true,accountId,queued:0,betaEntitlement});
+  const backgroundAudit = createFirestoreAudit();
+  const backgroundEnv = {...env, __FIRESTORE_READ_AUDIT:backgroundAudit,
+    __FIRESTORE_AUDIT_ID:crypto.randomUUID(),__FIRESTORE_AUDIT_SCOPE:'background_profile'};
+  const task = processProfileJob(backgroundEnv, jobId, { kind: 'profile', active: true, accountId, identity, signature:signatureWithTimestamp, pendingTrackIds,trackDiscovery },written?.updateTime||'')
+    .catch((error) => console.error('Deferred profile job failed', String(error?.message || error)))
+    .finally(() => console.log('Ranked background Firestore reads',JSON.stringify({routeCategory:'profile',
+      auditId:backgroundEnv.__FIRESTORE_AUDIT_ID,measurementScope:'background_profile_job_final',...backgroundAudit,billingEstimateOnly:true})));
+  if (context.waitUntil) {
+    try { context.waitUntil(task); } catch { await task; }
+  } else await task;
+  return json(request.headers.get('Origin') || '', env, 202, { accepted: true, accountId, queued: pendingTrackIds.length, betaEntitlement });
+}
+
+async function saveGroupCode(env, accountId, groupCode) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const tagId = `account_${accountId}`;
+    const [tagPrior, directoryPrior] = await Promise.all([
+      readDocument(env, COLLECTIONS.groupTags, tagId),
+      readDocument(env, COLLECTIONS.groupTags, 'current')
+    ]);
+    const directoryAccounts = directoryPrior?.data?.accounts;
+    // These records and any public row change commit atomically. Do not expand
+    // or republish Overall for an already committed value, including a clear.
+    if (tagPrior?.data?.accountId === accountId && tagPrior.data.groupCode === groupCode &&
+        directoryAccounts && typeof directoryAccounts === 'object' && !Array.isArray(directoryAccounts) &&
+        (groupCode ? Object.hasOwn(directoryAccounts, accountId) && directoryAccounts[accountId]?.groupCode === groupCode
+          : !Object.hasOwn(directoryAccounts, accountId))) return Number(tagPrior.data.updatedAt || 0);
+    const overall = await readOverallSnapshot(env);
+    const updatedAt = Date.now();
+    const accounts = {...(directoryPrior?.data?.accounts || {})};
+    if (!directoryPrior && Array.isArray(overall?.data?.entries)) {
+      for (const row of overall.data.entries) {
+        if (/^\d{6}$/.test(row.groupCode || '')) accounts[safeText(row.userId || row.accountId, 128)] = {
+          groupCode: row.groupCode, updatedAt: Number(row.groupCodeUpdatedAt || 0)
+        };
+      }
+    }
+    if (groupCode) accounts[accountId] = {groupCode, updatedAt};
+    else delete accounts[accountId];
+    if (Object.keys(accounts).length > GROUP_TAG_DIRECTORY_LIMIT
+      || new TextEncoder().encode(JSON.stringify(encodeFields({accounts, updatedAt}))).byteLength > GROUP_TAG_DIRECTORY_MAX_BYTES) {
+      throw Error('GROUP_CODE_DIRECTORY_FULL');
+    }
+    const writes = [
+      {collection: COLLECTIONS.groupTags, id: tagId, prior: tagPrior, data: {accountId, groupCode, updatedAt}},
+      {collection: COLLECTIONS.groupTags, id: 'current', prior: directoryPrior, data: {accounts, updatedAt}}
+    ];
+    if (overall && Array.isArray(overall.data.entries)) {
+      let found = false;
+      const entries = overall.data.entries.map(row => {
+        if (safeText(row.userId || row.accountId, 128) !== accountId) return row;
+        found = true;
+        const updated = {...row, groupCodeUpdatedAt: updatedAt};
+        if (groupCode) updated.groupCode = groupCode;
+        else delete updated.groupCode;
+        return updated;
+      });
+      if (found) {
+        writes.push(...await prepareOverallSnapshotDocuments(env,overall,{...overall.data,entries,identityUpdatedAt:updatedAt}));
+      }
+    }
+    try {
+      await commitDocuments(env, writes);
+      return updatedAt;
+    } catch (error) {
+      if (!/FIRESTORE_(409|412)/.test(String(error?.message)) || attempt === 2) throw error;
+    }
+  }
+  return false;
+}
+
+async function profileGroupCode(request, env, context, uid, body, readOnly = false) {
+  const origin = request.headers.get('Origin') || '';
+  const accountId = safeText(readOnly ? new URL(request.url).searchParams.get('accountId') : body?.accountId, 128);
+  if (!accountId) return json(origin, env, 400, {error: 'invalid_account_id'});
+  if (!readOnly && !(typeof body?.groupCode === 'string' && (body.groupCode === '' || /^\d{6}$/.test(body.groupCode)))) {
+    return json(origin, env, 400, {error: 'invalid_group_code'});
+  }
+  const profile = await readDocument(env, COLLECTIONS.profiles, accountId);
+  if (!profile || profile.data.ownerUid !== uid || safeText(profile.data.accountId, 128) !== accountId) {
+    return json(origin, env, 403, {error: 'profile_not_owned'});
+  }
+  if (readOnly) {
+    const tag = await readDocument(env, COLLECTIONS.groupTags, `account_${accountId}`);
+    const groupCode = /^\d{6}$/.test(tag?.data?.groupCode || '') ? tag.data.groupCode : '';
+    return json(origin, env, 200, {groupCode});
+  }
+  const groupCode = body.groupCode;
+  try {
+    await saveGroupCode(env, accountId, groupCode);
+  } catch (error) {
+    if (/FIRESTORE_(409|412)/.test(String(error?.message))) return json(origin, env, 503, {error: 'group_code_conflict'});
+    if (/GROUP_CODE_DIRECTORY_FULL/.test(String(error?.message))) return json(origin, env, 409, {error: 'group_code_capacity'});
+    throw error;
+  }
+  return json(origin, env, 200, {groupCode});
+}
+
+async function updateProfileCosmetics(request, env, context, uid, body) {
+  const origin = request.headers.get('Origin') || '';
+  const accountId = safeText(body.accountId, 128);
+  if (!accountId) return json(origin, env, 400, { error: 'invalid_account_id' });
+  const profile = await readDocument(env, COLLECTIONS.profiles, accountId);
+  if (!profile || profile.data.ownerUid !== uid || safeText(profile.data.accountId, 128) !== accountId) {
+    return json(origin, env, 403, { error: 'profile_not_owned' });
+  }
+  const issuedBeta = await ensureProfileBetaEntitlement(env, accountId, profile.data.accountCreatedAt);
+  const cosmetics = sanitizeProfileCosmetics(body.cosmetics);
+  if(profile.data.cosmeticsSyncedAt && JSON.stringify(cosmetics)!==JSON.stringify(sanitizeProfileCosmetics(profile.data.profileCosmetics)))return json(origin,env,409,{error:'cosmetics_superseded'});
+  // Capture before propagation: never acknowledge a replacement queued while we publish.
+  const cosmeticJob = await readDocument(env, COLLECTIONS.cosmeticJobs, accountId);
+  if (!await propagateProfileCosmetics(env, accountId, profile, cosmetics, issuedBeta)) return json(origin, env, 403, { error: 'cosmetic_locked' });
+  const response = await notifyProfile(request, env, context, uid, { accountId });
+  // An accepted profile job durably owns any remaining per-track repairs.
+  if (response.ok) await completeCosmeticJob(env, cosmeticJob, accountId, uid, cosmetics);
+  return response;
+}
+
+async function completeCosmeticJob(env, job, accountId, ownerUid, cosmetics) {
+  if (!job?.updateTime || job.data.active !== true || job.data.accountId !== accountId ||
+      job.data.ownerUid !== ownerUid ||
+      JSON.stringify(sanitizeProfileCosmetics(job.data.cosmetics)) !== JSON.stringify(cosmetics)) return;
+  try {
+    await writeDocument(env, COLLECTIONS.cosmeticJobs, job.id,
+      { ...job.data, active: false, completedAt: Date.now(), error: '' }, job.updateTime);
+  } catch (error) {
+    // A newer draft (including the same design saved again) retains its own retry.
+    if (!/^FIRESTORE_(409|412)$/.test(String(error?.message))) throw error;
+  }
+}
+
+async function propagateProfileCosmetics(env, accountId, profile, cosmetics, issuedBeta) {
+  const [overall, badge] = await Promise.all([
+    readOverallSnapshot(env),
+    readDocument(env, COLLECTIONS.badges, accountId)
+  ]);
+  const entry = (Array.isArray(overall?.data?.entries) ? overall.data.entries : []).find((row) => safeText(row.userId || row.accountId, 128) === accountId) || {};
+  const betaTester = Boolean(issuedBeta) || badge?.data?.betaTester === true || entry?.badges?.betaTester === true;
+  if (!profileCosmeticsUnlocked(cosmetics, entry, betaTester)) {
+    // Only canonical server purchase provenance can extend earned permissions.
+    const entitlement = await readDocument(env, ENTITLEMENT_COLLECTION, accountId);
+    try {
+      if (!purchasedProfileCosmeticsUnlocked(cosmetics, cosmeticEntitlement(entry, betaTester),
+        entitlement?.data, {accountId, ownerUid: profile.data.ownerUid})) return false;
+    } catch (error) {
+      if (['PURCHASED_COSMETIC_ENTITLEMENT_INVALID', 'COMMUNITY_ENTITLEMENT_INVALID'].includes(error?.message)) return false;
+      throw error;
+    }
+  }
+  if (!overall) {
+    // Reconstruct rankings only through the existing bounded publisher, never
+    // fabricate a partial Overall from a single cosmetics request.
+    const metaDoc = await readDocument(env, COLLECTIONS.meta, 'current');
+    if (metaDoc?.data?.dirty !== true) await commitDocuments(env, [{collection:COLLECTIONS.meta,id:'current',prior:metaDoc,
+      data:{...metaDoc?.data,dirty:true,revision:Math.max(0,Number(metaDoc?.data?.revision || 0))+1}}]);
+  }
+  const sameCosmetics = value => value?.version === PROFILE_COSMETICS_VERSION &&
+    JSON.stringify(sanitizeProfileCosmetics(value)) === JSON.stringify(cosmetics);
+  const profileCurrent = sameCosmetics(profile.data.profileCosmetics) &&
+    Number.isSafeInteger(profile.data.identityUpdatedAt) && profile.data.identityUpdatedAt > 0;
+  const identityUpdatedAt = profileCurrent ? profile.data.identityUpdatedAt : Date.now();
+  if (!profileCurrent) await writeDocument(env, COLLECTIONS.profiles, accountId, { ...profile.data, profileCosmetics: cosmetics, identityUpdatedAt, updatedAt: identityUpdatedAt }, profile.updateTime);
+  // Profile equality alone is not proof of propagation. Repair stale Overall and
+  // always consult notifyProfile so missing/inactive jobs still recover.
+  const overallIdentityUpdatedAt = Number.isSafeInteger(entry.identityUpdatedAt) && entry.identityUpdatedAt > 0
+    ? Math.max(identityUpdatedAt, entry.identityUpdatedAt) : identityUpdatedAt;
+  if (overall?.data && Array.isArray(overall.data.entries) && Object.keys(entry).length &&
+      (!sameCosmetics(entry.profileCosmetics) || entry.identityUpdatedAt !== overallIdentityUpdatedAt)) {
+    const entries = overall.data.entries.map((row) => safeText(row.userId || row.accountId, 128) === accountId ? { ...row, profileCosmetics: cosmetics } : row);
+    await writeOverallSnapshot(env, overall, { ...overall.data, entries: entries.map(row => safeText(row.userId || row.accountId, 128) === accountId ? {...row, identityUpdatedAt:overallIdentityUpdatedAt} : row) });
+  }
+  return true;
+}
+
+async function processProfileJob(env, jobId, job, updateTime='') {
+  const now = profileMaintenanceClock(Date.now());
+  if (!updateTime) throw Error('PROFILE_JOB_PREIMAGE_REQUIRED');
+  const pending = Array.isArray(job.pendingTrackIds) ? [...new Set(job.pendingTrackIds.map((value) => safeText(value, 80)).filter(Boolean))] : [];
+  let discovery=job.trackDiscovery;
+  if(!pending.length&&discovery?.complete===false){
+    if(discovery.version!==1||typeof discovery.cursor!=='string'||!discovery.cursor.startsWith(job.accountId+'_')||discovery.cursor.length>220)throw Error('PROFILE_DISCOVERY_STATE_INVALID');
+    const page=await profileTrackPage(env,job.accountId,discovery.cursor);
+    pending.push(...page.tracks);
+    discovery={version:1,cursor:page.cursor,complete:page.complete};
+  }
+  const retry = profileRetryEntries(job, pending, now);
+  const batch = pending.filter(id => !retry.entries[id] || retry.entries[id].retryAt <= now).slice(0, 3);
+  const completed = new Set(), attempted = new Set(), budget = {fullRebuildAttempted:false};
+  const trackEnv = env.BACKGROUND_MAINTENANCE_MODE === 'coordinated' && !env.__OVERALL_REQUEST_BUDGET
+    ? {...env,__OVERALL_REQUEST_BUDGET:{used:Number(env.__FIRESTORE_READ_AUDIT?.operationAttempts||0),limit:42}} : env;
+  let changed = 0, checked = 0;
+  for (const trackId of batch) {
+    try {
+      const result = await updateTrackIdentity(trackEnv, trackId, job.identity, budget);
+      checked++; attempted.add(trackId);
+      if (result.pending || result.blocked) {
+        // The shared rebuild allowance did not check this track; leave it runnable.
+        if (result.reason !== 'maintenance_rebuild_budget')
+          deferProfileTrack(retry.entries, trackId, now, !result.blocked);
+        continue;
+      }
+      delete retry.entries[trackId];
+      completed.add(trackId);
+      if (result.changed) changed += 1;
+    } catch (error) {
+      if (error?.status === 429 || error?.message === 'FIRESTORE_429') throw error;
+      if (error?.message === 'OVERALL_REQUEST_BUDGET_EXHAUSTED') break;
+      checked++; attempted.add(trackId);
+      deferProfileTrack(retry.entries, trackId, now);
+      console.error('Profile track update deferred', trackId, String(error?.message || error));
+    }
+  }
+  const selected = attempted;
+  const remaining = [...pending.filter(id => !selected.has(id)), ...batch.filter(id => selected.has(id) && !completed.has(id))];
+  const hasWork = remaining.length > 0 || discovery?.complete === false;
+  const runnable = remaining.some(id => !retry.entries[id] || retry.entries[id].retryAt <= now)
+    || !remaining.length && discovery?.complete === false;
+  const {profileMaintenance:oldMaintenance, profileRetryAt:oldRetryAt, ...previous} = job;
+  // A large blocked job must yield even while untouched tracks remain runnable.
+  // Otherwise its active=true document could permanently hide healthy siblings.
+  const yieldBlocked = hasWork && runnable && completed.size === 0 && Object.keys(retry.entries).length > 0;
+  const maintenance = Object.keys(retry.entries).length
+    ? {version:1, identityKey:retry.identityKey, entries:retry.entries, ...(yieldBlocked ? {yieldedAt:now} : {})} : undefined;
+  const active = hasWork && runnable && !yieldBlocked;
+  const retryAt = hasWork && !active ? (yieldBlocked ? now + PROFILE_RETRY_BASE_MS
+    : Math.min(...remaining.map(id => retry.entries[id].retryAt))) : undefined;
+  if (job.active === active && hasWork && completed.size === 0 && changed === 0 &&
+      discovery === job.trackDiscovery && JSON.stringify(remaining) === JSON.stringify(job.pendingTrackIds) &&
+      JSON.stringify(maintenance) === JSON.stringify(oldMaintenance) && retryAt === oldRetryAt)
+    return {checked, changed, remaining:remaining.length};
+  await writeDocument(env, COLLECTIONS.jobs, jobId, {...previous,
+    ...(discovery ? {trackDiscovery:discovery} : {}), ...(maintenance ? {profileMaintenance:maintenance} : {}),
+    ...(retryAt !== undefined ? {profileRetryAt:retryAt} : {}), active, pendingTrackIds:remaining,
+    processed:Math.max(0, Number(job.processed || 0)) + completed.size,
+    changed:Math.max(0, Number(job.changed || 0)) + changed, updatedAt:now, completedAt:hasWork ? 0 : now}, updateTime);
+  return {checked, changed, remaining:remaining.length};
+}
+
+export async function updateTrackIdentity(env, trackId, identity, budget = {fullRebuildAttempted:false}) {
+  const prior = await readDocument(env, COLLECTIONS.track, trackId);
+  const snapshot = prior?.data;
+  if (!trackSnapshotIsCurrent(snapshot, snapshot?.signature) || (snapshot.complete !== true&&snapshot.sourceComplete!==true)) {
+    if (budget.fullRebuildAttempted) {
+      // A confirmed blocked continuation needs no canonical scan. Fence it to
+      // this fresh base so the other tracks can also acquire bounded backoff.
+      const build = await readDocument(env, TRACK_BUILD_JOBS, trackBuildId(trackId));
+      const disposition = trackBuildDisposition({prior,job:build});
+      if (disposition.action === 'blocked')
+        return {changed:false,pending:true,blocked:true,reason:disposition.reason};
+      return {changed:false,pending:true,reason:'maintenance_rebuild_budget'};
+    }
+    // Reserve before awaiting: failures consume the same one-fallback allowance.
+    budget.fullRebuildAttempted = true;
+    const result = await rebuildTrack(env, trackId, identity);
+    // Paged builds do not apply identityOverride. Confirm/apply against the published
+    // board next pass rather than double-publishing inside a read-heavy build pass.
+    return {...result,pending:true,identityPending:true};
+  }
+  if (snapshot.pagination?.version === 1 && snapshot.pagination.complete === true &&
+      env.BACKGROUND_MAINTENANCE_MODE === 'coordinated') {
+    const build = await readDocument(env, TRACK_BUILD_JOBS, trackBuildId(trackId));
+    if (trackBuildDisposition({prior,job:build}).action === 'resume') {
+      const queue = await readDocument(env, COLLECTIONS.jobs, 'canonical_reconcile_v2');
+      // Keep the durable identity job pending instead of invalidating paid scan
+      // pages. Only a live, owned continuation qualifies; expiry is not renewed.
+      if (queue?.data?.activeFullRebuildTrackId === trackId &&
+          queue.data.pendingFullRebuildTrackIds?.includes(trackId))
+        return {changed:false,pending:true,reason:'active_track_build_identity',revision:Number(snapshot.revision||0)};
+    }
+  }
+  const accountId = safeText(identity?.accountId, 128);
+  const pagination = snapshot.pagination;
+  if (accountId && prior.updateTime && snapshot.trackId === trackId && pagination?.version === 1 &&
+      pagination.complete === true && pagination.pageSize === 100 &&
+      Number.isSafeInteger(pagination.totalEntries) && pagination.totalEntries > TRACK_LIMIT &&
+      pagination.pageCount === Math.ceil(pagination.totalEntries / 100) &&
+      /^[a-f0-9]{64}$/.test(pagination.generation) && snapshot.entries.length === TRACK_LIMIT) {
+    // The fresh root publishes this prefix atomically with its page generation.
+    // Reject only a strictly older identity; absence or uncertainty still loads pages.
+    const existing = snapshot.entries.find(entry => safeText(entry.accountId || entry.userId, 128) === accountId);
+    const publishedAt = Number(existing?.identityUpdatedAt), incomingAt = Number(identity?.identityUpdatedAt);
+    if (existing && Number.isSafeInteger(publishedAt) && Number.isSafeInteger(incomingAt) &&
+        incomingAt > 0 && publishedAt > incomingAt)
+      return {changed:false,superseded:true,revision:Number(snapshot.revision||0)};
+  }
+  if(snapshot.pagination)snapshot.entries=await loadTrackPublicationEntries(env,snapshot,trackId);
+  if (!accountId) return { changed: false, entries: snapshot.entries, revision: Number(snapshot.revision || 0) };
+  const index = snapshot.entries.findIndex((entry) => safeText(entry.accountId || entry.userId, 128) === accountId);
+  if (index < 0) return { changed: false, entries: snapshot.entries, revision: Number(snapshot.revision || 0) };
+
+  const entries = snapshot.entries.slice();
+  const existing = entries[index];
+  const priorIdentityTime=Number(existing.identityUpdatedAt),nextIdentityTime=Number(identity.identityUpdatedAt);
+  if(Number.isSafeInteger(priorIdentityTime)&&Number.isSafeInteger(nextIdentityTime)&&nextIdentityTime>0&&priorIdentityTime>nextIdentityTime)
+    return {changed:false,superseded:true,entries:snapshot.entries,revision:Number(snapshot.revision||0)};
+  const cosmetics = sanitizeProfileCosmetics(identity.profileCosmetics || {});
+  entries[index] = {
+    ...existing,
+    name: safePublicName(identity.name, accountId),
+    nickname: safePublicName(identity.name, accountId),
+    countryCode: safeText(identity.countryCode, 8).toUpperCase(),
+    carId: safeText(identity.carId, 32) || existing.carId || null,
+    carColors: identity.carColors ?? existing.carColors ?? '',
+    carStyle: identity.carStyle ?? existing.carStyle ?? '',
+    profileCosmetics: cosmetics,
+    groupCode: /^\d{6}$/.test(identity.groupCode || '') ? identity.groupCode : '',
+    groupCodeUpdatedAt: Number(identity.groupCodeUpdatedAt || 0),
+    identityUpdatedAt: Number(identity.identityUpdatedAt || 0)
+  };
+  return persistTrackSnapshot(env, trackId, entries, prior);
+}
+
+async function processProfileJobs(env, {preferRetry = false} = {}) {
+  const now = profileMaintenanceClock(Date.now());
+  // Single-field queries include legacy active jobs without requiring a migration
+  // or composite index. Alternating lanes cannot starve either queue under load.
+  const active = () => runQuery(env, COLLECTIONS.jobs, {field:'active', value:true}, 1);
+  const retries = () => runQuery(env, COLLECTIONS.jobs, {field:'profileRetryAt', op:'LESS_THAN_OR_EQUAL', value:now}, 1);
+  let jobs = await (preferRetry ? retries() : active());
+  if (!jobs.length) jobs = await (preferRetry ? active() : retries());
+  const job = jobs[0];
+  if (!job || job.data.kind !== 'profile') return;
+  if ((!Array.isArray(job.data.pendingTrackIds) || !job.data.pendingTrackIds.length) && job.data.trackDiscovery?.complete !== false) return;
+  await processProfileJob(env, job.id, job.data, job.updateTime);
+}
+
+async function processCosmeticJobs(env) {
+  const jobs = await runQuery(env, COLLECTIONS.cosmeticJobs, { field: 'active', value: true }, 1);
+  for (const job of jobs) {
+    const accountId = safeText(job.data.accountId, 128);
+    const ownerUid = safeText(job.data.ownerUid, 128);
+    const profile = accountId ? await readDocument(env, COLLECTIONS.profiles, accountId) : null;
+    if (!profile || profile.data.ownerUid !== ownerUid || safeText(profile.data.accountId, 128) !== accountId) {
+      await writeDocument(env, COLLECTIONS.cosmeticJobs, job.id, { ...job.data, active: false, error: 'profile_not_owned', completedAt: Date.now() },job.updateTime);
+      continue;
+    }
+    // A delayed job must not restore a design superseded by a direct profile save.
+    if (JSON.stringify(sanitizeProfileCosmetics(profile.data.profileCosmetics)) !== JSON.stringify(sanitizeProfileCosmetics(job.data.cosmetics))) {
+      await writeDocument(env, COLLECTIONS.cosmeticJobs, job.id, { ...job.data, active: false, error: 'superseded', completedAt: Date.now() },job.updateTime);
+      continue;
+    }
+    const cosmetics = sanitizeProfileCosmetics(job.data.cosmetics);
+    const issuedBeta = await ensureProfileBetaEntitlement(env, accountId, profile.data.accountCreatedAt);
+    if (!await propagateProfileCosmetics(env, accountId, profile, cosmetics, issuedBeta)) {
+      await writeDocument(env, COLLECTIONS.cosmeticJobs, job.id, { ...job.data, active: false, error: 'cosmetic_locked', completedAt: Date.now() },job.updateTime);
+      continue;
+    }
+    const deferred = [];
+    const origin = [...allowedOrigins(env)][0] || '';
+    const response = await notifyProfile(new Request('https://polytrack-ranked.internal/v1/profile/notify', { headers: { Origin: origin } }), env, { waitUntil(task) { deferred.push(task); } }, ownerUid, { accountId });
+    await Promise.allSettled(deferred);
+    if (response.ok) await completeCosmeticJob(env, job, accountId, ownerUid, cosmetics);
+  }
+}
+
+async function createMigrationJob(env, prior = null) {
+  const [betaBoards, canonicalResults] = await Promise.all([
+    runQuery(env, COLLECTIONS.betaTrack, null, 100),
+    runQuery(env, COLLECTIONS.raceResults, null, 1000)
+  ]);
+  const trackIds = [...new Set([
+    ...betaBoards.map((board) => safeText(board.data.trackId || board.id, 80)),
+    ...canonicalResults.map((result) => safeText(result.data.trackId, 80))
+  ].filter(Boolean))].sort();
+  // PB timestamps are not trusted account-creation evidence and cannot seed beta grants.
+  const betaCandidateIds=[];
+  const previouslyAwarded = Array.isArray(prior?.awardedBadgeIds) ? prior.awardedBadgeIds.map((value) => safeText(value, 128)).filter(Boolean) : [];
+  const job = { kind: 'migration', migrationVersion: MIGRATION_VERSION, pendingTrackIds: trackIds, betaCandidateIds, pendingBadges: [], awardedBadgeIds: previouslyAwarded, processedTracks: 0, awardedBadges: previouslyAwarded.length, createdAt: Date.now(), updatedAt: Date.now(), completedAt: 0 };
+  await writeDocument(env, COLLECTIONS.jobs, 'release_migration', job);
+  return processMigrationJob(env, job);
+}
+
+async function resumeOrCreateMigration(env) {
+  const existing = (await readDocument(env, COLLECTIONS.jobs, 'release_migration'))?.data;
+  if (existing?.kind === 'migration' && Number(existing.completedAt || 0) === 0) return processMigrationJob(env, existing);
+  if (existing?.kind === 'migration' && Number(existing.completedAt || 0) > 0 && Number(existing.migrationVersion || 0) >= MIGRATION_VERSION) {
+    return { active: false, tracksRemaining: 0, badgesRemaining: 0, processedTracks: Number(existing.processedTracks || 0), awardedBadges: Number(existing.awardedBadges || 0), migrationVersion: MIGRATION_VERSION };
+  }
+  return createMigrationJob(env, existing);
+}
+
+export async function processMigrationJob(env, supplied = null) {
+  const job = supplied || (await readDocument(env, COLLECTIONS.jobs, 'release_migration'))?.data;
+  if (!job || job.kind !== 'migration' || Number(job.completedAt || 0) > 0) return { active: false };
+  const pendingTracks = Array.isArray(job.pendingTrackIds) ? job.pendingTrackIds : [];
+  const pendingBadges = new Set(Array.isArray(job.pendingBadges) ? job.pendingBadges : []);
+  const awardedBadgeIds = new Set(Array.isArray(job.awardedBadgeIds) ? job.awardedBadgeIds.map((value) => safeText(value, 128)).filter(Boolean) : []);
+  const at = Date.now(), failures = {...job.trackFailures};
+  const batch = pendingTracks.filter(id => !(Number(failures[id]?.retryAt || 0) > at)).slice(0, MIGRATION_TRACK_BATCH);
+  if (!batch.length && pendingTracks.length) return {active:true, tracksRemaining:pendingTracks.length, deferred:true};
+  // Do not start a second fixed-readTime build while reconciliation owns another.
+  const coordination = (await readDocument(env, COLLECTIONS.jobs, 'canonical_reconcile_v2'))?.data;
+  if (batch.length && coordination?.activeFullRebuildTrackId &&
+      coordination.pendingTrackIds?.includes(coordination.activeFullRebuildTrackId))
+    return {active:true, tracksRemaining:pendingTracks.length, deferred:true};
+  // Retain unfinished tracks, but checkpoint completed siblings even when another fails.
+  const rebuiltTracks = await mapConcurrent(batch, 3, async trackId => {
+    try {
+      const build = await readDocument(env, TRACK_BUILD_JOBS, trackBuildId(trackId));
+      if (build?.data?.complete === true && Number(build.data.completedAt || 0) >= Number(job.createdAt || 0)) {
+        const published = await readDocument(env, COLLECTIONS.track, trackId);
+        if (published) return {trackId, result:{entries:await loadPublicationEntries(published.data,'track',trackId,
+          (collection,id)=>readDocument(env,collection,id))}};
+      }
+      return {trackId, result:await rebuildTrack(env, trackId)};
+    }
+    catch (error) { return {trackId, error}; }
+  });
+  const completed = new Set();
+  for (const {trackId, result, error} of rebuiltTracks) {
+    if (error || result?.blocked) {
+      const attempts = Math.min(8, Number(failures[trackId]?.attempts || 0) + 1);
+      failures[trackId] = {attempts, retryAt:at + Math.min(RECONCILE_REBUILD_BACKOFF_MAX_MS,
+        RECONCILE_REBUILD_BACKOFF_BASE_MS * 2 ** (attempts - 1))};
+      console.error('Migration track rebuild deferred', trackId, String(error?.message || result?.reason || error));
+      continue;
+    }
+    if (result?.pending) continue;
+    if (!Array.isArray(result?.entries)) throw Error('INVALID_MIGRATION_REBUILD_RESULT');
+    delete failures[trackId];
+    for (const entry of result.entries) {
+      const createdAt = Number(entry.accountCreatedAt || 0);
+      if (createdAt > 0 && createdAt <= betaCutoff(env) && !awardedBadgeIds.has(entry.accountId)) pendingBadges.add(entry.accountId);
+    }
+    completed.add(trackId);
+  }
+  const processedTracks = completed.size;
+  const remainingTracks = pendingTracks.filter(id => !completed.has(id));
+  let awardedBadges = 0;
+  if (!remainingTracks.length) {
+    const badgeWrites=[];
+    for (const accountId of [...pendingBadges].slice(0, MIGRATION_BADGE_BATCH)) {
+      pendingBadges.delete(accountId);
+      if (!openBetaEnabled(env) || !betaCutoff(env)) continue;
+      badgeWrites.push({collection:COLLECTIONS.badges,id:accountId,data:{accountId,betaTester:true,awardedAt:Date.now(),cutoffAt:betaCutoff(env),source:'release-migration'},unconditional:true});
+      awardedBadgeIds.add(accountId);
+      awardedBadges += 1;
+    }
+    if(badgeWrites.length)await commitDocuments(env,badgeWrites);
+  }
+  const complete = !remainingTracks.length && pendingBadges.size === 0;
+  const next = { ...job, migrationVersion: MIGRATION_VERSION, pendingTrackIds: remainingTracks, trackFailures: Object.fromEntries(Object.entries(failures).filter(([id]) => remainingTracks.includes(id))), pendingBadges: [...pendingBadges], awardedBadgeIds: [...awardedBadgeIds], processedTracks: Math.max(0, Number(job.processedTracks || 0)) + processedTracks, awardedBadges: Math.max(0, Number(job.awardedBadges || 0)) + awardedBadges, updatedAt: Date.now(), completedAt: complete ? Date.now() : 0 };
+  await writeDocument(env, COLLECTIONS.jobs, 'release_migration', next);
+  // Published track changes already mark Overall dirty; its isolated cron owns aggregation.
+  return { active: !complete, tracksRemaining: remainingTracks.length, badgesRemaining: pendingBadges.size, processedTracks: next.processedTracks, awardedBadges: next.awardedBadges, migrationVersion: MIGRATION_VERSION };
+}
+
+async function requestBody(request, maxBytes = 2048) {
+  const length = request.headers.get('Content-Length');
+  if (length && /^\d+$/.test(length) && Number(length) > maxBytes) throw new Error('BODY_TOO_LARGE');
+  if (!request.body) return {};
+  const reader = request.body.getReader(), chunks = [];
+  let size = 0;
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > maxBytes) { await reader.cancel(); throw new Error('BODY_TOO_LARGE'); }
+      chunks.push(value);
+    }
+  } finally { reader.releaseLock(); }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+  const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  return text ? JSON.parse(text) : {};
+}
+
+async function publicSnapshot(request, env, context, origin, collection, id) {
+  const cache = typeof caches !== 'undefined' ? caches.default : null;
+  const cacheUrl = new URL('/__ranked_public_cache/' + encodeURIComponent(collection) + '/' + encodeURIComponent(id), request.url);
+  cacheUrl.searchParams.set('__origin', origin);
+  cacheUrl.searchParams.set('__schema', String(TRACK_SCHEMA_VERSION));
+  cacheUrl.searchParams.set('__algorithm', ALGORITHM_VERSION);
+  cacheUrl.searchParams.set('__averagePlacement', String(AVERAGE_PLACEMENT_VERSION));
+  cacheUrl.searchParams.set('__integrityState', String(INTEGRITY_STATE_VERSION));
+  cacheUrl.searchParams.set('__entryDetails', String(OVERALL_DETAILS_VERSION));
+  const cacheKey = new Request(cacheUrl.toString(), { method: 'GET' });
+  if (cache) {
+    const cached = await cache.match(cacheKey).catch(() => null);
+    if (cached) return cached;
+  }
+  const remembered = recallPublicResponse(env, cacheKey.url);
+  if (remembered) return remembered;
+  if (!await allowPublicRead(request, env)) return rateLimited(origin, env);
+  const missGuard=publicMissGuard(env),missClient=(request.headers.get('CF-Connecting-IP')||'unknown').slice(0,128);
+  const key = cacheKey.url;
+  const scope = publicResponseCacheScope(env), loads = scope.pending;
+  let load = loads.get(key);
+  if (!load) {
+    const finishProbe = missGuard.reserve(missClient);
+    if (!finishProbe) return rateLimited(origin, env);
+    load = (async () => {
+      const release = () => {
+        if (loads.get(key) === load) loads.delete(key);
+      };
+      try {
+        let pageReady = true;
+        if (collection === PUBLIC_PAGE_COLLECTION) {
+          const manifest = await readDocument(env, PUBLIC_MANIFEST_COLLECTION, id.replace(/_[0-9]+$/, '_0'));
+          pageReady = Number.isSafeInteger(manifest?.data?.pageCount) &&
+            Number(id.split('_').at(-1)) < manifest.data.pageCount;
+        }
+        const snapshot = pageReady ? await readDocument(env, collection, id) : null;
+        if (!snapshot) {
+          finishProbe(true);
+          const response = json(origin, env, 404, { error: 'snapshot_not_ready' }, 'public, max-age=10');
+          await rememberPublicResponse(env, key, response, Date.now(), scope);
+          if (cache) {
+            const fill = Promise.resolve().then(() => scope === publicResponseCacheScope(env) ? cache.put(cacheKey, response.clone()) : undefined)
+              .catch(() => {})
+              .finally(release);
+            if (context.waitUntil) {
+              try { context.waitUntil(fill); } catch { await fill; }
+            } else await fill;
+          } else {
+            release();
+          }
+          return response;
+        }
+        if(collection===PUBLIC_PAGE_COLLECTION)snapshot.data=await decodePublicationPage(snapshot.data);
+        const overallData = collection === COLLECTIONS.overall && id === 'main'
+          ? await unpackOverallDetails(snapshot.data) : snapshot.data;
+        const data = collection === COLLECTIONS.track && Array.isArray(overallData.entries)
+          ? {
+              ...overallData,
+              integrityStateVersion: INTEGRITY_STATE_VERSION,
+              entries: overallData.entries.map((entry) => ({
+                ...entry,
+                verifiedState: entry.runVerified === true ? 1 : 0,
+              })),
+            }
+          : overallData;
+        const response = json(origin, env, 200, data, collection === PUBLIC_PAGE_COLLECTION
+          ? 'public, max-age=86400, immutable' : 'public, max-age=300, stale-while-revalidate=30');
+        await rememberPublicResponse(env, cacheKey.url, response, Date.now(), scope);
+        if (cache && context.waitUntil) {
+          const fill = Promise.resolve().then(() => scope === publicResponseCacheScope(env) ? cache.put(cacheKey, response.clone()) : undefined)
+            .catch(() => {})
+            .finally(release);
+          try { context.waitUntil(fill); } catch { void fill; }
+        } else {
+          release();
+        }
+        return response;
+      } catch (error) {
+        release();
+        throw error;
+      } finally { finishProbe(); }
+    })();
+    loads.set(key, load);
+  }
+  return (await load).clone();
+}
+
+async function publicStatus(request, env, context, origin) {
+  const cache = typeof caches !== 'undefined' ? caches.default : null;
+  const url = new URL('/__ranked_public_status/v1', request.url);
+  url.searchParams.set('origin', origin);
+  url.searchParams.set('config', JSON.stringify([ALGORITHM_VERSION, TRACK_SCHEMA_VERSION, AVERAGE_PLACEMENT_VERSION, DERIVED_METRICS_VERSION,
+    openBetaEnabled(env), String(env.RANKED_WRITES_ENABLED) !== 'false', String(env.MULTIPLAYER_ENABLED) !== 'false']));
+  const cacheKey = new Request(url, {method: 'GET'});
+  const cached = await cache?.match(cacheKey).catch(() => null);
+  if (cached) return cached;
+  const remembered = recallPublicResponse(env, cacheKey.url);
+  if (remembered) return remembered;
+  // Admission is per caller; only the database read may be shared.
+  if (!await allowPublicRead(request, env)) return rateLimited(origin, env);
+  let load = publicSnapshotLoads.get(cacheKey.url);
+  if (!load) {
+    load = (async () => {
+      const release = () => { if (publicSnapshotLoads.get(cacheKey.url) === load) publicSnapshotLoads.delete(cacheKey.url); };
+      try {
+        const meta = (await readDocument(env, COLLECTIONS.meta, 'current'))?.data || {};
+        const response = json(origin, env, 200, { service: 'polytrack-ranked', algorithmVersion: ALGORITHM_VERSION, schemaVersion: TRACK_SCHEMA_VERSION, averagePlacementVersion: AVERAGE_PLACEMENT_VERSION, derivedMetricsVersion: Number(meta.derivedMetricsVersion || 0), currentDerivedMetricsVersion: DERIVED_METRICS_VERSION, openBetaEnabled: openBetaEnabled(env), rankedWritesEnabled: String(env.RANKED_WRITES_ENABLED) !== 'false', multiplayerEnabled: String(env.MULTIPLAYER_ENABLED) !== 'false', revision: Number(meta.revision || 0), builtRevision: Number(meta.builtRevision || 0), dirty: meta.dirty === true, pendingRevisions: Math.max(0, Number(meta.revision || 0) - Number(meta.builtRevision || 0)), updatedAt: Number(meta.updatedAt || 0) }, 'public, max-age=30');
+        await rememberPublicResponse(env, cacheKey.url, response);
+        // Keep concurrent requests joined until the edge cache is populated.
+        if (cache) await cache.put(cacheKey, response.clone()).catch(() => {});
+        return response;
+      } catch {
+        return json(origin, env, 503, {error: 'status_unavailable'});
+      } finally { release(); }
+    })();
+    publicSnapshotLoads.set(cacheKey.url, load);
+  }
+  return (await load).clone();
+}
+
+async function allowPublicRead(request, env, required = String(env.PUBLIC_READ_RATE_LIMIT_REQUIRED) === 'true') {
+  const limiter = env.PUBLIC_READ_RATE_LIMITER;
+  if (!limiter) return !required;
+  const ip = request.headers.get('CF-Connecting-IP');
+  if (!ip) return false;
+  try {
+    return (await limiter.limit({ key: ip })).success === true;
+  } catch {
+    return false;
+  }
+}
+
+async function submitExtraTrackReport(request, env, origin, uid, body) {
+  const trackId = safeText(body.trackId, 64), accountId = safeText(body.accountId, 64);
+  const reason = safeText(body.reason, 32);
+  if (!/^[a-f0-9]{64}$/.test(trackId) || !/^[a-f0-9]{64}$/.test(accountId) || !EXTRA_TRACK_IDS.has(trackId) && trackId !== UNRANKED_EXTRA_TRACK_ID || !['inappropriate', 'broken', 'incorrect_credit'].includes(reason)) return json(origin, env, 400, {error:'invalid_report'});
+  const profile = await readDocument(env, COLLECTIONS.profiles, accountId);
+  if (!profile || profile.data.ownerUid !== uid || profile.data.accountId !== accountId) return json(origin, env, 403, {error:'profile_not_owned'});
+  const username = safeText(profile.data.nickname || profile.data.name || 'Racer', 24) || 'Racer';
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const prior = await readDocument(env, COLLECTIONS.extraTrackReports, trackId);
+    const people = prior?.data.peopleWhoReportedIt || {};
+    if (people[accountId]) return json(origin, env, 409, {error:'already_reported'});
+    if (Object.keys(people).length >= 500) return json(origin, env, 409, {error:'report_capacity'});
+    const data = {trackId,trackName:safeText(body.trackName,80)||prior?.data.trackName||'Extra Track',reportsAmount:Object.keys(people).length+1,peopleWhoReportedIt:{...people,[accountId]:{username,id:accountId,reason,reportedAt:Date.now()}},updatedAt:Date.now()};
+    try { await commitDocuments(env,[{collection:COLLECTIONS.extraTrackReports,id:trackId,data,prior}]); return json(origin, env, 201, {accepted:true}); }
+    catch (error) { if (!/FIRESTORE_(409|412)/.test(String(error?.message)) || attempt === 2) throw error; }
+  }
+  return json(origin, env, 503, {error:'service_unavailable'});
+}
+
+async function publicUnrankedBoard(request, env, context, origin) {
+  const trackId = new URL(request.url).searchParams.get('trackId');
+  if (trackId !== UNRANKED_EXTRA_TRACK_ID) return json(origin, env, 400, {error:'invalid_track_id'});
+  const url = new URL('/__ranked_unranked_board/' + encodeURIComponent(env.FIREBASE_PROJECT_ID || PROJECT_ID), request.url);
+  url.searchParams.set('origin', origin);
+  const key = new Request(url), cache = typeof caches !== 'undefined' ? caches.default : null;
+  const cached = await cache?.match(key).catch(() => null);
+  if (cached) return cached;
+  const remembered = recallPublicResponse(env, key.url);
+  if (remembered) return remembered;
+  if (!await allowPublicRead(request, env)) return rateLimited(origin, env);
+  const owner = env.__FIRESTORE_ROOT_ENV || env;
+  let loads = unrankedBoardLoads.get(owner);
+  if (!loads) unrankedBoardLoads.set(owner, loads = new Map());
+  let pending = loads.get(key.url);
+  if (!pending) {
+    if (loads.size >= 64) return json(origin, env, 503, {error:'public_cache_busy'});
+    pending = Promise.resolve().then(async () => {
+      const startedAt = Date.now();
+      const board = await readDocument(env, COLLECTIONS.unrankedExtra, trackId);
+      const response = json(origin, env, 200, {trackId,unranked:true,entries:board?.data.entries||[],total:board?.data.total||0}, 'public, max-age=10');
+      await rememberPublicResponse(env, key.url, response, startedAt);
+      if (cache) {
+        const fill = Promise.resolve().then(() => cache.put(key, response.clone())).catch(() => {});
+        if (context.waitUntil) {
+          try { context.waitUntil(fill); } catch { await fill; }
+        }
+        await fill;
+      }
+      return response;
+    }).finally(() => { if (loads.get(key.url) === pending) loads.delete(key.url); });
+    loads.set(key.url, pending);
+  }
+  return (await pending).clone();
+}
+
+async function unrankedExtraBoard(request, env, origin, uid, body) {
+  const trackId = request.method === 'GET' ? new URL(request.url).searchParams.get('trackId') : body?.trackId;
+  if (trackId !== UNRANKED_EXTRA_TRACK_ID) return json(origin, env, 400, {error:'invalid_track_id'});
+  const accountId = safeText(body.accountId,64), timeMs = Number(body.timeMs), frames = Number(body.frames);
+  if (!/^[a-f0-9]{64}$/.test(accountId) || !Number.isSafeInteger(timeMs) || timeMs < 1 || timeMs > 86400000 || frames !== timeMs || typeof body.recording !== 'string' || !/^[A-Za-z0-9+/_=-]{16,65536}$/.test(body.recording)) return json(origin, env, 400, {error:'invalid_run'});
+  const profile = await readDocument(env, COLLECTIONS.profiles, accountId);
+  if (!profile || profile.data.ownerUid !== uid || profile.data.accountId !== accountId) return json(origin, env, 403, {error:'profile_not_owned'});
+  const name = safeText(profile.data.nickname || profile.data.name || 'Racer',24)||'Racer';
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const prior = await readDocument(env, COLLECTIONS.unrankedExtra, trackId);
+    const rows = Array.isArray(prior?.data.entries) ? prior.data.entries : [];
+    const old = rows.find(row => row.accountId === accountId);
+    if (old && old.timeMs <= timeMs) return json(origin, env, 200, {accepted:true,improved:false});
+    const now = Date.now();
+    const entries = [...rows.filter(row=>row.accountId!==accountId),{accountId,name,timeMs,frames,runVerified:false,integrityVerified:false,verifiedState:0,unranked:true,pbAt:now,uploadId:Number(body.uploadId)||0}].sort((a,b)=>a.timeMs-b.timeMs||a.accountId.localeCompare(b.accountId)).slice(0,TRACK_LIMIT);
+    // A run outside the retained top 500 changes no published entry.
+    const rank = entries.findIndex(row=>row.accountId===accountId)+1;
+    if (!rank) return json(origin, env, 200, {accepted:true,improved:false,rank:0});
+    const data={trackId,trackName:'Poly Dip 2',unranked:true,entries,total:Math.max(Number(prior?.data.total||0),rows.length)+(!old?1:0),updatedAt:now};
+    try {await commitDocuments(env,[{collection:COLLECTIONS.unrankedExtra,id:trackId,data,prior}]);return json(origin, env, 201, {accepted:true,improved:true,rank});}
+    catch(error){if(!/FIRESTORE_(409|412)/.test(String(error?.message))||attempt===2)throw error;}
+  }
+  return json(origin, env, 503, {error:'service_unavailable'});
+}
+
+function requestRouteCategory(request) {
+  const path = new URL(request.url).pathname;
+  if (path === '/v1/status') return 'public_status';
+  if (path === '/v1/snapshot/overall') return 'snapshot_overall';
+  if (path === '/v1/snapshot/track') return 'snapshot_track';
+  if (path === '/v1/pb/notify') return 'pb_notify';
+  if (path.startsWith('/v1/profile/')) return 'profile';
+  if (path.startsWith('/v1/events/')) return 'events';
+  if (path.startsWith('/v1/kodub-weekly')) return 'kodub_weekly';
+  if (path.startsWith('/v1/extra-tracks/')) return 'extra_tracks';
+  if (path.startsWith('/v1/admin/')) return 'admin';
+  return 'other';
+}
+
+export async function handleRequest(request, env, context = {}) {
+  const audit = createFirestoreAudit();
+  const routeCategory = requestRouteCategory(request);
+  const auditedEnv = {...env,__FIRESTORE_READ_AUDIT:audit,__FIRESTORE_ROOT_ENV:env,__FIRESTORE_QUOTA_STATE:{},
+    __FIRESTORE_AUDIT_ID:crypto.randomUUID(),__FIRESTORE_AUDIT_SCOPE:routeCategory};
+  try {
+    return await handleRequestInternal(request,auditedEnv,context);
+  } finally {
+    console.log('Ranked request Firestore reads',JSON.stringify({auditId:auditedEnv.__FIRESTORE_AUDIT_ID,routeCategory,measurementScope:'request_synchronous',...audit,billingEstimateOnly:true}));
+  }
+}
+
+async function handleRequestInternal(request, env, context = {}) {
+  const origin = request.headers.get('Origin') || '';
+  if (!allowedOrigins(env).has(origin)) return json(origin, env, 403, { error: 'origin_not_allowed', canonicalUrl: CANONICAL_CLIENT_URL });
+  const path = new URL(request.url).pathname.replace(/\/+$/, '') || '/';
+  if (request.method !== 'OPTIONS' && !path.startsWith('/v1/admin/')) {
+    const denial = clientAccessPolicy(request, env);
+    if (denial) {
+      const {status, ...body} = denial;
+      return json(origin, env, status, body);
+    }
+  }
+  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: responseHeaders(origin, env) });
+  if (path.startsWith('/v1/currency/') || path.startsWith('/v1/shop/')) {
+    // Private owner API, not a public capture/snapshot route. Default-off gate
+    // inside the handler runs before authentication or any storage operation.
+    return handleCurrencyRequest(request, {env, headers: responseHeaders(origin, env),
+      store: createEventFirestoreStore({request: (route, init) => firestoreRequest(env, route, init),
+        projectId: String(env.FIREBASE_PROJECT_ID || PROJECT_ID), retries: 2}),
+      authenticate: request => verifyFirebaseUser(request, env),
+      admit: async uid => {
+        const admission = await admitWriteBurst(request, env);
+        if (admission === 'limited') return rateLimited(origin, env);
+        if (admission === 'unavailable') return json(origin, env, 503, {error: 'write_limiter_unavailable'});
+        return userRateLimitResponse(origin, env, uid);
+      }});
+  }
+  const ownEventRead = /^\/v1\/events\/[A-Za-z0-9_-]{1,64}\/(receipt|runs\/[A-Za-z0-9_-]{1,128})$/.test(path);
+  const privateCaptureRead = request.method === 'GET' && env.PUBLIC_FIRESTORE_READ_MODE === 'capture-only' &&
+    !path.startsWith('/v1/admin/') && !path.startsWith('/v1/events/admin/') &&
+    !path.startsWith('/v1/kodub-weekly') && path !== '/v1/profile/group-code' && !ownEventRead;
+  if (path === '/v1/capture-auth' || privateCaptureRead) {
+    if (!await verifyCaptureRead(request, env)) return json(origin, env, 403, {error:'snapshot_capture_required', canonicalUrl:CANONICAL_CLIENT_URL});
+    if (path === '/v1/capture-auth') {
+      const headers=responseHeaders(origin,env);
+      headers.set('X-PolyTrack-Capture-Read-Guard','combined-v1');
+      return new Response(null,{status:204,headers});
+    }
+  }
+  if (path.startsWith('/v1/events/')) {
+    const response = await eventWorkerHandler(env, {
+    request: (path, init) => firestoreRequest(env, path, init),
+    authenticate: request => verifyFirebaseUser(request, env), origins: allowedOrigins(env), context
+    })(request);
+    const headers = new Headers(response.headers);
+    const allowed = headers.get('Access-Control-Allow-Headers') || 'Authorization, Content-Type';
+    headers.set('Access-Control-Allow-Headers', allowed + ', ' + CLIENT_REVISION_HEADER);
+    return new Response(response.body, {status: response.status, statusText: response.statusText, headers});
+  }
+
+  if (path === '/v1/kodub-weekly' || path.startsWith('/v1/kodub-weekly/')) return kodubWeekly(request,responseHeaders(origin,env),context,
+    {admit:()=>allowPublicRead(request,env,true)});
+  if (request.method === 'GET' && path === '/v1/status') {
+    return publicStatus(request, env, context, origin);
+  }
+  if (request.method === 'GET' && path === '/v1/profile/group-code') {
+    let uid;
+    try { uid = await verifyFirebaseUser(request, env); } catch { return json(origin, env, 401, {error: 'authentication_failed'}); }
+    const limited = await userRateLimitResponse(origin, env, uid);
+    if (limited) return limited;
+    return profileGroupCode(request, env, context, uid, null, true);
+  }
+  if (request.method === 'GET' && ['/v1/snapshot/overall/page','/v1/snapshot/track/page'].includes(path)) {
+    const url = new URL(request.url), kind = path.includes('/track/')?'track':'overall';
+    const id = kind==='track' ? url.searchParams.get('trackId') : 'main';
+    const generation = url.searchParams.get('generation'), page = Number(url.searchParams.get('page'));
+    let pageId;
+    try {if(url.searchParams.get('page')===null)throw Error();pageId=publicationPageId(kind,id,generation,page);} catch {return json(origin,env,400,{error:'invalid_page'});}
+    return publicSnapshot(request,env,context,origin,PUBLIC_PAGE_COLLECTION,pageId);
+  }
+  if (request.method === 'GET' && path === '/v1/snapshot/overall') {
+    return publicSnapshot(request, env, context, origin, COLLECTIONS.overall, 'main');
+  }
+  if (request.method === 'GET' && path === '/v1/extra-tracks/unranked') {
+    return publicUnrankedBoard(request, env, context, origin);
+  }
+  if (request.method === 'GET' && path === '/v1/snapshot/track') {
+    const trackId = safeText(new URL(request.url).searchParams.get('trackId'), 80);
+    if (!/^[A-Za-z0-9_-]{8,80}$/.test(trackId)) return json(origin, env, 400, { error: 'invalid_track_id' });
+    return publicSnapshot(request, env, context, origin, COLLECTIONS.track, trackId);
+  }
+  if (request.method !== 'POST') return json(origin, env, 404, { error: 'not_found' });
+  if (path === '/v1/admin/track-build/continue') {
+    if (!env.ADMIN_REBUILD_TOKEN || request.headers.get('X-Admin-Token') !== env.ADMIN_REBUILD_TOKEN)
+      return json(origin,env,403,{error:'admin_required'});
+    let body;
+    try {
+      body = await requestBody(request);
+      if (!body || typeof body !== 'object' || Array.isArray(body)) throw Error('INVALID_BODY');
+    } catch { return json(origin,env,400,{error:'invalid_request'}); }
+    const budget = {used:Number(env.__FIRESTORE_READ_AUDIT?.operationAttempts || 0),limit:42};
+    const scoped = {...env,__OVERALL_REQUEST_BUDGET:budget};
+    const result = await continueQueuedTrackBuild(body,{read:(c,id)=>readDocument(scoped,c,id),
+      rebuild:(id,options)=>rebuildTrack(scoped,id,null,{...options,deferPublication:true}),
+      beforePublish:()=>{budget.limit=45;},
+      commit:writes=>{
+        for (const write of writes) if (write.id === 'canonical_reconcile_v2' &&
+            new TextEncoder().encode(JSON.stringify({fields:encodeFields(write.data)})).length > RECONCILE_JOB_DOCUMENT_BUDGET - 512)
+          throw Error('RECONCILE_JOB_DOCUMENT_BUDGET');
+        return commitDocuments(scoped,writes);
+      }});
+    return json(origin,env,result.status,result.body);
+  }
+  if (path === '/v1/admin/rebuild') {
+    if (!env.ADMIN_REBUILD_TOKEN || request.headers.get('X-Admin-Token') !== env.ADMIN_REBUILD_TOKEN) return json(origin, env, 403, { error: 'admin_required' });
+    const adminRecovery = new URL(request.url).searchParams.get('recovery') === 'worker-rebuild';
+    if (env.OVERALL_PUBLICATION_MODE === 'external' && !adminRecovery)
+      return json(origin, env, 409, {error:'external_overall_publication', recovery:'POST /v1/admin/rebuild?recovery=worker-rebuild'});
+    const result = await rebuildOverall(env, true, {adminRecovery});
+    return json(origin, env, 200, result);
+  }
+  if (path === '/v1/admin/migrate') {
+    if (!env.ADMIN_REBUILD_TOKEN || request.headers.get('X-Admin-Token') !== env.ADMIN_REBUILD_TOKEN) return json(origin, env, 403, { error: 'admin_required' });
+    const result = await resumeOrCreateMigration(env);
+    return json(origin, env, 202, result);
+  }
+  if (path === '/v1/admin/reconcile') {
+    if (!env.ADMIN_REBUILD_TOKEN || request.headers.get('X-Admin-Token') !== env.ADMIN_REBUILD_TOKEN) return json(origin, env, 403, { error: 'admin_required' });
+    const bootstrap = await bootstrapSnapshotVerification(env);
+    const reconciliation = await reconcileCanonicalChanges(env);
+    const overall = await rebuildOverall(env, false);
+    return json(origin, env, 200, { bootstrap, reconciliation, overall });
+  }
+  if (path === '/v1/admin/migrate-extra-queues') {
+    if (!env.ADMIN_REBUILD_TOKEN || request.headers.get('X-Admin-Token') !== env.ADMIN_REBUILD_TOKEN) return json(origin, env, 403, { error: 'admin_required' });
+    return json(origin, env, 200, await migrateExtraVerificationQueues(env));
+  }
+  if (path !== '/v1/profile/community-badge' && path !== '/v1/pb/notify' && path !== '/v1/profile/notify' && path !== '/v1/profile/cosmetics' && path !== '/v1/profile/group-code' && path !== '/v1/extra-tracks/submissions' && path !== '/v1/extra-tracks/reports' && path !== '/v1/extra-tracks/unranked') return json(origin, env, 404, { error: 'not_found' });
+  if (String(env.RANKED_WRITES_ENABLED) === 'false') return json(origin, env, 503, { error: 'ranked_writes_disabled' });
+  const admission = await admitWriteBurst(request, env);
+  if (admission === 'limited') return rateLimited(origin, env);
+  if (admission === 'unavailable') {
+    const response = json(origin, env, 503, {error: 'write_limiter_unavailable', retryAfterSeconds: 60});
+    response.headers.set('Retry-After', '60');
+    return response;
+  }
+  let body;
+  try { body = await requestBody(request, path === '/v1/extra-tracks/submissions' ? 550000 : path === '/v1/extra-tracks/unranked' ? 70000 : 2048); if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('INVALID_BODY'); } catch { return json(origin, env, 400, { error: 'invalid_request' }); }
+  let uid;
+  try { uid = await verifyFirebaseUser(request, env); } catch { return json(origin, env, 401, { error: 'authentication_failed' }); }
+  const limited = await userRateLimitResponse(origin, env, uid);
+  if (limited) return limited;
+
+  if (path === '/v1/extra-tracks/reports') return submitExtraTrackReport(request, env, origin, uid, body);
+  if (path === '/v1/extra-tracks/unranked') return unrankedExtraBoard(request, env, origin, uid, body);
+  if (path === '/v1/extra-tracks/submissions') {
+    const name = safeText(body.name, 80), author = safeText(body.author, 80);
+    const description = safeText(body.description, 1000), code = String(body.code || '').trim();
+    const difficulty = Number(body.difficulty);
+    const tags = Array.isArray(body.tags) ? body.tags.slice(0, 6).map(tag => safeText(tag, 24)).filter(Boolean) : [];
+    const sourceUrl = safeText(body.sourceUrl, 300);
+    if (!name || !author || !/^PolyTrack[0-9A-Za-z+/_=-]{20,524280}$/.test(code) || !Number.isInteger(difficulty) || difficulty < 1 || difficulty > 10 || body.permissionGranted !== true || sourceUrl && !/^https:\/\//i.test(sourceUrl)) return json(origin, env, 400, { error: 'invalid_submission' });
+    const day = new Date().toISOString().slice(0, 10).replaceAll('-', '');
+    const id = `${uid}_${day}`;
+    const prior = await readDocument(env, COLLECTIONS.extraTrackSubmissions, id);
+    if (prior) return json(origin, env, 409, { error: 'one_submission_per_day' });
+    await commitDocuments(env, [{ collection: COLLECTIONS.extraTrackSubmissions, id, data: { ownerUid: uid, name, author, description, code, difficulty, tags, sourceUrl, permissionGranted: true, status: 'pending', createdAt: Date.now() } }]);
+    return json(origin, env, 201, { accepted: true });
+  }
+  if (path === '/v1/profile/community-badge') {
+    if (request.method !== 'POST') return json(origin, env, 405, {error: 'method_not_allowed'});
+    try {
+      const result = await createCommunityBadgeService({
+        store: createEventFirestoreStore({request: (route, init) => firestoreRequest(env, route, init),
+          projectId: String(env.FIREBASE_PROJECT_ID || PROJECT_ID), retries: 0}),
+        grantEntitlement: addCommunityBadge,
+        relayCodeSha256: env.COMMUNITY_RELAY_CODE_SHA256
+      }).claim(uid, body);
+      const response = json(origin, env, 200, result);
+      response.headers.set('Cache-Control', 'private, no-store');
+      return response;
+    } catch (error) {
+      return json(origin, env, error instanceof CommunityBadgeError ? error.httpStatus : 503,
+        {error: error instanceof CommunityBadgeError ? error.message : 'community_unavailable'});
+    }
+  }
+  if (path === '/v1/profile/cosmetics') return updateProfileCosmetics(request, env, context, uid, body);
+  if (path === '/v1/profile/group-code') return profileGroupCode(request, env, context, uid, body);
+  if (path === '/v1/profile/notify') return notifyProfile(request, env, context, uid, body);
+  const resultId = safeText(body.resultId, 220);
+  if (!/^[A-Za-z0-9_.:-]{3,220}$/.test(resultId)) return json(origin, env, 400, { error: 'invalid_result_id' });
+  if (env.PB_PUBLICATION_MODE !== undefined && !['immediate', 'coalesced'].includes(env.PB_PUBLICATION_MODE))
+    return json(origin, env, 503, { error: 'invalid_pb_publication_mode' });
+  let coalescedTracks=null;
+  if(env.PB_PUBLICATION_MODE==='coalesced'&&env.PB_COALESCED_TRACK_IDS_JSON!==undefined){
+    try{
+      const ids=JSON.parse(env.PB_COALESCED_TRACK_IDS_JSON);
+      if(!Array.isArray(ids)||ids.length>32||ids.some(id=>typeof id!=='string'||!/^[a-f0-9]{64}$/.test(id)))throw Error();
+      coalescedTracks=new Set(ids);
+    }catch{return json(origin,env,503,{error:'invalid_pb_publication_scope'});}
+  }
+  const result = await readDocument(env, COLLECTIONS.raceResults, resultId);
+  if (!result || result.data.ownerUid !== uid || resultId !== `${result.data.accountId}_${result.data.trackId}`) return json(origin, env, 403, { error: 'result_not_owned' });
+  if (!structurallyValidResult(result.data)) return json(origin, env, 422, { error: 'result_failed_structural_validation' });
+  const integrityVerified = await replayIntegrityValid(result.data);
+  const trackId = safeText(result.data.trackId, 80);
+  if(env.PB_PUBLICATION_MODE==='coalesced'&&(!coalescedTracks||coalescedTracks.has(trackId))){
+    const queued=await enqueueCanonicalPublication({trackId,resultId,canonicalBindingKey:verificationKey(result.data),
+      read:id=>readDocument(env,COLLECTIONS.jobs,id),
+      commit:(id,data,prior)=>commitDocuments(env,[{collection:COLLECTIONS.jobs,id,data,prior}])});
+    return json(origin,env,200,{accepted:true,...queued,trackId,overallPending:true,integrityVerified,
+      validationState:integrityVerified?'integrity':'pending'});
+  }
+  const rebuilt = await mergeCanonicalResultIntoTrack(env, trackId, result.data, integrityVerified);
+  // Track publication already marks Overall dirty. Only its isolated cron aggregates.
+  return json(origin, env, 200, { accepted: true, changed: rebuilt.changed, trackId, revision: rebuilt.revision, overallPending: rebuilt.changed && rebuilt.overallChanged !== false, integrityVerified, validationState: integrityVerified ? 'integrity' : 'pending' });
+}
+
+export default {
+  fetch(request, env, context) {
+    return handleRequest(request, env, context).catch((error) => {
+      console.error('Ranked Worker request failed', String(error?.message || error));
+      const origin = request.headers.get('Origin') || '';
+      return json(origin, env, 503, { error: 'service_unavailable' });
+    });
+  },
+  scheduled(_event, env, context) {
+    if(!maintenanceWindowAllows(_event.cron,_event.scheduledTime,env.BACKGROUND_MAINTENANCE_MODE))return;
+    if (_event.cron === '*/2 * * * *') {
+      const scheduledAt = _event.scheduledTime;
+      if (!scheduledIntervalDue(scheduledAt, BACKGROUND_REPAIR_INTERVAL_MS)) return;
+    }
+    const readAudit=createFirestoreAudit();
+    env={...env,__FIRESTORE_READ_AUDIT:readAudit,__FIRESTORE_ROOT_ENV:env,__FIRESTORE_QUOTA_STATE:{},
+      __FIRESTORE_AUDIT_ID:crypto.randomUUID(),__FIRESTORE_AUDIT_SCOPE:({'* * * * *':'event_maintenance',
+        '*/2 * * * *':'queue_repair','*/5 * * * *':'canonical_reconcile','1-59/5 * * * *':'overall_publication',
+        '2-59/5 * * * *':'identity_maintenance'})[_event.cron]||'scheduled'};
+    context.waitUntil((async()=>{
+      if (_event.cron === '*/2 * * * *') {
+        let rollingRefreshed = false;
+        try {
+          const rolling = await readDocument(env, COLLECTIONS.track, SPECIAL_ROLLING_HILLS_TRACK_ID);
+          if (rolling?.data?.entries?.length && Number(rolling.data.schemaVersion || 0) < TRACK_SCHEMA_VERSION) {
+            await rebuildTrack(env, SPECIAL_ROLLING_HILLS_TRACK_ID);
+            rollingRefreshed = true;
+          }
+        } catch (error) { console.error('Rolling Hills snapshot refresh failed', String(error?.message || error)); }
+        // Rebuilding a track is read-heavy; leave the rest of this invocation's
+        // Firestore subrequest budget for that work.
+        for (let batch = 0; batch < (rollingRefreshed ? 1 : 4); batch++) {
+          try { if ((await migrateExtraVerificationQueues(env)).complete) break; }
+          catch (error) { console.error('Extra queue recovery failed', String(error?.message || error)); break; }
+        }
+        try{await migrateCapacityVerificationQueues(env);}catch(error){console.error('Capacity queue migration deferred',String(error?.message||error));}
+        return;
+      }
+      if (_event.cron === '1-59/5 * * * *') {
+        // Keep aggregation out of reconciliation's shared subrequest budget.
+        await rebuildOverall(env, false);
+        return;
+      }
+      if (_event.cron === '* * * * *') {
+        const community = [...COMMUNITY_IDS];
+        // Existing TRACK_CATALOG begins with Rolling Hills, then official tracks.
+        return eventWorkerMaintenance(env, {
+          request: (path, init) => firestoreRequest(env, path, init),
+          officialIds: [...OFFICIAL_IDS], allIds: [community[0], ...OFFICIAL_IDS, ...community.slice(1)],
+          at: Number(_event.scheduledTime || Date.now()),
+          targetForTrack: async trackId => {
+            const snapshot = await readDocument(env, COLLECTIONS.track, trackId);
+            if (!snapshot?.data?.entries?.length) return null;
+            // Cached public labels can outlive a repin; require the exact current private proof.
+            const queue = await readDocument(env, VERIFICATION_COLLECTION, trackId);
+            const slots={...queue?.data?.slots};
+            if(queue?.data?.storageVersion===2){
+              const candidates=snapshot.data.entries.filter(row=>row.runVerified===true&&row.integrityVerified===true).slice(0,8);
+              const ids=candidates.map(row=>verificationShardId(trackId,row.accountId||row.userId));
+              const shards=(await readDocumentsForCollections(env,[[VERIFICATION_COLLECTION,ids]])).get(VERIFICATION_COLLECTION);
+              for(const document of shards.values())Object.assign(slots,document.data.slots);
+            }
+            return verifiedTargetMs(snapshot.data.entries, slots);
+          }
+        });
+      }
+      // Overall budgets prior Firestore work plus its own Firestore/Cache calls.
+      // Optional maintenance stays in a separate cron invocation.
+      const maintenance=_event.cron==='2-59/5 * * * *';
+      // Snapshot-native authority disables only automatic legacy queue seeding.
+      const bootstrapDue=env.VERIFICATION_AUTHORITY!=='snapshot-native' &&
+        (env.BACKGROUND_MAINTENANCE_MODE!=='coordinated'||maintenanceWindowAllows('*/5 * * * *',_event.scheduledTime,'four-window'));
+      const tasks=maintenance?[[processCosmeticJobs,processProfileJobs,resumeOrCreateMigration][Math.floor(Number(_event.scheduledTime||Date.now())/300000)%3]]:
+        [...(bootstrapDue?[bootstrapSnapshotVerification]:[]),reconcileCanonicalChanges];
+      for (const task of tasks) {
+        try {
+          if (task === reconcileCanonicalChanges) {
+            const scheduledAt = Number(_event.scheduledTime);
+            const scanResults = canonicalDiscoveryDue(scheduledAt,env.BACKGROUND_MAINTENANCE_MODE);
+            await task(env, {scanResults});
+          }else{const result=await task(env, task === processProfileJobs ? {preferRetry:Math.floor(Number(_event.scheduledTime)/900000)%2===0} : undefined);if(result?.paged)return;}
+        }
+        catch (error) { console.error('Scheduled task failed', task.name, String(error?.message || error)); }
+      }
+
+    })().catch((error) => console.error('Scheduled Ranked work failed', String(error?.message || error)))
+      .finally(()=>console.log('Ranked scheduled Firestore reads',JSON.stringify({auditId:env.__FIRESTORE_AUDIT_ID,cron:_event.cron,
+        scheduledTime:_event.scheduledTime,quotaPolicy:'rev171-event-activity',...readAudit,billingEstimateOnly:true}))));
+  }
+};

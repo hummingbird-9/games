@@ -1,0 +1,1348 @@
+import {isDeepStrictEqual} from 'node:util';
+import {isFullCanonicalTrackSource} from './full-canonical-track-source.mjs';
+import {retainedNativeBoardMatches} from './retained-native-board-cache.mjs';
+import {selectFullTrackChecks,assertFullTrackChecks,FULL_TRACK_CHECK_LIMIT} from './full-snapshot-source-checks.mjs';
+import crypto from 'node:crypto';
+import fs from 'node:fs/promises';
+import {readFileSync} from 'node:fs';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {createWorkerCaptureFetch} from './worker-capture-fetch.mjs';
+import {EVENT_CATALOG_ENDPOINT, readEventCatalogHandoff} from './capture-event-catalog.mjs';
+import {fetchPublicBackupJson as fetchJson, PublicBackupDeferredError} from './public-backup-fetch.mjs';
+import {publicDisplayName} from './public-display-name.mjs';
+import {assemblePublishedSnapshotPages} from './published-snapshot-pages.mjs';
+import {eventReplayCoverage} from './event-replay-coverage.mjs';
+import {validatePublicReplayForPublication} from './public-replay-playback.mjs';
+import {projectEventDates} from './public-event-dates.mjs';
+import {publicEventPlaybackForPublication as publicEventPlaybackProjection} from './public-event-playback.mjs';
+import {applyLedgerToBoard, ledgerBinding, ledgerKey, ledgerDisposition, readLedger, nativePolicyFingerprint} from './native-verification-ledger.mjs';
+import {aggregateServerAchievements, BEAT_OWNER_STAGES, OWNER_PUBLIC_ID, SERVER_ACHIEVEMENT_VERSION,
+  SERVER_ACHIEVEMENT_CATALOG, SPECIAL_ROLLING_HILLS_TRACK_ID} from '../workers/ranked/src/server-achievements.js';
+export {publicEventPlaybackForPublication as publicEventPlaybackBackup} from './public-event-playback.mjs';
+
+export const PUBLIC_SNAPSHOT_LIMITS = Object.freeze({trackFetches: 20, eventFetches: 120, eventReplayFetches: 30, pageFetches: 100,
+  eventReplaysPerPeriod: 500, eventReplayResponseBytes: 70 * 1024, responseBytes: 2 * 1024 * 1024, concurrency: 4});
+const WORKER = 'https://polytrack-ranked-worker.staticquasar931.workers.dev';
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const outputDirectory = path.join(root, 'local-reports', 'snapshot-staging');
+const TRACK_ID = /^[a-f0-9]{64}$/;
+const EVENT_ID = /^[A-Za-z0-9_-]{1,64}$/;
+const PUBLIC_ACCOUNT_ID = /^[a-f0-9]{64}$/;
+const MAX_PENDING_EVENT_ROWS = 512;
+const MAX_EVENT_TIME_MS = 300000;
+
+const overallFields = ['updatedAt', 'builtAt', 'revision', 'builtRevision', 'sourceRevision', 'algorithmVersion',
+  'schemaVersion', 'averagePlacementVersion', 'derivedMetricsVersion', 'serverAchievementVersion', 'complete',
+  'totalEntries', 'totalEntriesExact', 'publishedEntries', 'entryLimit', 'trackLimit', 'resultBundleVersion',
+  'resultBundleEncoding', 'resultBundleComplete', 'resultBundleStatus', 'resultBoardCount', 'resultBoardLimit',
+  'resultBoardLimitReached', 'resultCoverage', 'resultBundleLocation', 'sourceComplete', 'paginatedSource', 'pagination'];
+const overallEntryFields = ['userId', 'name', 'countryCode', 'carId', 'carColors', 'carStyle', 'profileCosmetics',
+  'cosmeticUnlocks', 'serverAchievements', 'accountCreatedAt', 'totalPlaytimeMs', 'latestPbAt', 'groupCode', 'groupCodeUpdatedAt',
+  'score', 'raceCount', 'eligibleTrackCount', 'provisional', 'totalTracks', 'officialCount', 'communityCount',
+  'customCount', 'extraCount', 'weightedTracks', 'skillCost', 'coverageCost', 'consistencyCost', 'averageFinish',
+  'averageFinishVersion', 'averagePlacement', 'averagePlacementVersion', 'competitiveAveragePlacement',
+  'competitiveAverageEligibleTracks', 'podiumEligibleTracks', 'podiumRate', 'trackWins', 'pbCount', 'bestTracks',
+  'strongestTrack', 'worstTrack', 'improvementTrack', 'weightedResults', 'opportunityTracks', 'medals', 'bestTrackId',
+  'bestTrackRank', 'bestTrackField', 'rankTier', 'rankModel', 'timingVersion', 'badges', 'rank', 'movement',
+  'movementAt', 'rankSince', 'scoreDelta', 'identityUpdatedAt', 'casualRp', 'casualCompletionCount'];
+const trackEntryFields = ['id', 'uploadId', 'replayHash', 'trackId', 'accountId', 'userId', 'name', 'nickname', 'countryCode',
+  'carId', 'carColors', 'carStyle', 'profileCosmetics', 'timeMs', 'frames', 'raceTimeFrames', 'rankModel', 'timingVersion',
+  'pbAt', 'createdAt', 'accountCreatedAt', 'totalPlaytimeMs', 'pbCount', 'rank', 'position', 'fieldSize', 'weight',
+  'competition', 'integrityVerified', 'runVerified', 'verified', 'validationState', 'verificationStatus', 'verifiedState', 'unranked', 'identityUpdatedAt',
+  'verifiedAt', 'nativeLedgerKey', 'nativeLedgerManifestHash', 'needsReview', 'reviewHold', 'excluded', 'unscored', 'playbackPending'];
+const finishFields = ['trackId', 'rank', 'fieldSize', 'weight', 'placementCost', 'contribution', 'improvementValue',
+  'timeMs', 'pbAt', 'type', 'competition', 'timingVersion'];
+const cosmeticFields = ['version', 'theme', 'accent', 'finish', 'plate', 'edge', 'stage', 'stageTint', 'stripe',
+  'stageEffect', 'emblem', 'emblem2', 'emblem3', 'emblemBackdrop', 'nameFont', 'nameSize', 'nameWeight', 'nameColor',
+  'baseSecondary', 'title', 'badge', 'favoriteTrackId', 'overridePodium'];
+const summaryFields = ['trackId', 'type', 'fieldSize', 'weight', 'recordMs', 'updatedAt'];
+const leaderFields = ['accountId', 'name', 'countryCode', 'carStyle', 'timeMs', 'rank'];
+const periodFields = ['id', 'trackId', 'startsAt', 'endsAt', 'graceMs', 'maxRp', 'targetMs', 'kind', 'racerCount',
+  'entrantLimit', 'label', 'trackName', 'author', 'targetPolicy', 'scoringVersion'];
+const eventEntryFields = ['accountId', 'name', 'carStyle', 'timeMs', 'rp', 'rank', 'countryCode', 'frames', 'runAt',
+  'runAgeMs', 'eventRpContribution', 'normalRpEligible', 'physicsVerified', 'replayIntegrityVerified', 'replayUnavailable'];
+const eventFields = ['id', 'kind', 'trackId', 'period', 'scoreVersion', 'targetPolicy', 'targetMs', 'maxRp', 'sourceRevision',
+  'updatedAt', 'archived', 'state', 'racerCount', 'complete', 'totalEntries', 'sourceTotalEntries', 'sourceCompleteness',
+  'contributions', 'eventRpComplete', 'entries', 'sourceComplete', 'paginatedSource', 'pagination', 'publicationPending'];
+const pendingEventFields = ['accountId', 'runId', 'timeMs', 'name', 'carStyle', 'submittedAt'];
+const nativeStatusFields = ['verified', 'runVerified', 'integrityVerified', 'verifiedState', 'verificationStatus',
+  'validationState', 'verifiedAt', 'needsReview', 'reviewHold', 'excluded', 'unscored', 'playbackPending'];
+const nativeStatus = row => Object.fromEntries(nativeStatusFields.filter(key => Object.hasOwn(row, key)).map(key => [key, row[key]]));
+
+function project(source, fields) {
+  const result = {};
+  for (const field of fields) if (Object.hasOwn(source || {}, field)) result[field] = ['name', 'nickname', 'author'].includes(field) ? publicDisplayName(source[field]) : source[field];
+  return result;
+}
+function eventDates(source) {
+  return projectEventDates(source);
+}
+function applyReplayDates(entry, replay) {
+  // Callers have already validated a retained or newly published verified replay.
+  Object.assign(entry,{physicsVerified:true,replayIntegrityVerified:true,runVerified:true,
+    integrityVerified:true,verified:true,verificationStatus:'verified',eventRpEligible:true});
+  // A PB submission date and a successful verification date are different evidence.
+  const dates = eventDates(replay);
+  if (dates.verifiedAt) entry.verifiedAt = dates.verifiedAt;
+  if (!entry.submittedAt && dates.submittedAt) entry.submittedAt = dates.submittedAt;
+}
+function projectCosmetics(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? project(value, cosmeticFields) : undefined;
+}
+function projectFinish(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? project(value, finishFields) : value;
+}
+
+let achievementPolicy;
+function publicAchievementPolicy() {
+  if (!achievementPolicy) {
+    // Reuse the Worker's literal catalog in its original bit order, never sorted
+    // registry IDs or evaluated source code. Only the trusted local checkout is read.
+    const source = readFileSync(path.join(root, 'workers/ranked/src/index.js'), 'utf8');
+    const official = parseSet(source, 'OFFICIAL_IDS');
+    const eligibleTrackIds = [...new Set([...official, ...parseSet(source, 'COMMUNITY_IDS'), ...parseSet(source, 'LEGACY_COMMUNITY_IDS')])];
+    achievementPolicy = {eligibleTrackIds, beatOwnerTrackIds:[...official, SPECIAL_ROLLING_HILLS_TRACK_ID], ownerPublicId:OWNER_PUBLIC_ID};
+  }
+  return achievementPolicy;
+}
+
+function projectServerAchievements(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const uint = n => Number.isSafeInteger(n) && n >= 0, positive = n => uint(n) && n > 0;
+  const rp = n => n === null || typeof n === 'number' && Number.isFinite(n) && n >= 0;
+  const current = value.version === SERVER_ACHIEVEMENT_VERSION && value.catalog === SERVER_ACHIEVEMENT_CATALOG;
+  const output = current ? {version:SERVER_ACHIEVEMENT_VERSION, catalog:SERVER_ACHIEVEMENT_CATALOG} : {};
+  const casual = value.casual, owner = value.beatOwner;
+  if (casual && typeof casual === 'object' && !Array.isArray(casual)) {
+    const summary = {...(uint(casual.count)?{count:casual.count}:{}),
+      ...(casual.scoringVersion===2&&rp(casual.rp)?{rp:casual.rp}:{}), ...(casual.scoringVersion===2?{scoringVersion:2}:{})};
+    if (Object.keys(summary).length) output.casual = summary;
+  }
+  if (owner && typeof owner === 'object' && !Array.isArray(owner)) output.beatOwner = {
+    ...(TRACK_ID.test(owner.targetAccountId||'')?{targetAccountId:owner.targetAccountId}:{}),
+    ...(uint(owner.count)?{count:owner.count}:{}), unlocks:[]};
+  if (current) {
+    const policy = publicAchievementPolicy(), length = Math.ceil(policy.eligibleTrackIds.length/8)*2;
+    const bitmap = ledger => typeof ledger === 'string' && ledger.length === length && /^[a-f0-9]+$/i.test(ledger);
+    const eligible = new Set(policy.beatOwnerTrackIds);
+    const proofs = (Array.isArray(owner?.unlocks)?owner.unlocks:[]).slice(0,32).filter(proof => {
+      const stage = BEAT_OWNER_STAGES.find(stage => stage.id===proof?.id && stage.threshold===proof.threshold && stage.cosmeticId===proof.cosmeticId);
+      return stage && eligible.has(proof.trackId) && proof.source==='ranked-track-snapshot' &&
+        positive(proof.sourceRevision) && positive(proof.sourceUpdatedAt) && positive(proof.unlockedAt) &&
+        positive(proof.playerTimeMs) && positive(proof.targetTimeMs) && proof.playerTimeMs<proof.targetTimeMs &&
+        uint(proof.playerPbAt) && uint(proof.targetPbAt) && typeof proof.sourceSignature==='string' &&
+        /^[A-Za-z0-9_-]{16,128}$/.test(proof.sourceSignature);
+    });
+    const prior = {serverAchievements:{version:SERVER_ACHIEVEMENT_VERSION, catalog:SERVER_ACHIEVEMENT_CATALOG,
+      ...(bitmap(casual?.ledger)?{casual:{ledger:casual.ledger}}:{}),
+      ...(owner?.targetAccountId===OWNER_PUBLIC_ID?{beatOwner:{...(bitmap(owner.ledger)?{ledger:owner.ledger}:{}), unlocks:proofs}}:{})}};
+    // The Worker's existing priorLedger/validSource/priorStageSources perform the
+    // canonical bitmap and issued-proof validation. This creates no new award.
+    const checked = aggregateServerAchievements([{userId:'public-projection'}], [], new Map([['public-projection',prior]]),
+      {...policy, now:1}).entries[0].serverAchievements;
+    if (output.casual && bitmap(casual.ledger) && checked.casual.ledger===casual.ledger.toLowerCase() && checked.casual.count===casual.count)
+      output.casual.ledger = checked.casual.ledger;
+    if (output.beatOwner && owner.targetAccountId===OWNER_PUBLIC_ID && bitmap(owner.ledger) &&
+        checked.beatOwner.ledger===owner.ledger.toLowerCase() && checked.beatOwner.count===owner.count) {
+      output.beatOwner.ledger = checked.beatOwner.ledger;
+      output.beatOwner.unlocks = checked.beatOwner.unlocks.filter(proof => proof.threshold<=owner.count);
+    }
+  }
+  return Object.keys(output).length ? output : undefined;
+}
+
+function projectOverallEntry(entry) {
+  const result = project(entry, overallEntryFields);
+  if (Object.hasOwn(result,'casualRp') && result.casualRp!==null && !(typeof result.casualRp==='number' && Number.isFinite(result.casualRp) && result.casualRp>=0)) delete result.casualRp;
+  if (Object.hasOwn(result,'casualCompletionCount') && !(Number.isSafeInteger(result.casualCompletionCount) && result.casualCompletionCount>=0)) delete result.casualCompletionCount;
+  if (result.profileCosmetics) result.profileCosmetics = projectCosmetics(result.profileCosmetics);
+  for (const key of ['bestTracks', 'weightedResults', 'opportunityTracks']) {
+    if (Array.isArray(result[key])) result[key] = result[key].map(projectFinish);
+  }
+  for (const key of ['strongestTrack', 'worstTrack', 'improvementTrack']) if (result[key]) result[key] = projectFinish(result[key]);
+  if (result.badges && typeof result.badges === 'object') result.badges = { ...(result.badges.betaTester === true ? {betaTester: true} : {}) };
+  if (Array.isArray(result.cosmeticUnlocks)) result.cosmeticUnlocks = result.cosmeticUnlocks
+    .filter(value => typeof value === 'string' && /^[A-Za-z][A-Za-z0-9_-]{0,63}:[A-Za-z0-9_-]{1,64}$/.test(value)).slice(0, 32);
+  if (Object.hasOwn(result,'serverAchievements')) result.serverAchievements = projectServerAchievements(result.serverAchievements);
+  return result;
+}
+
+function validBoardLength(value, legacyLimit) {
+  if (!Array.isArray(value?.entries)) return false;
+  if (value.entries.length <= legacyLimit) return true;
+  const p = value.pagination;
+  return value.entries.length <= 10000 && value.paginatedSource === true && typeof value.sourceComplete === 'boolean' &&
+    typeof value.complete === 'boolean' && value.totalEntries === value.entries.length && p?.version === 1 &&
+    /^[a-f0-9]{64}$/.test(p.generation || '') && p.complete === true && p.pageSize === 100 &&
+    p.totalEntries === value.entries.length && p.pageCount === Math.ceil(value.entries.length / 100);
+}
+
+function hasCompleteTrackCoverage(board) {
+  return board?.complete === true && board.sourceComplete !== false && board.totalEntriesExact !== false &&
+    Array.isArray(board.entries) && (board.totalEntries === undefined || board.totalEntries === board.entries.length);
+}
+
+function assertTrackAccountCoverage(prior, incoming, trackId) {
+  if (!hasCompleteTrackCoverage(prior) || !hasCompleteTrackCoverage(incoming)) return;
+  const accounts = board => {
+    const seen = new Set();
+    for (const row of board.entries) {
+      const id = row.accountId ?? row.userId;
+      if (typeof id !== 'string' || !id ||
+          row.accountId != null && row.userId != null && row.accountId !== row.userId || seen.has(id)) {
+        throw new PublicBackupDeferredError('Track account coverage is ambiguous for ' + trackId);
+      }
+      seen.add(id);
+    }
+    return seen;
+  };
+  const previous = accounts(prior), current = accounts(incoming);
+  let missing = 0;
+  for (const id of previous) if (!current.has(id)) missing++;
+  // No trusted removal/identity-migration evidence contract exists in public responses.
+  // Revisions, totals, replay changes and ad hoc removal flags cannot authorize account loss.
+  if (missing) throw new PublicBackupDeferredError('Track account coverage regressed for ' + trackId +
+    ': ' + missing + ' prior accounts missing; reviewed removal or replacement evidence required');
+}
+
+export function publicOverallBackup(value) {
+  if (!value || typeof value !== 'object' || !Number.isSafeInteger(value.updatedAt) || !Array.isArray(value.entries) ||
+      !validBoardLength(value, 200) || !Array.isArray(value.trackSummaries) || value.trackSummaries.length > 500) {
+    throw Error('Invalid public overall snapshot');
+  }
+  const snapshot = project(value, overallFields);
+  snapshot.entries = value.entries.map(projectOverallEntry);
+  snapshot.trackSummaries = value.trackSummaries.map(row => ({...project(row, summaryFields),
+    ...(row?.leader && typeof row.leader === 'object' ? {leader: project(row.leader, leaderFields)} : {})}));
+  if (value.trackCatalog !== undefined) {
+    if (!Array.isArray(value.trackCatalog) || value.trackCatalog.length > 500) throw Error('Invalid public track catalog');
+    const seen = new Set();
+    snapshot.trackCatalog = value.trackCatalog.map(row => {
+      if (!TRACK_ID.test(row?.trackId || '') || seen.has(row.trackId) || !Number.isSafeInteger(row.updatedAt) || row.updatedAt < 0) throw Error('Invalid public track catalog entry');
+      seen.add(row.trackId);
+      return {trackId: row.trackId, updatedAt: row.updatedAt};
+    });
+  }
+  let planner = {available: false, reason: 'not-present'};
+  if (typeof value.resultBundle === 'string' && value.resultBundle && value.resultBundleComplete === true &&
+      Number.isSafeInteger(value.resultBundleVersion) && typeof value.algorithmVersion === 'string' &&
+      Number.isSafeInteger(value.sourceRevision) && Number.isSafeInteger(value.builtRevision)) {
+    snapshot.resultBundleLocation = 'main_results';
+    delete snapshot.resultBundle;
+    planner = {available: true, reason: 'inline-bundle', document: {
+      resultBundle: value.resultBundle, resultBundleVersion: value.resultBundleVersion,
+      resultBundleEncoding: value.resultBundleEncoding, resultBundleComplete: true, resultBundleStatus: 'complete',
+      resultCoverage: value.resultCoverage, resultBoardCount: value.resultBoardCount,
+      resultBoardLimit: value.resultBoardLimit, resultBoardLimitReached: value.resultBoardLimitReached,
+      sourceRevision: value.sourceRevision, builtRevision: value.builtRevision,
+      updatedAt: value.updatedAt, algorithmVersion: value.algorithmVersion
+    }};
+  } else if (value.resultBundleLocation === 'main_results') {
+    delete snapshot.resultBundleLocation;
+    snapshot.resultBundleComplete = false;
+    snapshot.resultBundleStatus = 'sidecar_unavailable';
+    planner = {available: false, reason: 'sidecar-not-in-public-response'};
+  }
+  delete snapshot.resultBundle;
+  return {snapshot, planner};
+}
+
+export function publicTrackBackup(value, trackId) {
+  if (!TRACK_ID.test(trackId) || !value || typeof value !== 'object' || value.trackId !== trackId ||
+      !Number.isSafeInteger(value.updatedAt) || !validBoardLength(value, 500)) {
+    throw Error('Invalid public track snapshot');
+  }
+  return projectTrackBackup(value);
+}
+
+// Only for full internal boards after frozenOverallSource validates the authenticated
+// payload digest, complete catalog, exact counts and published track bindings.
+export function authenticatedOverallTrackBackup(value, trackId) {
+  const p = value?.pagination;
+  const materializedPages = p && p.version === 1 && TRACK_ID.test(p.generation || '') &&
+    p.complete === true && p.pageSize === 100 && p.totalEntries === value.entries?.length &&
+    p.pageCount === Math.ceil(p.totalEntries / 100);
+  if (!TRACK_ID.test(trackId) || !value || typeof value !== 'object' || value.trackId !== trackId ||
+      !Number.isSafeInteger(value.updatedAt) || !Array.isArray(value.entries) || value.entries.length > 10000 ||
+      !Number.isSafeInteger(value.totalEntries) || value.totalEntries !== value.entries.length ||
+      value.totalEntriesExact === false || value.ranksExact === false || value.sourceComplete === false ||
+      Object.hasOwn(value, 'pagination') && !materializedPages ||
+      value.complete === false && !(materializedPages && value.sourceComplete === true) ||
+      value.complete !== true && value.sourceComplete !== true) {
+    throw Error('Invalid authenticated Overall track snapshot');
+  }
+  // Frozen source expansion replaces entries, but keeps the public preview's
+  // complete:false. Only a fully materialized, source-complete generation can
+  // promote that preview flag; never repair counts or explicit inexactness.
+  return projectTrackBackup(materializedPages && value.sourceComplete === true
+    ? {...value, complete: true, paginatedSource: true} : value);
+}
+
+// Hash only the normalized public board. Object key order is not evidence;
+// entry order, completeness, revisions, identities and public metadata are.
+export function publicTrackConfirmationDigest(value, trackId) {
+  const canonical = value => Array.isArray(value) ? value.map(canonical) : value && typeof value === 'object'
+    ? Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])])) : value;
+  return sha256(JSON.stringify(canonical(authenticatedOverallTrackBackup(value, trackId))));
+}
+
+function projectTrackBackup(value) {
+  const snapshot = project(value, ['trackId', 'complete', 'totalEntries', 'totalEntriesExact', 'ranksExact', 'updatedAt', 'builtAt', 'schemaVersion',
+    'algorithmVersion', 'revision', 'sourceRevision', 'sourceComplete', 'paginatedSource', 'pagination']);
+  snapshot.entries = value.entries.map(entry => {
+    const result = project(entry, trackEntryFields);
+    if (result.profileCosmetics) result.profileCosmetics = projectCosmetics(result.profileCosmetics);
+    return result;
+  });
+  return snapshot;
+}
+
+function projectPeriod(value) {
+  const result = project(value, periodFields);
+  if (!EVENT_ID.test(result.id || '') || !TRACK_ID.test(result.trackId || '') ||
+      !Number.isSafeInteger(result.startsAt) || !Number.isSafeInteger(result.endsAt) || result.endsAt <= result.startsAt) {
+    throw Error('Invalid public event period');
+  }
+  return result;
+}
+
+function projectPendingEventRows(rows, eventId, period) {
+  if (!Array.isArray(rows) || rows.length > MAX_PENDING_EVENT_ROWS || !period || period.id !== eventId ||
+      !TRACK_ID.test(period.trackId || '') || !['daily', 'weekly', 'custom', 'kodub'].includes(period.kind) ||
+      !Number.isSafeInteger(period.startsAt) || !Number.isSafeInteger(period.endsAt) || period.endsAt <= period.startsAt) return null;
+  const runs = new Set(), projected = [];
+  for (const row of rows) {
+    if (!row || typeof row !== 'object' || Array.isArray(row) ||
+        !PUBLIC_ACCOUNT_ID.test(row.accountId || '') || !/^[a-f0-9]{64}$/.test(row.runId || '') ||
+        runs.has(row.runId) ||
+        !Number.isSafeInteger(row.timeMs) || row.timeMs < 1 || row.timeMs > MAX_EVENT_TIME_MS ||
+        typeof row.name !== 'string' || row.name.length > 24 ||
+        typeof row.carStyle !== 'string' || row.carStyle.length > 256 || row.carStyle && !/^[A-Za-z0-9_-]+$/.test(row.carStyle) ||
+        !Number.isSafeInteger(row.submittedAt) || row.submittedAt < period.startsAt || row.submittedAt >= period.endsAt ||
+        row.verificationStatus !== 'waiting' || row.pending !== true || row.verified !== false ||
+        row.eventRpEligible !== false || row.source !== 'pending-event-playback' ||
+        row.periodId !== undefined && row.periodId !== eventId || row.trackId !== undefined && row.trackId !== period.trackId) return null;
+    runs.add(row.runId);
+    projected.push({...project(row, pendingEventFields), name: publicDisplayName(row.name),
+      ...(TRACK_ID.test(row.replayHash || '') ? {replayHash:row.replayHash} : {}),
+      verificationStatus: 'waiting', pending: true, verified: false, eventRpEligible: false,
+      source: 'pending-event-playback'});
+  }
+  return projected;
+}
+
+export function publicEventBackup(value, eventId) {
+  if (!EVENT_ID.test(eventId) || !value || typeof value !== 'object' || !Number.isSafeInteger(value.updatedAt) ||
+      !validBoardLength(value, 500) && !(eventId === 'permanent-rolling-hills' && Array.isArray(value.entries) && value.entries.length <= 10000 && value.complete === true && value.totalEntries === value.entries.length && value.sourceCompleteness === 'paged-source-manifest')) throw Error('Invalid public event snapshot');
+  if (value.id && value.id !== eventId) throw Error('Public event identity mismatch');
+  if (value.period && value.period.id !== eventId) throw Error('Public event period mismatch');
+  const result = project(value, eventFields);
+  if (value.period) result.period = projectPeriod(value.period);
+  result.id = eventId;
+  result.entries = value.entries.map(row => {
+    const entry = {...project(row, eventEntryFields), ...eventDates(row)};
+    for (const key of ['runId', 'replayHash']) if (typeof row?.[key] === 'string' && TRACK_ID.test(row[key])) entry[key] = row[key];
+    return entry;
+  });
+  if (value.archived !== true && Array.isArray(value.pendingPlaybacks) && value.pendingPlaybacks.length) {
+    const pending = projectPendingEventRows(value.pendingPlaybacks, eventId, value.period);
+    if (pending) result.pendingPlaybacks = pending;
+  }
+  if (result.contributions && typeof result.contributions === 'object') result.contributions = project(result.contributions, ['normalRp', 'eventRp']);
+  if (result.dynamicComponents && typeof result.dynamicComponents === 'object') {
+    const rolling = result.dynamicComponents.permanentRollingHills;
+    result.dynamicComponents = rolling && typeof rolling === 'object' ? {permanentRollingHills: project(rolling,
+      ['status', 'id', 'trackId', 'scoreVersion', 'targetPolicy', 'targetMs', 'maxRp', 'sourceRevision', 'updatedAt'])} : {};
+  }
+  return result;
+}
+
+export function isReusableArchivedEventBackup(value, eventId) {
+  try {
+    publicEventBackup(value, eventId);
+    if (value.archived !== true || eventId === 'permanent-rolling-hills') return false;
+    for (const field of ['complete', 'sourceComplete'])
+      if (value[field] !== undefined && value[field] !== true) return false;
+    if (value.publicationPending !== undefined && value.publicationPending !== false) return false;
+    for (const field of ['totalEntries', 'sourceTotalEntries'])
+      if (value[field] !== undefined && value[field] !== value.entries.length) return false;
+    if (value.pagination !== undefined || value.paginatedSource === true) {
+      const p = value.pagination;
+      if (value.complete !== true || value.paginatedSource !== true || p?.version !== 1 ||
+          !TRACK_ID.test(p.generation || '') || p.complete !== true || p.pageSize !== 100 ||
+          p.totalEntries !== value.entries.length || p.pageCount !== Math.ceil(value.entries.length / 100))
+        return false;
+    }
+    if (value.complete === true) return true;
+    // Legacy frozen archives omit completeness metadata. An exact, validated
+    // racer count establishes coverage without inventing complete:true.
+    if (!value.period || !Number.isSafeInteger(value.racerCount) || value.racerCount < 0 ||
+        value.racerCount !== value.entries.length) return false;
+    const limit = value.period.entrantLimit;
+    if (limit !== undefined && (!Number.isSafeInteger(limit) || limit < 1 || value.racerCount > limit)) return false;
+    const seen = new Set();
+    for (const row of value.entries) {
+      if (!PUBLIC_ACCOUNT_ID.test(row?.accountId || '') || seen.has(row.accountId) ||
+          !Number.isSafeInteger(row.timeMs) || row.timeMs < 1 || row.timeMs > MAX_EVENT_TIME_MS) return false;
+      seen.add(row.accountId);
+    }
+    return true;
+  } catch { return false; }
+}
+
+// Explicit manual capture only: credentials never go to public/live URLs,
+// redirects or arbitrary hosts. The Worker independently enforces frozen data.
+export function createAdminArchiveCaptureFetch({fetchImpl = fetch, adminFetchImpl = fetchImpl, token, periodIds, maxRequests = 16} = {}) {
+  if (typeof token !== 'string' || !token || token.trim() !== token || token.length > 4096 ||
+      !Array.isArray(periodIds) || !periodIds.length || periodIds.length > 120 ||
+      periodIds.some(id => !EVENT_ID.test(id) || id === 'permanent-rolling-hills') ||
+      new Set(periodIds).size !== periodIds.length ||
+      !Number.isSafeInteger(maxRequests) || maxRequests < 1 || maxRequests > 120)
+    throw Error('Invalid bounded admin archive capture options');
+  const ids = new Set(periodIds);
+  let requests = 0, documentReads = 0;
+  const captureFetch = async (input, init = {}) => {
+    const url = new URL(input);
+    if (url.origin !== new URL(WORKER).origin) throw Error('Unexpected archive capture host');
+    const match = /^\/v1\/events\/([A-Za-z0-9_-]{1,64})\/(.+)$/.exec(url.pathname);
+    if (!match || !ids.has(match[1])) return fetchImpl(input, init);
+    if ((init.method || 'GET') !== 'GET' ||
+        !/^(snapshot(?:\/page)?|track|replays\/[a-f0-9]{64})$/.test(match[2]))
+      throw Error('Unsupported admin archive capture resource');
+    if (requests >= maxRequests) throw new PublicBackupDeferredError('Admin archive capture request budget reached');
+    requests++;
+    url.pathname = '/v1/events/admin/archive-export/' + match[1] + '/' + match[2];
+    const headers = new Headers(init.headers);
+    headers.set('Origin', 'https://staticquasar931.github.io');
+    headers.set('X-Admin-Token', token);
+    const response = await adminFetchImpl(url.href, {...init, method:'GET', headers, redirect:'error'});
+    const reads = response.headers.get('X-Archive-Document-Reads');
+    if (!/^[0-6]$/.test(reads || '')) {
+      documentReads += 6;
+      throw new PublicBackupDeferredError('Admin archive capture read accounting unavailable');
+    }
+    documentReads += Number(reads);
+    return response;
+  };
+  return {fetch: captureFetch, stats: () => ({requests, documentReads, documentReadCeiling:maxRequests * 6})};
+}
+
+export function publicEventReplayBackup(value, {periodId, trackId, entry}) {
+  if (!EVENT_ID.test(periodId || '') || !TRACK_ID.test(trackId || '') || !PUBLIC_ACCOUNT_ID.test(entry?.accountId || '') ||
+      !Number.isSafeInteger(entry?.timeMs) || !value || typeof value !== 'object' || value.periodId !== periodId ||
+      value.trackId !== trackId || value.accountId !== entry.accountId || value.timeMs !== entry.timeMs ||
+      entry.runId && value.runId !== entry.runId || entry.replayHash && value.replayHash !== entry.replayHash ||
+      value.verificationStatus !== 'verified' || value.verified !== true || value.eventRpEligible !== true ||
+      value.frames !== entry.timeMs || typeof value.runId !== 'string' || !/^[a-f0-9]{64}$/.test(value.runId) ||
+      typeof value.replay !== 'string' || !value.replay.length || Buffer.byteLength(value.replay) > 65536 ||
+      typeof value.replayHash !== 'string' || !/^[a-f0-9]{64}$/.test(value.replayHash) ||
+      typeof value.carStyle !== 'string' || value.carStyle.length > 256 || sha256(value.replay) !== value.replayHash) {
+    throw Error('Invalid or unbound public event replay');
+  }
+  return {periodId, trackId, accountId: entry.accountId, runId: value.runId, timeMs: entry.timeMs,
+    frames: entry.timeMs, replay: value.replay, replayHash: value.replayHash, carStyle: value.carStyle,
+    ...eventDates(value)};
+}
+
+async function validatedEventReplayBackup(value, binding) {
+  const replay = publicEventReplayBackup(value, binding);
+  if (replay.frames < 1 || replay.frames > 300000) throw Error('Invalid event replay frame limit');
+  // A matching hash authenticates bytes, not their playback structure. Apply the
+  // same bounded event limits as the publication audit before export or reuse.
+  const structure = await validatePublicReplayForPublication(replay.replay, replay.frames);
+  if (!structure.indexedPlaybackWithinBudget || structure.inflatedBytes > 30015 ||
+      structure.transitions > 10000 || structure.maxChannelTransitions > 4096)
+    throw Error('Invalid event replay playback limits');
+  return replay;
+}
+
+export async function promotePublicEventPlayback(value, {periodId, trackId, entry}) {
+  if (entry?.physicsVerified !== true || entry.replayIntegrityVerified !== true ||
+      !TRACK_ID.test(entry.runId || '') || !TRACK_ID.test(entry.replayHash || '') ||
+      entry.frames !== undefined && entry.frames !== entry.timeMs ||
+      entry.submittedAt !== undefined && entry.submittedAt !== value?.submittedAt)
+    throw Error('Verified event board does not bind pending payload');
+  // Validate the old public waiting envelope as waiting, not as invented proof.
+  const waitingEntry = {accountId: entry.accountId, runId: entry.runId, timeMs: entry.timeMs,
+    replayHash: entry.replayHash, submittedAt: value?.submittedAt, verificationStatus: 'waiting',
+    pending: true, verified: false, eventRpEligible: false, source: 'pending-event-playback'};
+  const pending = await publicEventPlaybackProjection(value, {periodId, trackId, entry: waitingEntry});
+  if (JSON.stringify(pending) !== JSON.stringify(value)) throw Error('Non-public cached pending payload');
+  return publicEventReplayBackup({...pending, ...eventDates(entry), verificationStatus: 'verified',
+    verified: true, eventRpEligible: true}, {periodId, trackId, entry});
+}
+
+function parseSet(source, name) {
+  const match = new RegExp(`(?:const|export const)\\s+${name}\\s*=\\s*new Set\\(\\[([^\\]]*)\\]\\)`).exec(source);
+  if (!match) throw Error(`Missing track registry ${name}`);
+  // Parse only literal track IDs, never evaluate JavaScript from a registry.
+  const literal = `(?:'[a-f0-9]{64}'|"[a-f0-9]{64}")`;
+  if (!new RegExp(`^\\s*(?:${literal}(?:\\s*,\\s*${literal})*\\s*,?)?\\s*$`).test(match[1])) {
+    throw Error(`Invalid track registry ${name}`);
+  }
+  return [...match[1].matchAll(/['"]([a-f0-9]{64})['"]/g)].map(row => row[1]);
+}
+
+export function publicTrackRegistry(indexSource, extraSource) {
+  const ids = new Set([...parseSet(indexSource, 'OFFICIAL_IDS'), ...parseSet(indexSource, 'COMMUNITY_IDS'),
+    ...parseSet(indexSource, 'LEGACY_COMMUNITY_IDS')]);
+  for (const id of parseSet(extraSource || '', 'EXTRA_TRACK_IDS')) ids.add(id);
+  return [...ids].sort();
+}
+
+export function chooseTrackFetches(trackIds, summaries, previous = {}, limit = PUBLIC_SNAPSHOT_LIMITS.trackFetches, now = Date.now(), activeTrackIds = []) {
+  const activeIds = new Set(activeTrackIds.filter(id => TRACK_ID.test(id)));
+  const summaryById = new Map((Array.isArray(summaries) ? summaries : []).filter(row => TRACK_ID.test(row?.trackId || '') &&
+    Number.isSafeInteger(row?.updatedAt)).map(row => [row.trackId, row]));
+  const candidates = [...new Set(trackIds)].filter(id => TRACK_ID.test(id)).map(id => {
+    const prior = previous[id], summary = summaryById.get(id);
+    const same = !!prior?.path && !!summary && Number(prior.sourceUpdatedAt) === summary.updatedAt;
+    const dirty = !!summary && !same;
+    const missing = !prior?.path && (!prior?.missing || now - Number(prior.checkedAt || 0) >= 7 * 86400000);
+    const staleWithoutSummary = !summary && prior?.path && now - Number(prior.checkedAt || 0) >= 7 * 86400000;
+    const active = activeIds.has(id);
+    const activeWithoutSummary = active && !summary && now - Number(prior?.checkedAt || 0) >= 30 * 60000;
+    return {id, prior, summary, dirty, missing, active, needsFetch: !same && (dirty || missing || staleWithoutSummary || activeWithoutSummary)};
+  }).filter(row => row.needsFetch);
+  const day = Math.floor(now / 86400000);
+  candidates.sort((a, b) => Number(b.active) - Number(a.active) || Number(b.dirty) - Number(a.dirty) || Number(!a.prior?.path) - Number(!b.prior?.path) ||
+    (a.dirty && b.dirty ? Number(a.summary.updatedAt) - Number(b.summary.updatedAt) : 0) ||
+    Number(a.prior?.checkedAt || 0) - Number(b.prior?.checkedAt || 0) ||
+    crypto.createHash('sha256').update(`${day}:${a.id}`).digest('hex').localeCompare(
+      crypto.createHash('sha256').update(`${day}:${b.id}`).digest('hex')));
+  return candidates.slice(0, Math.max(0, Math.min(limit, PUBLIC_SNAPSHOT_LIMITS.trackFetches))).map(row => row.id);
+}
+
+function selectEventIds(catalog) {
+  if (!catalog || !Array.isArray(catalog.periods) || !Array.isArray(catalog.archives) ||
+      catalog.periods.length > 160 || catalog.archives.length > 160) throw Error('Invalid public event catalog');
+  const periods = catalog.periods.map(projectPeriod);
+  const archives = catalog.archives.map(projectPeriod).sort((a, b) => b.endsAt - a.endsAt || a.id.localeCompare(b.id));
+  return [...new Set([...periods.map(row => row.id), ...archives.map(row => row.id), 'permanent-rolling-hills'])];
+}
+
+async function mapLimit(values, limit, fn) {
+  const result = new Array(values.length);
+  let index = 0;
+  let stopped = false;
+  await Promise.all(Array.from({length: Math.min(limit, values.length)}, async () => {
+    for (;;) {
+      const current = index++;
+      if (stopped || current >= values.length) return;
+      try { result[current] = await fn(values[current]); }
+      catch (error) { stopped = true; throw error; }
+    }
+  }));
+  return result;
+}
+
+async function readManifest(directory) {
+  try {
+    const value = JSON.parse(await fs.readFile(path.join(directory, 'manifest.json'), 'utf8'));
+    if (value?.schemaVersion !== 1 || !value.tracks || typeof value.tracks !== 'object' || Array.isArray(value.tracks)) throw Error('Invalid public snapshot manifest');
+    for (const id of Object.keys(value.tracks)) if (!TRACK_ID.test(id)) throw Error('Invalid track in public snapshot manifest');
+    for (const [id, record] of Object.entries(value.events || {})) {
+      if (!EVENT_ID.test(id) || record?.path !== `events/${id}.json`) throw Error('Invalid event in public snapshot manifest');
+    }
+    for (const [key, record] of Object.entries(value.eventReplays || {})) {
+      if (!EVENT_ID.test(record?.periodId || '') || !PUBLIC_ACCOUNT_ID.test(record?.accountId || '') ||
+          key !== `event-replays/${record.periodId}/${record.accountId}.json` || record.path !== key) throw Error('Invalid replay in public snapshot manifest');
+    }
+    return value;
+  } catch (error) { if (error.code === 'ENOENT') return {schemaVersion: 1, tracks: {}, events: {}}; throw error; }
+}
+
+function jsonText(value) { return JSON.stringify(value) + '\n'; }
+function sha256(text) { return crypto.createHash('sha256').update(text).digest('hex'); }
+
+async function writeJsonIfChanged(directory, relative, value) {
+  const absolute = path.resolve(directory, relative);
+  if (!absolute.startsWith(path.resolve(directory) + path.sep)) throw Error('Invalid public snapshot path');
+  const text = jsonText(value);
+  try { if (await fs.readFile(absolute, 'utf8') === text) return {changed: false, sha256: sha256(text)}; }
+  catch (error) { if (error.code !== 'ENOENT') throw error; }
+  await fs.mkdir(path.dirname(absolute), {recursive: true});
+  const temporary = absolute + '.' + crypto.randomUUID() + '.tmp';
+  await fs.writeFile(temporary, text, {flag: 'wx'});
+  await fs.rename(temporary, absolute);
+  return {changed: true, sha256: sha256(text)};
+}
+
+function nativeSourceFingerprint(rows, trackId, ledger) {
+  const decisions = new Map(ledger.entries.map(entry => [entry.key, ledgerDisposition(entry)]));
+  return sha256(JSON.stringify(rows.filter(row => row.trackId === trackId).map(row => {
+    const key = ledgerKey(ledgerBinding(row, 'normal'));
+    const flags = ['needsReview', 'reviewHold', 'excluded', 'unscored'].map(field => row[field] === true);
+    const states = ['status', 'verificationStatus', 'validationState', 'verifiedState', 'reason'].map(field =>
+      typeof row[field] === 'string' && /held|hold|review|excluded|rejected|mismatch|unavailable_final/.test(row[field]) ? row[field] : null);
+    return [key, flags, states, ['held', 'excluded'].includes(decisions.get(key)) ? decisions.get(key) : null];
+  }).sort((a, b) => a[0].localeCompare(b[0]))));
+}
+
+// The source digest describes pristine authenticated flags; the derived byte hash
+// describes the local overlay. Neither can stand in for the other.
+function nativeTrackSourceDigest(record, board, bytes, authority, context, checkCurrent = true) {
+  const trace = record?.nativeLedgerOverlay;
+  if (!trace || !context || trace.ledgerManifestHash !== authority?.manifestHash ||
+      !TRACK_ID.test(trace.sourceConfirmationDigest || '') || sha256(bytes) !== trace.derivedSha256 ||
+      trace.trackId !== board.trackId || trace.updatedAt !== board.updatedAt || trace.totalEntries !== board.entries.length ||
+      trace.revision !== Number(board.revision || board.sourceRevision || 0) ||
+      board.entries.some(row => row.nativeLedgerManifestHash && row.nativeLedgerManifestHash !== trace.ledgerManifestHash) ||
+      checkCurrent && trace.sourceFingerprint !== nativeSourceFingerprint(context.canonicalRows, board.trackId, context.ledger)) return null;
+  return trace.sourceConfirmationDigest;
+}
+
+/** Read-only exact normal-source adapter. Public board verdicts and raw canonical
+ * client flags are separate channels: a canonical verified:false does not revoke
+ * an accepted public baseline. Its original flags remain in sourceCanonicalStatus.
+ * Missing canonical files can be explicitly deferred by the native phase. Present
+ * mismatched bindings still fail; unavailable manifest boards retain their
+ * existing coverage status and are not invented as empty boards.
+ */
+export async function readCapturedNormalLedgerRows({directory,allowMissingCanonical=false} = {}) {
+  if(typeof allowMissingCanonical!=='boolean')throw Error('Explicit missing canonical policy required');
+  const read = async relative => JSON.parse(await fs.readFile(path.join(directory, relative), 'utf8'));
+  const manifest = await readManifest(directory), rows = [], seen = new Set();
+  const registered = Object.entries(manifest.tracks);
+  if (registered.length > 1024) throw Error('Normal ledger source registry limit');
+  let present = 0;
+  // Registered unavailable tracks are not materialized boards or native jobs.
+  for (const [trackId, record] of registered) {
+    if (!record || typeof record !== 'object' || Array.isArray(record) ||
+        Object.hasOwn(record, 'retainedBoardMissing') && typeof record.retainedBoardMissing !== 'boolean' ||
+        Object.hasOwn(record, 'missing') && typeof record.missing !== 'boolean') throw Error('Invalid normal ledger source record');
+    if (record.path !== undefined && record.path !== null && record.path !== `tracks/${trackId}.json`)
+      throw Error('Invalid normal ledger source path');
+    if (record.retainedBoardMissing === true && (record.path !== null || record.missing !== true ||
+        record.complete === true || record.sourceComplete === true)) throw Error('Invalid normal ledger retained missing marker');
+    if (record.path && ++present > 1024) throw Error('Normal ledger source board limit');
+  }
+  for (const [trackId, record] of registered) {
+    if (!record.path) continue;
+    const board = await read(record.path);
+    if (board.trackId !== trackId || !Array.isArray(board.entries) || board.entries.length > 10000) throw Error('Invalid normal ledger source board');
+    for (const entry of board.entries) {
+      const accountId = entry.accountId || entry.userId;
+      if (!PUBLIC_ACCOUNT_ID.test(accountId || '')) throw Error('Invalid normal ledger source account');
+      let canonical;
+      try {canonical = await read(`canonical/${trackId}/${accountId}.json`);}
+      catch(error){if(allowMissingCanonical&&error.code==='ENOENT')continue;throw error;}
+      const binding = ledgerBinding(canonical, 'normal'), key = ledgerKey(binding);
+      const selected = ledgerBinding({...entry, accountId, trackId,
+        ...(entry.frames === undefined && entry.raceTimeFrames === undefined ? {frames:binding.frames} : {})}, 'normal');
+      if (binding.trackId !== trackId || binding.accountId !== accountId || ledgerKey(selected) !== key || seen.has(accountId+'_'+trackId))
+        throw Error('Current normal board/canonical binding mismatch');
+      seen.add(accountId+'_'+trackId);
+      for (const field of ['nativeLedgerSource', 'nativeLedgerBoardSource'])
+        if (canonical[field] && canonical[field].bindingKey !== key) throw Error('Normal ledger baseline companion mismatch');
+      const baseline = entry.nativeLedgerKey
+        ? canonical.nativeLedgerBoardSource?.status || canonical.nativeLedgerSource?.status
+        : nativeStatus(entry);
+      if (!baseline) throw Error('Pristine normal board baseline unavailable');
+      if (typeof baseline.runVerified === 'boolean') {
+        if (baseline.verified === undefined) baseline.verified = baseline.runVerified;
+        if (baseline.verifiedState === undefined) baseline.verifiedState = baseline.runVerified ? 1 : 0;
+        if (baseline.verificationStatus === undefined) baseline.verificationStatus = baseline.runVerified ? 'verified' : 'pending';
+      }
+      const row = {...canonical, ...binding, ...baseline,
+        sourceCanonicalStatus:structuredClone(canonical.nativeLedgerSource?.status || nativeStatus(canonical)),
+        sourceBoardStatus:structuredClone(baseline)};
+      // Explicit current holds are stronger than either baseline's positive flags.
+      for (const field of ['needsReview', 'reviewHold', 'excluded', 'unscored'])
+        if (canonical[field] === true || entry[field] === true) row[field] = true;
+      for (const field of ['status', 'verificationStatus', 'validationState', 'verifiedState', 'reason'])
+        if (typeof canonical[field] === 'string' && /held|hold|review|excluded|rejected|mismatch|unavailable_final/.test(canonical[field])) row[field] = canonical[field];
+      rows.push(row);
+      if (rows.length > 100000) throw Error('Normal ledger source row limit');
+    }
+  }
+  return rows;
+}
+
+/** Offline normal-lane apply. canonicalRows are the caller's CURRENT frozen source
+ * bindings, including current holds, not yesterday's promoted cached canonical files.
+ * ledger must be Kepler-branded AND its pinned files must exist at the explicit ledgerRoot.
+ * Production uses the trusted checkout's ROOT/verification-ledger, never a packed staging
+ * file or an untrusted current-pointer document. This function never copies that ledger.
+ * Run again after replay export, with rebuildDerived:true, before packaging. Event
+ * admission/totals remain the separate native-event-snapshot compiler's responsibility.
+ */
+export async function applyNativeLedgerToCapturedTracks({directory, ledger, policy, canonicalRows,
+  ledgerRoot = path.join(directory, 'verification-ledger'), rebuildDerived = true, now = Date.now(),targetTrackIds=null,preservePublishedKeys=null} = {}) {
+  if (!path.isAbsolute(ledgerRoot) || typeof rebuildDerived !== 'boolean' || !Number.isSafeInteger(now) || now <= 0)
+    throw Error('Invalid native ledger capture options');
+  const pinned = readLedger({root:ledgerRoot, expectedManifestHash:ledger?.manifestHash});
+  applyLedgerToBoard({board:{entries:[]}, ledger, policy, canonicalRows, recordings:[], lane:'normal'});
+  if (pinned.manifestHash !== ledger.manifestHash) throw Error('Native ledger capture pin mismatch');
+  const read = async relative => JSON.parse(await fs.readFile(path.join(directory, relative), 'utf8'));
+  const optional = async relative => {try {return await read(relative);} catch (error) {if (error.code === 'ENOENT') return null; throw error;}};
+  const manifest = await read('manifest.json'), writes = new Map(), sources = new Map(), identities = new Map();
+  const entries = new Map(ledger.entries.map(entry => [entry.key, entry]));
+  const statusFields = nativeStatusFields, status = nativeStatus;
+  const blocked = row => row && (['needsReview', 'reviewHold', 'excluded', 'unscored'].some(key => row[key] === true) ||
+    ['status', 'verificationStatus', 'validationState', 'verifiedState', 'reason'].some(key =>
+      typeof row[key] === 'string' && /held|hold|review|excluded|rejected|mismatch|unavailable_final/.test(row[key])));
+  for (const row of canonicalRows) {
+    sources.set(ledgerKey(ledgerBinding(row, 'normal')), row);
+    identities.set(row.accountId+'_'+row.trackId, row);
+  }
+  const uploads = new Map(), report = {verified:0, held:0, excluded:0, skipped:0, recordings:0, canonical:0, tracks:0};
+  const {rankTrustedTrackEntries} = await import('../workers/ranked/src/index.js');
+  for (const [trackId, record] of Object.entries(manifest.tracks || {})) {
+    if(targetTrackIds&&!targetTrackIds.includes(trackId))continue;
+    if (!record?.path) continue;
+    if (!TRACK_ID.test(trackId) || record.path !== `tracks/${trackId}.json`) throw Error('Invalid ledger capture track path');
+    const boardBytes = await fs.readFile(path.join(directory, record.path), 'utf8'), board = JSON.parse(boardBytes);
+    if (board.trackId !== trackId || !Array.isArray(board.entries)) throw Error('Invalid ledger capture board');
+    const prepared = [], media = [], pairs = new Map(), priorOverlays = new Set();
+    for (const original of board.entries) {
+      let row = {...original, trackId};
+      const identity = identities.get(row.accountId+'_'+trackId);
+      if (identity && row.frames === undefined && row.raceTimeFrames === undefined &&
+          ['timeMs', 'uploadId', 'replayHash'].every(field => row[field] === identity[field])) row.frames = ledgerBinding(identity, 'normal').frames;
+      let key;
+      try {key = ledgerKey(ledgerBinding(row, 'normal'));} catch {prepared.push(row); continue;}
+      if(preservePublishedKeys?.has(key)){prepared.push({...original});continue;}
+      const source = sources.get(key), witness = entries.get(key);
+      if (row.nativeLedgerKey) {
+        priorOverlays.add(key);
+        for (const field of statusFields) delete row[field];
+        const baseline = source?.sourceBoardStatus || (source?.nativeLedger && source.nativeLedgerSource?.bindingKey === key
+          ? source.nativeLedgerBoardSource?.status || source.nativeLedgerSource.status : source ? status(source) : null);
+        Object.assign(row, baseline || {verified:false, runVerified:false, verifiedState:0, verificationStatus:'pending'});
+        delete row.nativeLedgerKey; delete row.nativeLedgerManifestHash;
+      }
+      const disposition = witness ? ledgerDisposition(witness) : null;
+      const denied = blocked(source) || blocked(row) || disposition === 'held' || disposition === 'excluded';
+      if (denied) {
+        Object.assign(row, {verified:false, runVerified:false, verifiedState:0, verifiedAt:null,
+          verificationStatus:disposition === 'excluded' ? 'excluded' : 'held', needsReview:true});
+      }
+      prepared.push(row);
+      const canonicalPath = `canonical/${trackId}/${row.accountId}.json`;
+      const recordingPath = `recordings/${row.uploadId}.json`;
+      const canonical = await optional(canonicalPath), recording = await optional(recordingPath);
+      if (!source || !canonical || !recording) continue;
+      let canonicalKey;
+      try {canonicalKey = ledgerKey(ledgerBinding(canonical, 'normal'));} catch {continue;}
+      if (canonicalKey !== key || recording.accountId !== row.accountId || recording.trackId !== trackId ||
+          recording.uploadId !== undefined && recording.uploadId !== row.uploadId ||
+          recording.timeMs !== undefined && recording.timeMs !== row.timeMs ||
+          recording.frames !== ledgerBinding(source, 'normal').frames ||
+          recording.raceTimeFrames !== undefined && recording.raceTimeFrames !== recording.frames ||
+          recording.replayHash !== row.replayHash || typeof recording.recording !== 'string' ||
+          sha256(recording.recording) !== row.replayHash) continue;
+      if ([canonical, recording].some(value => value.nativeLedgerSource && value.nativeLedgerSource.bindingKey !== key))
+        throw Error('Native ledger source companion binding mismatch');
+      if (blocked(canonical) || blocked(recording)) Object.assign(row, {verified:false, runVerified:false,
+        verifiedState:0, verificationStatus:'held', needsReview:true, verifiedAt:null});
+      if (uploads.has(row.uploadId) && uploads.get(row.uploadId) !== key) throw Error('Conflicting ledger upload binding');
+      uploads.set(row.uploadId, key);
+      if (!denied) {
+        try {await validatePublicReplayForPublication(recording.recording, recording.frames);} catch {continue;}
+      }
+      media.push({...ledgerBinding(source, 'normal'), replay:recording.recording,
+        ...status(recording), ...(blocked(source)?{needsReview:true}:{})});
+      pairs.set(key, {canonical, recording, canonicalPath, recordingPath, source,
+        boardStatus:source.sourceBoardStatus || canonical.nativeLedgerBoardSource?.status || status(original)});
+    }
+    const applied = applyLedgerToBoard({board:{...board, entries:prepared}, ledger, policy,
+      canonicalRows:canonicalRows.filter(row => row.trackId === trackId), recordings:media, lane:'normal'});
+    for (const row of applied.board.entries) {
+      let key; try {key = ledgerKey(ledgerBinding(row, 'normal'));} catch {continue;}
+      const pair = pairs.get(key);
+      const held = row.verificationStatus === 'held' || row.verificationStatus === 'excluded';
+      const approved = !held && row.nativeLedgerManifestHash === ledger.manifestHash && row.runVerified === true;
+      if (approved && Object.hasOwn(row, 'playbackPending')) row.playbackPending = false;
+      report[approved?'verified':held?row.verificationStatus:'skipped']++;
+      // A ledger is an exact overlay, not an exhaustive replacement for trusted
+      // server standings. Unmatched baseline approvals and ordinary pending rows
+      // retain their flags, dates and payloads without invented ledger provenance.
+      if (!pair || !approved && !held && !priorOverlays.has(key)) continue;
+      if (!approved && !held) {
+        const restore = value => {
+          const restored = {...value};
+          for (const field of statusFields) delete restored[field];
+          Object.assign(restored, status(row), {playbackPending:row.runVerified !== true});
+          delete restored.nativeLedger;
+          return restored;
+        };
+        writes.set(pair.canonicalPath, restore(pair.canonical));
+        writes.set(pair.recordingPath, restore(pair.recording));
+        report.canonical++; report.recordings++;
+        continue;
+      }
+      const provenance = {authority:'native-verification-ledger', manifestHash:ledger.manifestHash, bindingKey:key,
+        disposition:approved?'verified':held?row.verificationStatus:'pending'};
+      const flags = {verified:approved, runVerified:approved, verifiedState:approved?1:0,
+        verificationStatus:approved?'verified':held?row.verificationStatus:'pending', playbackPending:!approved,
+        ...(held?{needsReview:true, verifiedAt:null}:approved?{integrityVerified:true, verifiedAt:row.verifiedAt}:{verifiedAt:null})};
+      const ledgerDecision = approved || row.nativeLedgerKey === key;
+      const canonical = {...pair.canonical, ...flags};
+      const recording = {...pair.recording, ...flags};
+      if (ledgerDecision) {
+        Object.assign(canonical, {nativeLedger:provenance,
+          nativeLedgerSource:pair.canonical.nativeLedgerSource || {bindingKey:key, status:pair.source.sourceCanonicalStatus || status(pair.source)},
+          nativeLedgerBoardSource:pair.canonical.nativeLedgerBoardSource || {bindingKey:key, status:pair.boardStatus}});
+        Object.assign(recording, {nativeLedger:provenance,
+          nativeLedgerSource:pair.recording.nativeLedgerSource || {bindingKey:key, status:status(pair.recording)}});
+      } else {delete canonical.nativeLedger; delete recording.nativeLedger;}
+      writes.set(pair.canonicalPath, canonical); writes.set(pair.recordingPath, recording);
+      report.canonical++; report.recordings++;
+    }
+    const ranked = projectTrackBackup({...applied.board, entries:rankTrustedTrackEntries(applied.board.entries, trackId)});
+    writes.set(record.path, ranked); report.tracks++;
+    const priorSource = nativeTrackSourceDigest(record, board, boardBytes, manifest.nativeVerificationLedger,
+      {ledger, canonicalRows}, false);
+    const pristine = priorSource || (!board.entries.some(row => row.nativeLedgerKey)
+      ? publicTrackConfirmationDigest(board, trackId) : null);
+    if (pristine) record.nativeLedgerOverlay = {trackId, updatedAt:board.updatedAt,
+      revision:Number(board.revision || board.sourceRevision || 0), totalEntries:board.entries.length,
+      sourceConfirmationDigest:pristine, derivedSha256:sha256(jsonText(ranked)), ledgerManifestHash:ledger.manifestHash,
+      sourceFingerprint:nativeSourceFingerprint(canonicalRows, trackId, ledger)};
+    else delete record.nativeLedgerOverlay;
+  }
+  for (const [relative, value] of writes) await writeJsonIfChanged(directory, relative, value);
+  // Preserve concurrently updated event sections; only replace the normal track traces.
+  const latest = await read('manifest.json');
+  for (const [id, record] of Object.entries(manifest.tracks || {})) if (record?.path && writes.has(record.path)) {
+    const board = writes.get(record.path);
+    latest.tracks[id] = {...latest.tracks[id], sha256:sha256(jsonText(board))};
+    if (record.nativeLedgerOverlay) latest.tracks[id].nativeLedgerOverlay = record.nativeLedgerOverlay;
+    else delete latest.tracks[id].nativeLedgerOverlay;
+  }
+  latest.nativeVerificationLedger = {sourceRepositoryPath:'verification-ledger/manifest.json', manifestHash:ledger.manifestHash,
+    authority:'snapshot-native', policyFingerprint:nativePolicyFingerprint(policy)};
+  await writeJsonIfChanged(directory, 'manifest.json', latest);
+  if (rebuildDerived) {
+    const {rebuildSnapshotOverall} = await import('./rebuild-snapshot-overall.mjs');
+    report.overall = await rebuildSnapshotOverall({directory, now:() => now});
+    const {buildProfileSnapshotResults} = await import('./build-profile-snapshot-results.mjs');
+    report.profiles = await buildProfileSnapshotResults(directory);
+  }
+  const {buildTrackStatistics} = await import('./snapshot-package.mjs');
+  const current = await read('manifest.json'), files = [{logicalPath:'manifest.json', value:current}];
+  for (const record of Object.values(current.tracks || {})) if (record?.path) files.push({logicalPath:record.path, value:await read(record.path)});
+  files.push({logicalPath:'overall.json', value:await optional('overall.json')});
+  const summary = await optional('public-export-summary.json');
+  if (summary) files.push({logicalPath:'public-export-summary.json', value:summary});
+  await writeJsonIfChanged(directory, 'track-statistics.json', buildTrackStatistics(files));
+  return report;
+}
+
+async function capturePublicSnapshotBackup({fetchImpl, directory = outputDirectory, now,
+  trackIds = null, log = console.log, archiveExport = null, capturedOverall = null, confirmedTracks = null, capturedTracks = null,
+  trackFetchLimit = PUBLIC_SNAPSHOT_LIMITS.trackFetches, trackConfirmationNotBefore = null, eventReplayFetchLimit = PUBLIC_SNAPSHOT_LIMITS.eventReplayFetches, nativeVerification = null, catalogHandoff = null, reconcileCanonicalTrack = null, fullCanonicalSource = null} = {}) {
+  if(fullCanonicalSource!==null&&!isFullCanonicalTrackSource(fullCanonicalSource))throw Error('Opaque full canonical source required');
+  const handoffNow = now === undefined ? Date.now : () => now;
+  now ??= Date.now();
+  if (!Number.isSafeInteger(trackFetchLimit) || trackFetchLimit < 0 || trackFetchLimit > (trackConfirmationNotBefore===null?PUBLIC_SNAPSHOT_LIMITS.trackFetches:FULL_TRACK_CHECK_LIMIT))
+    throw Error('Invalid trackFetchLimit');
+  if (!Number.isSafeInteger(eventReplayFetchLimit) || eventReplayFetchLimit < 0 || eventReplayFetchLimit > 512)
+    throw Error('Invalid eventReplayFetchLimit');
+  const adminFetchImpl=fetchImpl || fetch;
+  fetchImpl ||= createWorkerCaptureFetch();
+  const adminCapture = archiveExport ? createAdminArchiveCaptureFetch({...archiveExport, fetchImpl, adminFetchImpl}) : null;
+  if (adminCapture) fetchImpl = adminCapture.fetch;
+  const previous = await readManifest(directory);
+  if (previous.nativeVerificationLedger && !nativeVerification) throw Error('Explicit native ledger policy required for retained authority');
+  if (nativeVerification) {
+    const ledgerRoot = nativeVerification.ledgerRoot ?? path.join(directory, 'verification-ledger');
+    if (!path.isAbsolute(ledgerRoot)) throw Error('Absolute native ledger root required');
+    readLedger({root:ledgerRoot, expectedManifestHash:nativeVerification.ledger?.manifestHash});
+    applyLedgerToBoard({board:{entries:[]}, ledger:nativeVerification.ledger, policy:nativeVerification.policy,
+      canonicalRows:nativeVerification.canonicalRows, recordings:[], lane:'normal'});
+  }
+  let pageFetches = 0;
+  const assemble = (value, endpoint) => assemblePublishedSnapshotPages(value, {fetchPage: (page, generation) => {
+    if (pageFetches >= PUBLIC_SNAPSHOT_LIMITS.pageFetches) throw new PublicBackupDeferredError('Public snapshot page budget reached');
+    pageFetches++;
+    const url = new URL(endpoint, WORKER);url.searchParams.set('generation', generation);url.searchParams.set('page', String(page));
+    return fetchJson(fetchImpl, url.href);
+  }});
+  const overallRaw = capturedOverall ?? await assemble(await fetchJson(fetchImpl, `${WORKER}/v1/snapshot/overall`), '/v1/snapshot/overall/page');
+  const {snapshot: overall, planner} = publicOverallBackup(overallRaw);
+  // Check freshness when consumed, not before a potentially slow Overall/page capture.
+  const handedOffCatalog = await readEventCatalogHandoff(catalogHandoff, {now: handoffNow(), stagingDirectory: directory});
+  const catalog = handedOffCatalog ?? await fetchJson(fetchImpl, EVENT_CATALOG_ENDPOINT);
+  const selectedEvents = selectEventIds(catalog);
+  if (!catalog.periods.length && !catalog.archives.length && Object.keys(previous.events || {}).length) {
+    throw new PublicBackupDeferredError('Empty event catalog; retaining saved event backups');
+  }
+  const liveIds = new Set((catalog.periods || []).filter(row=>!(Number.isFinite(row.endsAt)&&row.endsAt+Math.max(0,Number(row.graceMs)||0)<=now)).map(row => row.id));
+  const archiveRepairIds=new Set(adminCapture?archiveExport.periodIds:[]);
+  const eventFetchIds = [];
+  const cachedEventValues = new Map();
+  let archivedEventsReused = 0, archivedEventsUnavailable = 0;
+  for (const id of selectedEvents) {
+    const record = previous.events?.[id];
+    let reusable = false;
+    if (!liveIds.has(id) && id !== 'permanent-rolling-hills' && record?.path === `events/${id}.json` &&
+        Number(record.checkedAt) > 0) {
+      try {
+        const cached = JSON.parse(await fs.readFile(path.join(directory, record.path), 'utf8'));
+        // Completed finite event standings are immutable. Repair only missing,
+        // invalid or incomplete captures, not every archive on a rolling timer.
+        reusable = isReusableArchivedEventBackup(cached, id);
+        if (reusable) cachedEventValues.set(id, publicEventBackup(cached, id));
+      } catch { /* A missing or invalid backup must be fetched again. */ }
+    }
+    if (reusable) archivedEventsReused++;
+    else if(!liveIds.has(id)&&id!=='permanent-rolling-hills'&&!archiveRepairIds.has(id))archivedEventsUnavailable++;
+    else eventFetchIds.push(id);
+  }
+  // Missing and oldest archives go first, so a catalog larger than one batch
+  // eventually gets complete coverage without increasing the request budget.
+  eventFetchIds.sort((a, b) => Number(liveIds.has(b) || b === 'permanent-rolling-hills') - Number(liveIds.has(a) || a === 'permanent-rolling-hills') ||
+    Number(previous.events?.[a]?.checkedAt || 0) - Number(previous.events?.[b]?.checkedAt || 0));
+  const eventsDeferred = eventFetchIds.splice(PUBLIC_SNAPSHOT_LIMITS.eventFetches).length;
+  let registry = trackIds;
+  if (!registry) {
+    const [indexSource, extraSource] = await Promise.all([
+      fs.readFile(path.join(root, 'workers/ranked/src/index.js'), 'utf8'),
+      fs.readFile(path.join(root, 'workers/ranked/src/extra-track-ids.js'), 'utf8')
+    ]);
+    registry = publicTrackRegistry(indexSource, extraSource);
+  }
+  // Weekly tracks may have a public board before they enter Overall summaries.
+  const eventTrackIds = [...catalog.periods, ...catalog.archives].map(row => projectPeriod(row).trackId);
+  const allTrackIds = [...new Set([...registry, ...eventTrackIds, ...(overall.trackCatalog || []).map(row => row.trackId), ...overall.trackSummaries.map(row => row.trackId), ...Object.keys(previous.tracks), ...(capturedTracks instanceof Map?capturedTracks.keys():[])])]
+    .filter(id => TRACK_ID.test(id)).sort();
+  const sourceRepairs=new Map();
+  const sourceRechecks = new Map();
+  const canonicalRetentions = new Map();
+  // Materialized authenticated inputs can exceed the public endpoint's 500-row cap.
+  // This is local staging validation only; network responses retain their paged-source checks.
+  const cachedProjection=(raw,id)=>raw?.entries?.length>500?authenticatedOverallTrackBackup(raw,id):publicTrackBackup(raw,id);
+  const cachedTracks = {...previous.tracks};
+  async function assertSavedTrackCoverage(board, id) {
+    if (!hasCompleteTrackCoverage(board)) return;
+    const relative = 'tracks/' + id + '.json';
+    if (previous.tracks[id]?.path === relative) {
+      let bytes, prior = null;
+      try { bytes = await fs.readFile(path.join(directory, relative), 'utf8'); }
+      catch (error) {
+        if (error.code !== 'ENOENT') throw new PublicBackupDeferredError('Prior track source unavailable for ' + id);
+      }
+      if (bytes !== undefined) try { prior = cachedProjection(JSON.parse(bytes), id); }
+      catch { /* Invalid cached boards are not complete source baselines. */ }
+      // Compare the saved source even if cache freshness/overlay reuse was invalidated.
+      assertTrackAccountCoverage(prior, board, id);
+    }
+    assertTrackAccountCoverage(sourceRepairs.get(relative), board, id);
+  }
+  if(capturedTracks!==null){
+    if(!(capturedTracks instanceof Map)||capturedTracks.size>512)throw Error('Invalid captured source boards');
+    for(const [id,value] of capturedTracks){
+      if(fullCanonicalSource?.has(id))continue;
+      if(!TRACK_ID.test(id))throw Error('Invalid captured source track');
+      const board=authenticatedOverallTrackBackup(value,id),relative='tracks/'+id+'.json';
+      if(JSON.stringify(board)!==JSON.stringify(value)||!(board.complete===true||board.sourceComplete===true)||board.totalEntries!==board.entries.length)throw Error('Invalid captured source board');
+      let cached=null,cachedBytes=null;const prior=cachedTracks[id];
+      if(prior?.path===relative)try{cachedBytes=await fs.readFile(path.join(directory,relative),'utf8');const raw=JSON.parse(cachedBytes);const valid=cachedProjection(raw,id);if(JSON.stringify(raw)===JSON.stringify(valid))cached=valid;}catch{}
+      // Frozen inputs can fill gaps, never roll a newer track board backward.
+      const overlaySource = cached && nativeTrackSourceDigest(prior, cached, cachedBytes, previous.nativeVerificationLedger, nativeVerification);
+      if(cached&&Number(cached.updatedAt)>Number(board.updatedAt))continue;
+      let cachedSource = overlaySource;
+      if(cached&&!prior.nativeLedgerOverlay&&!cached.entries.some(row=>row.nativeLedgerKey)) {
+        try { cachedSource=publicTrackConfirmationDigest(cached,id); } catch {}
+      }
+      // A timestamp is not a content binding. Reuse only the exact frozen bytes.
+      if(cached&&Number(cached.updatedAt)===Number(board.updatedAt)&&
+          cachedSource===publicTrackConfirmationDigest(board,id))continue;
+      try { await assertSavedTrackCoverage(board, id); }
+      catch (error) {
+        const regression = new RegExp('^Track account coverage regressed for ' + id +
+          ': [1-9][0-9]* prior accounts missing; reviewed removal or replacement evidence required$');
+        if (!(error instanceof PublicBackupDeferredError) || !regression.test(error.message) || trackFetchLimit === 0) throw error;
+        sourceRechecks.set(id, {board, error});
+        if (sourceRechecks.size > trackFetchLimit) throw error;
+        continue;
+      }
+      sourceRepairs.set(relative,board);
+      cachedTracks[id]={path:relative,revision:Number(board.revision||board.sourceRevision||0),sourceUpdatedAt:board.updatedAt,updatedAt:board.updatedAt};
+    }
+  }
+  for (const id of allTrackIds) {
+    const record = cachedTracks[id];
+    if (!record?.path) continue;
+    try {
+      if (record.path !== `tracks/${id}.json`) throw Error('Unexpected cached track path');
+      const cachedBytes = sourceRepairs.has(record.path) ? jsonText(sourceRepairs.get(record.path)) : await fs.readFile(path.join(directory, record.path), 'utf8');
+      const cached = sourceRepairs.get(record.path)||JSON.parse(cachedBytes);
+      if(fullCanonicalSource?.has(id)){
+        const source=fullCanonicalSource.validate(id,cachedBytes),projected=cachedProjection(source,id);
+        // The canonical importer additionally keeps these public audit fields.
+        projected.entries=projected.entries.map((row,index)=>({...row,...project(source.entries[index],
+          ['updatedAt','ingestedAt','ingestedAtSource','eventRpEligible','status','physicsVerified','replayIntegrityVerified','originalRank','originalTimeMs'])}));
+        if(!isDeepStrictEqual(projected,source))throw Error('Canonical board is not a public projection');
+        cachedTracks[id]={...record,checkedAt:fullCanonicalSource.checkedAt,missing:false};
+        continue;
+      }
+      const projected = cachedProjection(cached, id);
+      if (JSON.stringify(projected) !== JSON.stringify(cached)) throw Error('Cached track is not a public projection');
+      const overlay = !!record.nativeLedgerOverlay || cached.entries.some(row=>row.nativeLedgerKey);
+      let sourceDigest = overlay ? nativeTrackSourceDigest(record,cached,cachedBytes,previous.nativeVerificationLedger,nativeVerification) : null;
+      if (!overlay) try {sourceDigest=publicTrackConfirmationDigest(projected,id);} catch { /* Legacy partial boards cannot confirm authenticated source coverage. */ }
+      if (overlay && !sourceDigest && !retainedNativeBoardMatches({context:nativeVerification,authority:previous.nativeVerificationLedger,board:cached,bytes:cachedBytes})) throw Error('Cached native overlay source binding is not validated');
+      const confirmation = confirmedTracks instanceof Map ? confirmedTracks.get(id) : null;
+      if (confirmation && TRACK_ID.test(confirmation.sha256||'') && sourceDigest && confirmation.sha256!==sourceDigest)
+        throw Error('Authenticated source confirmation changed');
+      if (confirmation && /^[a-f0-9]{64}$/.test(confirmation.sha256 || '') &&
+          Number.isSafeInteger(confirmation.checkedAt) && confirmation.checkedAt > 0 && confirmation.checkedAt <= now &&
+          confirmation.updatedAt === cached.updatedAt && cached.updatedAt <= confirmation.checkedAt &&
+          record.updatedAt === cached.updatedAt && record.sourceUpdatedAt === cached.updatedAt &&
+          record.revision === Number(cached.revision || cached.sourceRevision || 0) &&
+          confirmation.checkedAt > Number(record.checkedAt || 0) &&
+          (projected.complete === true || projected.sourceComplete === true) && projected.totalEntries === projected.entries.length && projected.entries.length <= 10000 &&
+          sourceDigest === confirmation.sha256)
+        cachedTracks[id] = {...record, checkedAt: confirmation.checkedAt};
+    } catch(error) {
+      if(fullCanonicalSource?.has(id))throw error;
+      cachedTracks[id] = {...record, path: null, missing: false};
+      delete cachedTracks[id].checkedAt;
+    }
+  }
+  const plannedTracks = trackConfirmationNotBefore!==null ? selectFullTrackChecks(allTrackIds.filter(id=>!fullCanonicalSource?.has(id)),cachedTracks,{notBefore:trackConfirmationNotBefore,limit:trackFetchLimit}) : chooseTrackFetches(allTrackIds, [...(overall.trackCatalog || []), ...overall.trackSummaries], cachedTracks,
+    trackFetchLimit, now, catalog.periods.filter(period => liveIds.has(period.id)).map(period => period.trackId));
+  // Required source rechecks consume the existing budget before ordinary refreshes.
+  const selectedTracks = [...sourceRechecks.keys(), ...plannedTracks.filter(id => !sourceRechecks.has(id))].slice(0, trackFetchLimit);
+  const trackRows = await mapLimit(selectedTracks, PUBLIC_SNAPSHOT_LIMITS.concurrency, async id => {
+    // The branded complete frozen DB point proves absence; retain the existing 404 result path.
+    if(fullCanonicalSource&&!fullCanonicalSource.has(id))return {id,value:null};
+    const value = await fetchJson(fetchImpl, `${WORKER}/v1/snapshot/track?trackId=${encodeURIComponent(id)}`, {optional: true});
+    const full = value ? await assemble(value, `/v1/snapshot/track/page?trackId=${encodeURIComponent(id)}`) : null;
+    let board = full ? publicTrackBackup(full, id) : null;
+    const recheck = sourceRechecks.get(id);
+    if (recheck && (!hasCompleteTrackCoverage(board) || board.updatedAt < recheck.board.updatedAt ||
+        board.algorithmVersion === recheck.board.algorithmVersion &&
+        Number(board.revision || board.sourceRevision || 0) < Number(recheck.board.revision || recheck.board.sourceRevision || 0))) {
+      throw recheck.error;
+    }
+    if (board) try { await assertSavedTrackCoverage(board, id); }
+    catch (error) {
+      const regression = new RegExp('^Track account coverage regressed for ' + id +
+        ': [1-9][0-9]* prior accounts missing; reviewed removal or replacement evidence required$');
+      const relative = 'tracks/' + id + '.json';
+      if (!(error instanceof PublicBackupDeferredError) || !regression.test(error.message) ||
+          typeof reconcileCanonicalTrack !== 'function' || !hasCompleteTrackCoverage(board) ||
+          previous.tracks[id]?.path !== relative) throw error;
+      // Reload only the known safe prior path. Canonical/proof authority belongs to the callback.
+      const prior = cachedProjection(JSON.parse(await fs.readFile(path.join(directory, relative), 'utf8')), id);
+      if (!hasCompleteTrackCoverage(prior)) throw error;
+      const original = structuredClone(board);
+      const result = await reconcileCanonicalTrack({trackId:id, prior:structuredClone(prior), board:structuredClone(board)});
+      const reconciled = authenticatedOverallTrackBackup(result?.board, id);
+      if (reconciled.updatedAt < original.updatedAt ||
+          reconciled.algorithmVersion === original.algorithmVersion &&
+          Number(reconciled.revision || reconciled.sourceRevision || 0) < Number(original.revision || original.sourceRevision || 0))
+        throw error;
+      await assertSavedTrackCoverage(reconciled, id);
+      assertTrackAccountCoverage(prior, reconciled, id);
+      assertTrackAccountCoverage(original, reconciled, id);
+      if (!Array.isArray(result.retained) || !Number.isSafeInteger(result.readDocuments) || result.readDocuments < 0)
+        throw Error('Invalid canonical track retention result');
+      for(const row of original.entries){
+        const retained=reconciled.entries.find(value=>(value.accountId??value.userId)===(row.accountId??row.userId));
+        if(!retained||['timeMs','frames','raceTimeFrames','uploadId','replayHash'].some(key=>retained[key]!==row[key]))
+          throw Error('Invalid canonical track retention: changed incoming run binding');
+      }
+      const originalAccounts = new Set(original.entries.map(row => row.accountId ?? row.userId));
+      const missing = new Set(prior.entries.map(row => row.accountId ?? row.userId).filter(account => !originalAccounts.has(account)));
+      if(result.readDocuments!==missing.size)throw Error('Invalid canonical track retention: document count mismatch');
+      const retained = result.retained.map(value => {
+        const evidence = project(value, ['accountId', 'trackId', 'uploadId', 'replayHash', 'canonicalUpdateTime']);
+        const row = reconciled.entries.find(row => (row.accountId ?? row.userId) === evidence.accountId);
+        if (!missing.delete(evidence.accountId) || evidence.trackId !== id || !row ||
+            !PUBLIC_ACCOUNT_ID.test(evidence.accountId || '') || !TRACK_ID.test(evidence.replayHash || '') ||
+            evidence.uploadId !== row.uploadId || evidence.replayHash !== row.replayHash ||
+            !(typeof evidence.uploadId === 'string' && evidence.uploadId.length > 0 || Number.isSafeInteger(evidence.uploadId) && evidence.uploadId > 0) ||
+            !(typeof evidence.canonicalUpdateTime === 'string' && evidence.canonicalUpdateTime.length > 0 ||
+              Number.isSafeInteger(evidence.canonicalUpdateTime) && evidence.canonicalUpdateTime > 0))
+          throw Error('Invalid canonical track retention evidence');
+        return evidence;
+      });
+      if (missing.size) throw Error('Missing canonical track retention evidence');
+      canonicalRetentions.set(id, {retained, readDocuments:result.readDocuments});
+      board = reconciled;
+    }
+    return {id, value: board};
+  });
+  const fullSourceChecks=trackConfirmationNotBefore===null?null:(()=>{
+    const records={...cachedTracks};
+    for(const {id,value} of trackRows)records[id]=value?{path:'tracks/'+id+'.json',checkedAt:now}:
+      records[id]?.path||previous.tracks[id]?.path?{...records[id],path:records[id]?.path||previous.tracks[id].path,missing:true}:{path:null,missing:true,checkedAt:now};
+    return {...assertFullTrackChecks(allTrackIds.filter(id=>!fullCanonicalSource?.has(id)),records,trackConfirmationNotBefore),...(fullCanonicalSource?{canonicalSource:{tracks:fullCanonicalSource.tracks,rows:fullCanonicalSource.rows,readPoint:fullCanonicalSource.readPoint}}:{})};
+  })();
+  const eventRows = await mapLimit(eventFetchIds, PUBLIC_SNAPSHOT_LIMITS.concurrency, async id => {
+    const url = id === 'permanent-rolling-hills'
+      ? `${WORKER}/v1/events/permanent-rolling-hills/snapshot`
+      : `${WORKER}/v1/events/${encodeURIComponent(id)}/snapshot`;
+    const value = await fetchJson(fetchImpl, url, {optional: true});
+    const full = value ? await assemble(value, url + '/page') : null;
+    const projected = full ? publicEventBackup(full, id) : null;
+    return {id, value: projected, checkedAt: handoffNow()};
+  });
+
+  const eventValues = new Map();
+  // Reuse loaded boards while preserving prior event order for bounded replay selection.
+  for (const {id, value} of eventRows) if (value) cachedEventValues.set(id, value);
+  for (const [id, record] of Object.entries(previous.events || {})) {
+    if (!EVENT_ID.test(id) || record.path !== `events/${id}.json`) continue;
+    if (cachedEventValues.has(id)) eventValues.set(id, cachedEventValues.get(id));
+    else try { eventValues.set(id, publicEventBackup(JSON.parse(await fs.readFile(path.join(directory, record.path), 'utf8')), id)); } catch {}
+  }
+  for (const {id, value} of eventRows) if (value) eventValues.set(id, value);
+  const replayCandidates = [], retainedReplays = {}, promotedReplays = new Map();
+  const replayEvents = [...eventValues].sort(([a],[b]) => Number(liveIds.has(b)) - Number(liveIds.has(a)));
+  for (const [id, value] of replayEvents) {
+    if (!TRACK_ID.test(value.period?.trackId || '')) continue;
+    for (const entry of value.entries.slice(0, PUBLIC_SNAPSHOT_LIMITS.eventReplaysPerPeriod)) {
+      if (!PUBLIC_ACCOUNT_ID.test(entry.accountId || '') || !Number.isSafeInteger(entry.timeMs)) continue;
+      if (entry.physicsVerified === false || entry.replayIntegrityVerified === false) continue;
+      const relative = `event-replays/${id}/${entry.accountId}.json`, prior = previous.eventReplays?.[relative];
+      const exactPublishedRun = entry.physicsVerified === true && entry.replayIntegrityVerified === true &&
+        TRACK_ID.test(entry.runId || '') && TRACK_ID.test(entry.replayHash || '');
+      if (prior?.path === relative && prior.timeMs === entry.timeMs) {
+        try {
+          const replay = JSON.parse(await fs.readFile(path.join(directory, relative), 'utf8'));
+          const projected=await validatedEventReplayBackup({...replay, verificationStatus:'verified', verified:true, eventRpEligible:true}, {periodId:id, trackId:value.period.trackId, entry});
+          if (JSON.stringify(projected) !== JSON.stringify(replay)) throw Error('Replay is not a public projection');
+          retainedReplays[relative] = prior; entry.runId = replay.runId; entry.replayHash = replay.replayHash;
+          applyReplayDates(entry, replay);
+          if (exactPublishedRun) continue;
+          // Repair legacy live metadata within the existing fetch cap, retaining good bytes on failure.
+          const dateCheckAge = now - Number(prior.verdictDateCheckedAt);
+          const dateCheckFresh = Number.isSafeInteger(prior.verdictDateCheckedAt) && dateCheckAge >= 0 && dateCheckAge < 7 * 86400000;
+          if (!liveIds.has(id) || Number.isSafeInteger(replay.verifiedAt) && replay.verifiedAt > 0 || dateCheckFresh) continue;
+        } catch { /* A changed or corrupt replay must be replaced. */ }
+      }
+      if (exactPublishedRun) {
+        const pendingPath = `event-playbacks/${id}/${entry.runId}.json`;
+        const cached = previous.eventPlaybacks?.[pendingPath];
+        if (cached?.path === pendingPath && cached.periodId === id && cached.accountId === entry.accountId &&
+            cached.runId === entry.runId && cached.timeMs === entry.timeMs && cached.replayHash === entry.replayHash) {
+          try {
+            const saved = JSON.parse(await fs.readFile(path.join(directory, pendingPath), 'utf8'));
+            const replay = await promotePublicEventPlayback(saved, {periodId:id, trackId:value.period.trackId, entry});
+            promotedReplays.set(relative, replay);
+            retainedReplays[relative] = {path:relative, periodId:id, accountId:entry.accountId,
+              timeMs:entry.timeMs, replayHash:entry.replayHash};
+            applyReplayDates(entry, replay);
+            continue;
+          } catch { /* Missing, invalid or changed pending bytes are never promoted. */ }
+        }
+      }
+      // Frozen history is never a paid fallback during routine publication.
+      if(!liveIds.has(id)&&id!=='permanent-rolling-hills'&&!archiveRepairIds.has(id))continue;
+      if (replayCandidates.length >= eventReplayFetchLimit) continue;
+      replayCandidates.push({periodId: id, trackId: value.period.trackId, entry});
+    }
+  }
+  const retainedPlaybacks = {}, playbackCandidates = [], validatedPlaybacks = new Map();
+  // Only fresh public live boards can retain or request pending inputs.
+  for (const {id, value} of eventRows) {
+    if (!value || !liveIds.has(id) || value.archived === true || !TRACK_ID.test(value.period?.trackId || '')) continue;
+    for (const entry of value.pendingPlaybacks || []) {
+      const candidate = {periodId:id, trackId:value.period.trackId, entry, pendingPlayback:true};
+      const relative = `event-playbacks/${id}/${entry.runId}.json`, prior = previous.eventPlaybacks?.[relative];
+      if (prior?.path === relative) {
+        try {
+          const saved = JSON.parse(await fs.readFile(path.join(directory, relative), 'utf8'));
+          const projected = await publicEventPlaybackProjection(saved, candidate);
+          if (JSON.stringify(projected) !== JSON.stringify(saved)) throw Error('Non-public pending projection');
+          retainedPlaybacks[relative] = {path:relative,periodId:id,runId:entry.runId,accountId:entry.accountId,
+            timeMs:entry.timeMs,replayHash:projected.replayHash};
+          validatedPlaybacks.set(relative, projected); entry.replayHash = projected.replayHash;
+          continue;
+        } catch { /* Changed or invalid pending input is not reused. */ }
+      }
+      if (playbackCandidates.length < eventReplayFetchLimit) playbackCandidates.push(candidate);
+    }
+  }
+  // Alternate lanes so verified PBs and pending viewing share one bounded allowance.
+  const sharedCandidates = [];
+  for (let i=0; sharedCandidates.length<eventReplayFetchLimit && i<Math.max(replayCandidates.length,playbackCandidates.length); i++) {
+    for (const lane of [replayCandidates,playbackCandidates]) if (lane[i] && sharedCandidates.length<eventReplayFetchLimit) sharedCandidates.push(lane[i]);
+  }
+  replayCandidates.splice(0,replayCandidates.length,...sharedCandidates);
+  let replayFetchDeferred = null;
+  const replayRows = await mapLimit(replayCandidates, PUBLIC_SNAPSHOT_LIMITS.concurrency, async candidate => {
+    if (replayFetchDeferred) throw replayFetchDeferred;
+    try {
+      const resource = candidate.pendingPlayback ? `playbacks/${candidate.entry.runId}` : `replays/${candidate.entry.accountId}`;
+      const url = `${WORKER}/v1/events/${encodeURIComponent(candidate.periodId)}/${resource}`;
+      const replay = await fetchJson(fetchImpl, url, {optional: true, maxBytes: PUBLIC_SNAPSHOT_LIMITS.eventReplayResponseBytes});
+      return {candidate, value: replay ? candidate.pendingPlayback ? await publicEventPlaybackProjection(replay,candidate) : await validatedEventReplayBackup(replay, candidate) : null};
+    } catch (error) {
+      if (error instanceof PublicBackupDeferredError) { replayFetchDeferred = error; throw error; }
+      return {candidate, value: null};
+    }
+  });
+
+  const nextTracks = {...cachedTracks}, nextEvents = {...previous.events};
+  const pendingWrites = new Map([['overall.json', overall], ...promotedReplays, ...sourceRepairs]);
+  let missingTracks = 0, missingEvents = 0;
+  const trackSummaryMismatches = [];
+  for (const {id, value} of trackRows) {
+    if (!value) {
+      missingTracks++;
+      // A failed fetch must not freshen a retained board or resurrect an invalid path.
+      if (nextTracks[id]?.path) nextTracks[id] = {...nextTracks[id], missing: true};
+      else nextTracks[id] = {...nextTracks[id], path: null, checkedAt: now, missing: true};
+      continue;
+    }
+    const relative = `tracks/${id}.json`;
+    pendingWrites.set(relative, value);
+    const summary = overall.trackSummaries.find(row => row.trackId === id);
+    if (summary && summary.updatedAt !== value.updatedAt) trackSummaryMismatches.push(id);
+    nextTracks[id] = {path: relative, revision: Number(value.revision || value.sourceRevision || 0),
+      sourceUpdatedAt: value.updatedAt, updatedAt: value.updatedAt, checkedAt: now};
+  }
+  for (const {id, value, checkedAt} of eventRows) {
+    if (!value) { missingEvents++; continue; }
+    const relative = `events/${id}.json`;
+    pendingWrites.set(relative, value);
+    nextEvents[id] = {path: relative, updatedAt: value.updatedAt, checkedAt};
+  }
+  const eventReplays = {...retainedReplays};
+  const eventPlaybacks = {...retainedPlaybacks};
+  for (const {candidate, value} of replayRows) {
+    if (!value) continue;
+    const event = eventValues.get(candidate.periodId);
+    if (candidate.pendingPlayback) {
+      const entry = event?.pendingPlaybacks?.find(row=>row.runId===candidate.entry.runId && row.accountId===value.accountId && row.timeMs===value.timeMs);
+      if (!entry || event.archived === true) continue;
+      entry.replayHash = value.replayHash;
+      const relative = `event-playbacks/${candidate.periodId}/${entry.runId}.json`;
+      pendingWrites.set(relative,value);
+      validatedPlaybacks.set(relative,value);
+      eventPlaybacks[relative] = {path:relative,periodId:candidate.periodId,runId:entry.runId,accountId:entry.accountId,timeMs:entry.timeMs,replayHash:value.replayHash};
+      continue;
+    }
+    const entry = event?.entries.find(row => row.accountId === candidate.entry.accountId && row.timeMs === candidate.entry.timeMs);
+    if (!entry) continue;
+    entry.replayHash = value.replayHash;
+    entry.runId = value.runId;
+    applyReplayDates(entry, value);
+    const relative = `event-replays/${candidate.periodId}/${candidate.entry.accountId}.json`;
+    pendingWrites.set(relative, value);
+    eventReplays[relative] = {path: relative, periodId: candidate.periodId, accountId: candidate.entry.accountId,
+      timeMs: candidate.entry.timeMs, replayHash: value.replayHash, verdictDateCheckedAt: now};
+  }
+  // A saved waiting row must be playable from the same package. Keep failed or
+  // budget-deferred source rows out of public boards, not out of future retries:
+  // each capture reloads the live board and reuses already validated cached bytes.
+  const attemptedPlaybacks = new Set(replayCandidates.filter(row=>row.pendingPlayback)
+    .map(row=>`event-playbacks/${row.periodId}/${row.entry.runId}.json`));
+  const pendingPlaybackCoverage = {known:0,published:0,missing:0,failed:0,deferred:0,complete:true,
+    scope:'selected-saved-event-boards'};
+  for (const [id, value] of eventValues) {
+    if (!Array.isArray(value.pendingPlaybacks)) continue;
+    value.pendingPlaybacks = value.pendingPlaybacks.filter(entry=>{
+      pendingPlaybackCoverage.known++;
+      const relative=`event-playbacks/${id}/${entry.runId}.json`, saved=validatedPlaybacks.get(relative);
+      const exact=value.archived!==true && saved && Object.hasOwn(eventPlaybacks,relative) &&
+        saved.periodId===id && saved.trackId===value.period?.trackId && saved.accountId===entry.accountId &&
+        saved.runId===entry.runId && saved.timeMs===entry.timeMs && saved.frames===entry.timeMs &&
+        saved.replayHash===entry.replayHash && saved.submittedAt===entry.submittedAt;
+      if (exact) { pendingPlaybackCoverage.published++; return true; }
+      pendingPlaybackCoverage.missing++;
+      pendingPlaybackCoverage[attemptedPlaybacks.has(relative)?'failed':'deferred']++;
+      return false;
+    });
+  }
+  pendingPlaybackCoverage.complete = pendingPlaybackCoverage.missing===0;
+  // Keep valid historical standings even when the cloud catalog rolls its
+  // bounded recent-history window forward. Generate month indexes locally.
+  const replayCoverage = await eventReplayCoverage(eventValues.values(), async relative => {
+    if (pendingWrites.has(relative)) return pendingWrites.get(relative);
+    return JSON.parse(await fs.readFile(path.join(directory,relative),'utf8'));
+  });
+  const months = new Map();
+  for (const [id, value] of eventValues) {
+    pendingWrites.set(`events/${id}.json`, value);
+    if (!nextEvents[id]) nextEvents[id] = {path:`events/${id}.json`, updatedAt:value.updatedAt};
+    if (value.archived !== true || !value.period) continue;
+    const month = new Date(value.period.startsAt).toISOString().slice(0, 7);
+    if (!months.has(month)) months.set(month, []);
+    months.get(month).push({...value.period, racerCount:value.entries.length});
+  }
+  for (const [month, periods] of months) pendingWrites.set(`archives/${month}.json`, {updatedAt:Math.max(...periods.map(p => eventValues.get(p.id).updatedAt)), periods:periods.sort((a,b)=>b.startsAt-a.startsAt)});
+  let overallResults = {path: null, available: false, reason: planner.reason};
+  if (planner.available) {
+    pendingWrites.set('overall-results.json', planner.document);
+    overallResults = {path: 'overall-results.json', available: true};
+  }
+
+  const canonicalTrackRetention = {tracks:canonicalRetentions.size, accounts:0, readDocuments:0, retained:[]};
+  for (const id of [...canonicalRetentions.keys()].sort()) {
+    const result = canonicalRetentions.get(id);
+    canonicalTrackRetention.accounts += result.retained.length;
+    canonicalTrackRetention.readDocuments += result.readDocuments;
+    canonicalTrackRetention.retained.push(...result.retained);
+  }
+  const records = {};
+  let tracksChanged = 0, eventsChanged = 0;
+  for (const [relative, value] of pendingWrites) {
+    const written = await writeJsonIfChanged(directory, relative, value);
+    records[relative] = written;
+    if (relative.startsWith('tracks/') && written.changed) tracksChanged++;
+    if (relative.startsWith('events/') && written.changed) eventsChanged++;
+  }
+  if (!planner.available) {
+    try { await fs.unlink(path.join(directory, 'overall-results.json')); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  }
+
+  const replayPaths = new Set(Object.keys(eventReplays));
+  for (const record of Object.values(previous.eventPlaybacks || {})) {
+    if (typeof record?.path === 'string' && /^event-playbacks\/[A-Za-z0-9_-]{1,64}\/[a-f0-9]{64}\.json$/.test(record.path) && !Object.hasOwn(eventPlaybacks,record.path)) {
+      try { await fs.unlink(path.join(directory,record.path)); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+    }
+  }
+  for (const record of Object.values(previous.eventReplays || {})) {
+    if (record.path && !replayPaths.has(record.path)) {
+      try { await fs.unlink(path.join(directory, record.path)); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+    }
+  }
+  const manifest = {schemaVersion: 1, source: 'public-ranked-worker',
+    overall: {path: 'overall.json', revision: Number(overall.revision || overall.sourceRevision || 0), updatedAt: overall.updatedAt,
+      sha256: records['overall.json'].sha256},
+    overallResults, tracks: nextTracks, trackFetchLimit,
+    trackIdsKnown: allTrackIds.length, tracksFetched: trackRows.length, tracksMissing: missingTracks,
+    trackBackupsPresent: Object.values(nextTracks).filter(row => row.path).length,
+    trackBackupsMissing: Math.max(0, allTrackIds.length - Object.values(nextTracks).filter(row => row.path).length),
+    selectedEventIds: selectedEvents, eventsDeferred,
+    events: nextEvents, eventFetchLimit: PUBLIC_SNAPSHOT_LIMITS.eventFetches, eventIdsFetched: eventRows.length,
+    eventsMissing: missingEvents + archivedEventsUnavailable + eventsDeferred, archivedEventsUnavailable, eventReplays, eventPlaybacks, eventReplayLimit: 30,
+    pendingPlaybackCoverage, replayCoverage,
+    trackSummaryMismatches, canonicalTrackRetention,
+    permanentRollingHills: nextEvents['permanent-rolling-hills'] || null,
+    ...(previous.nativeVerificationLedger ? {nativeVerificationLedger:previous.nativeVerificationLedger} : {})};
+  await writeJsonIfChanged(directory, 'manifest.json', manifest);
+  if (nativeVerification) {
+    await applyNativeLedgerToCapturedTracks({directory, ...nativeVerification, rebuildDerived:false, now});
+    Object.assign(manifest, JSON.parse(await fs.readFile(path.join(directory, 'manifest.json'), 'utf8')));
+  }
+  log(JSON.stringify({publicSnapshotBackup: {workerRequests: Number(!capturedOverall) + Number(!handedOffCatalog) + trackRows.length + eventRows.length + replayCandidates.length + pageFetches, pageFetches,
+    catalogFetches: Number(!handedOffCatalog), catalogReused: !!handedOffCatalog,
+    fullSourceChecks, canonicalTrackRetention, trackFetches: trackRows.length, tracksChanged, tracksMissing: missingTracks, sourceBoardsReused:sourceRepairs.size, sourceBoardsRechecked:sourceRechecks.size,
+    eventFetches: eventRows.length, archivedEventsReused, archivedEventsUnavailable, eventsChanged, eventsMissing: missingEvents + archivedEventsUnavailable + eventsDeferred, eventsDeferred,
+    ...(adminCapture ? {adminArchiveCapture:adminCapture.stats()} : {}),
+    eventReplayCandidates: replayCandidates.length, eventReplays: Object.keys(eventReplays).length, pendingPlaybackCoverage, replayCoverage,
+    plannerAvailable: planner.available, plannerReason: planner.reason}}));
+  return manifest;
+}
+
+export async function runPublicSnapshotBackup(options = {}) {
+  try { return await capturePublicSnapshotBackup(options); }
+  catch (error) {
+    if (!(error instanceof PublicBackupDeferredError)) throw error;
+    const result = {deferred: true, reason: error.message, status: error.status, previousBackupsPreserved: true};
+    (options.log || console.log)(JSON.stringify({publicSnapshotBackup: result}));
+    return result;
+  }
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) await runPublicSnapshotBackup();

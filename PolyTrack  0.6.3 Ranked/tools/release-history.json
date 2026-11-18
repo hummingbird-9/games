@@ -1,0 +1,203 @@
+{
+  "schemaVersion": 1,
+  "current": {
+    "number": 435,
+    "version": "0.6.3",
+    "revision": 373,
+    "notes": [
+      "Fixed a release packaging check so the latest update can reach CDN players."
+    ]
+  },
+  "entries": [
+    {
+      "number": 434,
+      "title": "Batch saved snapshot checkout for offline benchmarks",
+      "commit": "d81a005893138422118a6474c9d0ed3c2f962e7d",
+      "committedAt": "2026-11-16T11:07:08.000Z",
+      "notes": [
+        "Reduced snapshot download overhead for background replay checks."
+      ]
+    },
+    {
+      "number": 433,
+      "title": "Align cleanup test with sandboxed native browser",
+      "commit": "28431ad14a917cae8d6a99b5f2d4bfe4153b1975",
+      "committedAt": "2026-11-16T11:03:32.000Z",
+      "notes": [
+        "Fixed a background replay-check startup issue so saved-run verification can proceed."
+      ]
+    },
+    {
+      "number": 432,
+      "title": "Add offline replay benchmark and consistency audit",
+      "commit": "38b8c989de127e4683220d1d0d4ffa409c98905e",
+      "committedAt": "2026-11-16T10:59:06.000Z",
+      "notes": [
+        "Expanded saved-replay checks to help keep race results and leaderboards fair."
+      ]
+    },
+    {
+      "number": 431,
+      "title": "Add bounded two-engine offline verification option",
+      "commit": "126a97c902f1c6ff0b6f015d7f7b33464d7c168b",
+      "committedAt": "2026-11-16T10:43:32.000Z",
+      "notes": [
+        "Published more verified race results and added an optional two-at-a-time replay check for future verification runs."
+      ]
+    },
+    {
+      "number": 429,
+      "title": "Reuse native replay validators and remove idle rendering",
+      "commit": "0b93d557512180ae324b6a97f7506a8e5b6720df",
+      "committedAt": "2026-11-16T10:19:58.000Z",
+      "notes": [
+        "Reduced repeated replay-verifier startup work while preserving exact physics checks and existing verified results."
+      ]
+    },
+    {
+      "number": 428,
+      "title": "Speed up snapshot packaging and verification checkpoints",
+      "commit": "c8c04331a3a8431467f74a84e401d5ae4d149058",
+      "committedAt": "2026-11-16T09:30:50.000Z",
+      "notes": [
+        "Reduced snapshot preparation, packaging and verification checkpoint overhead while keeping replay checks unchanged."
+      ]
+    },
+    {
+      "number": 427,
+      "title": "Simplify event points and verification tooltips",
+      "commit": "3815ee4738be55222aa0212ce3b19efb21b92ebd",
+      "committedAt": "2026-11-16T08:41:09.000Z",
+      "notes": [
+        "Simplified event verification tooltips: run date, verification status and ERP earned.",
+        "Kept unverified ERP estimates clearly separate from awarded points."
+      ]
+    },
+    {
+      "number": 426,
+      "title": "Align weekly details and keep Rolling Hills points in tooltips",
+      "commit": "e8762bf6bb027f14566cf147dfc3a96265030aca",
+      "committedAt": "2026-11-16T08:27:34.000Z",
+      "notes": [
+        "Left-aligned the Kodub weekly card and added breathing room between your time and placement.",
+        "Rolling Hills verification tooltips now keep the run date, verification status and earned Event RP together."
+      ]
+    },
+    {
+      "number": 425,
+      "title": "Restore the weekly card and extend offline verification",
+      "commit": "1598fdd1bbde28c9496b6ff11ce7fb7c2241ad16",
+      "committedAt": "2026-11-16T07:48:40.000Z",
+      "notes": [
+        "Restored the Kodub weekly card with a full uncropped image, larger countdown and clearer personal-best spacing.",
+        "Made the Rolling Hills Racer reward and no-reset message easier to read."
+      ]
+    },
+    {
+      "number": 423,
+      "title": "Fix live Kodub card spacing and title wrapping",
+      "commit": "59228252ce017ea0b313354db1a23032781a8754",
+      "committedAt": "2026-11-16T07:02:27.000Z",
+      "notes": [
+        "Fixed oversized gaps in the Kodub weekly card and improved title wrapping without resizing the artwork."
+      ]
+    },
+    {
+      "number": 422,
+      "title": "Balance weekly card spacing without changing its size",
+      "commit": "11beae7f971b486b6387314118da2586c54494d2",
+      "committedAt": "2026-11-16T06:37:53.000Z",
+      "notes": [
+        "The Kodub weekly card has balanced spacing and clearer groups for track details, timing and rewards."
+      ]
+    },
+    {
+      "number": 421,
+      "title": "Restore wider Kodub card and verify text fits",
+      "commit": "4c13ab627886bae81aa696722743004506ec6648",
+      "committedAt": "2026-11-16T06:12:34.000Z",
+      "notes": [
+        "Restored the wider Kodub weekly card so the title and event details have room to fit."
+      ]
+    },
+    {
+      "number": 420,
+      "title": "Highlight recent movement and restore weekly card proportions",
+      "commit": "fccb3dcd229ef0dd9647dfcc4d9778e3738b58d6",
+      "committedAt": "2026-11-16T05:58:34.000Z",
+      "notes": [
+        "Recent rank movements stand out in color for 24 hours; rank duration stays small and gray.",
+        "The Kodub weekly card uses its earlier width proportions without shrinking or cropping the artwork."
+      ]
+    },
+    {
+      "number": 419,
+      "title": "Refine rank duration and restore event card layout",
+      "commit": "227c2f5550f21af557b24ac987e2eded79db97ba",
+      "committedAt": "2026-11-16T05:43:12.000Z",
+      "notes": [
+        "Rank time is smaller and clearer; movement arrows disappear after three days.",
+        "Event cards restore Rolling Hills to the middle, improve weekly artwork spacing, and remove duplicate dividers."
+      ]
+    },
+    {
+      "number": 418,
+      "title": "Keep installed update history consistent",
+      "commit": "db12d95c493c58644c59f34680c98b42319a8b06",
+      "committedAt": "2026-11-16T05:25:41.000Z",
+      "notes": [
+        "Update history now matches the installed game version."
+      ]
+    },
+    {
+      "number": null,
+      "title": "Synchronize generated release-history module",
+      "commit": "1bbcf1a9b6f7fb4a93186943c1a08c68f8186b5e",
+      "committedAt": "2026-11-16T05:24:27.000Z",
+      "notes": []
+    },
+    {
+      "number": 416,
+      "title": "Sync release archive and test native Garage startup readiness",
+      "commit": "25342283b51390fa076d2b6cc88c592b5a48ba0b",
+      "committedAt": "2026-11-16T05:23:09.000Z",
+      "notes": [
+        "Earlier update notes now stay in sync with the current release."
+      ]
+    },
+    {
+      "number": 415,
+      "title": "Clarify rankings and event cards and preserve offline verification sources",
+      "commit": "0d504b8072349ef8af7242cf8ab7ee0f03503dbd",
+      "committedAt": "2026-11-16T05:21:58.000Z",
+      "notes": [
+        "Rankings now skip empty scores, use clearer rank-time labels, and make Field RP easier to read.",
+        "Top Tracks adds a Non-official view for community and extra tracks.",
+        "Event cards have clearer spacing and uncropped weekly artwork.",
+        "New snapshot data can now appear through Update available."
+      ]
+    },
+    {
+      "number": 414,
+      "title": "Enable reviewed Uplink replay verification and refresh weekly fallback",
+      "commit": "5cc13313ac7c8e965ca25b7b1bd32cfe012644c0",
+      "committedAt": "2026-11-16T04:44:50.000Z",
+      "notes": [
+        "The current Kodub weekly track is up to date and ready for replay verification."
+      ]
+    },
+    {
+      "number": 413,
+      "title": "Fix saved verification targets and clarify rank duration",
+      "commit": "6aad63fda0334db0c58e0b8bdf6f149f355753b8",
+      "committedAt": "2026-11-16T04:33:49.000Z",
+      "notes": [
+        "Rank durations now say at rank, and replay verification prioritizes more visible results."
+      ]
+    }
+  ],
+  "coverage": {
+    "limit": 20,
+    "olderOmitted": true
+  }
+}

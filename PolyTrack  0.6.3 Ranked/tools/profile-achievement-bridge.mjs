@@ -1,0 +1,251 @@
+let serial = 0;
+const hubIcon = name => {
+  const paths = {
+    achievements:'M8 3h8v7a4 4 0 0 1-8 0V3ZM8 5H4v3a4 4 0 0 0 4 4m8-7h4v3a4 4 0 0 1-4 4m-4 2v5m-4 2h8m-6-2h4',
+    studio:'M4 10l2-5h12l2 5M3 10h18v9H3v-9Zm2 9v2m14-2v2M6 14h2m8 0h2M8 5l-1 5m9-5 1 5',
+    shop:'M4 7h16l-1 14H5L4 7Zm4 0V5a4 4 0 0 1 8 0v2',
+    flag:'M5 22V2h15v12H5m0-6h15M10 2v12m5-12v12'
+  };
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" data-ph-icon="${name}"><path d="${paths[name]}"/>${name === 'flag' ? '<path fill="currentColor" stroke="none" d="M5 2h5v6H5zM15 2h5v6h-5zM10 8h5v6h-5z"/>' : ''}</svg>`;
+};
+
+/** Mount after setupRacerStudio, inside the existing profile card/panel ancestry.
+ * Returns cleanup() with .open('achievements'|'studio', reward?) and .close().
+ * content.__profileHubOpen is the same opener. Cleanup BEFORE replacing content.
+ * No Studio node is cloned, no choice is clicked, and no save is synthesized.
+ * Optional model/buildModel follow the journal's existing pure model contract.
+ * getRecommendations and onRecommendedTrack pass unchanged to the journal.
+ * The journal owns requesting/rendering; the parent owns async account guards
+ * and track navigation/modal closure. Mount does not invoke either adapter.
+ * Optional storage defaults safely to this document's localStorage; null disables.
+ */
+export function mountProfileAchievements(content, {accountId,confirmed,local,cosmetics,onTryCosmetic,onNavigate,getRecommendations,onRecommendedTrack,revision,storage,model,buildModel,launcher = true} = {}) {
+  if (!content?.ownerDocument || !content.isConnected) {
+    const noop = () => {}; noop.open = () => false; noop.close = noop; return noop;
+  }
+  const doc = content.ownerDocument, win = doc.defaultView;
+  let id;
+  do {id = `profile-hub-${++serial}`;} while (doc.getElementById(id));
+  let preferenceStorage = storage;
+  if (preferenceStorage === undefined) {
+    try { preferenceStorage = win?.localStorage; } catch { preferenceStorage = null; }
+  }
+  const moduleURL = new URL('./achievement-journal.mjs',import.meta.url);
+  moduleURL.search = new URL(import.meta.url).search;
+  if (revision !== undefined && revision !== null) moduleURL.searchParams.set('v',String(revision));
+  const cssURL = new URL('./achievement-journal.css',import.meta.url); cssURL.search = moduleURL.search;
+  const artURL = new URL('./studio-art-polish.css',import.meta.url); artURL.search = moduleURL.search;
+  if (![...doc.querySelectorAll('link[data-studio-art-polish-css]')].some(link => link.href === artURL.href)) {
+    const link = doc.createElement('link'); link.rel = 'stylesheet'; link.href = artURL.href;
+    link.dataset.studioArtPolishCss = ''; doc.head.append(link);
+  }
+  if (![...doc.querySelectorAll('link[data-profile-achievements-css]')].some(link => link.href === cssURL.href)) {
+    const link = doc.createElement('link'); link.rel = 'stylesheet'; link.href = cssURL.href;
+    link.dataset.profileAchievementsCss = ''; doc.head.append(link);
+  }
+
+  const shopArtURL = new URL('./profile-shop-art.css',import.meta.url);shopArtURL.search=moduleURL.search;
+  if(![...doc.querySelectorAll('link[data-profile-shop-art-css]')].some(link=>link.href===shopArtURL.href)){
+    const link=doc.createElement('link');link.rel='stylesheet';link.href=shopArtURL.href;link.dataset.profileShopArtCss='';doc.head.append(link);
+  }
+  const entry = doc.createElement('div');
+  entry.className = 'profile-achievement-journey'; entry.setAttribute('role','group'); entry.setAttribute('aria-label','Racer progress and design');
+  entry.innerHTML = `<button type="button" data-ph-launch="achievements" aria-haspopup="dialog" aria-controls="${id}"><span class="ph-entry-mark">${hubIcon('achievements')}</span><span><strong>Achievements</strong><small>Goals &amp; rewards</small></span><span class="ph-entry-chevron" aria-hidden="true">&rsaquo;</span></button><button type="button" data-ph-launch="studio" aria-haspopup="dialog" aria-controls="${id}"><span class="ph-entry-mark">${hubIcon('studio')}</span><span><strong>Racer Studio</strong><small>Design your racer</small></span><span class="ph-entry-chevron" aria-hidden="true">&rsaquo;</span></button>`;
+  const shopButton=doc.createElement('button');shopButton.type='button';shopButton.dataset.phLaunch='shop';shopButton.setAttribute('aria-haspopup','dialog');
+  shopButton.innerHTML='<span class="ph-entry-mark">'+hubIcon('shop')+'</span><span><strong>Shop</strong><small>Try styles on your racer</small></span><span class="ph-entry-chevron" aria-hidden="true">&rsaquo;</span>';entry.append(shopButton);
+  const initialStudio = content.querySelector('.profile-customizer');
+  const initialHidden = initialStudio?.hidden;
+  if (initialStudio) initialStudio.hidden = true;
+  content.querySelector('[data-profile-hub-pending]')?.remove();
+  if (launcher) { if (initialStudio) initialStudio.before(entry); else content.append(entry); }
+
+  // Keep both dialog and moved Studio inside the native delegated event ancestry.
+  const dialog = doc.createElement('dialog');
+  dialog.id = id; dialog.className = 'profile-hub'; dialog.dataset.accountId = String(accountId ?? '');
+  dialog.setAttribute('aria-labelledby',`${id}-title`);
+  dialog.innerHTML = `<header class="ph-header"><div class="ph-brand">${hubIcon('flag')}</div><div class="ph-heading"><p>YOUR RACER</p><h2 id="${id}-title">Achievements &amp; Studio</h2></div><button type="button" class="ph-close" data-ph-close aria-label="Close racer hub">Close <span aria-hidden="true">&#215;</span></button></header><div class="ph-tabbar" role="tablist" aria-label="Racer hub"><button type="button" role="tab" id="${id}-tab-achievements" aria-controls="${id}-achievements" aria-selected="true" data-ph-tab="achievements">${hubIcon('achievements')}<span>Achievements</span></button><button type="button" role="tab" id="${id}-tab-studio" aria-controls="${id}-studio" aria-selected="false" tabindex="-1" data-ph-tab="studio">${hubIcon('studio')}<span>Racer Studio</span></button><span class="ph-tab-hint">Earn styles as you race.</span></div><section class="ph-panel" id="${id}-achievements" role="tabpanel" aria-labelledby="${id}-tab-achievements"><div data-ph-journal></div></section><section class="ph-panel ph-studio-panel" id="${id}-studio" role="tabpanel" aria-labelledby="${id}-tab-studio" hidden><p class="ph-studio-note">Change your car in the main menu garage.</p><div data-ph-studio></div></section>`;
+  const profileName=content.querySelector('.profile-preview-stage>span>b')?.textContent?.trim();
+  dialog.querySelector('.ph-heading>p').textContent=profileName||confirmed?.name||'Racer profile';
+  content.append(dialog);
+  const shopNav=doc.createElement('button');shopNav.type='button';shopNav.dataset.phShop='';shopNav.setAttribute('aria-haspopup','dialog');shopNav.innerHTML=hubIcon('shop')+'<span>Shop</span>';dialog.querySelector('.ph-tab-hint').before(shopNav);
+  const shopReady=()=>{const available=typeof content.__profileShopOpen==='function';shopButton.disabled=!available;shopNav.disabled=!available;shopButton.setAttribute('aria-label',available?'Open Style shop':'Style shop is loading');shopNav.setAttribute('aria-label',available?'Open Style shop':'Style shop is loading');entry.classList.toggle('ph-has-shop',available);};
+  content.addEventListener('profile-shop-ready',shopReady);shopReady();
+  const journalHost = dialog.querySelector('[data-ph-journal]'), studioHost = dialog.querySelector('[data-ph-studio]');
+  const studioPanel = dialog.querySelector('.ph-studio-panel');
+  const tabs = [...dialog.querySelectorAll('[data-ph-tab]')];
+  let disposed = false, pending = null, unbind = null, studio = null, snapshot = null, returnFocus = null, activeTab = 'achievements';
+  const touched = new Map();
+  const sameAccount = () => !content.dataset.accountId || content.dataset.accountId === String(accountId ?? '');
+  const current = () => !disposed && sameAccount() && content.isConnected && dialog.isConnected && content.contains(dialog);
+  function measureStudio() {
+    if (!current() || !dialog.open || studioPanel.hidden || !studio) return;
+    const preview = studio.querySelector('.profile-customizer-preview');
+    if (!preview) return;
+    const panelBox = studioPanel.getBoundingClientRect(), previewBox = preview.getBoundingClientRect();
+    const paddingBottom = parseFloat(win.getComputedStyle(studioPanel).paddingBottom) || 0;
+    studioPanel.style.setProperty('--ph-panel-height',`${studioPanel.clientHeight}px`);
+    studioPanel.style.setProperty('--ph-preview-height',`${Math.max(0,Math.floor(panelBox.bottom - Math.max(panelBox.top,previewBox.top) - paddingBottom))}px`);
+  }
+  const previewResize = new win.ResizeObserver(measureStudio);
+
+  function touch(node,attribute,value) {
+    if (!touched.has(node)) touched.set(node,new Map());
+    if (!touched.get(node).has(attribute)) touched.get(node).set(attribute,node.getAttribute(attribute));
+    node.setAttribute(attribute,value);
+  }
+  function clearTargets() {
+    for (const [node,attributes] of touched) for (const [name,value] of attributes) {
+      if (value === null) node.removeAttribute(name); else node.setAttribute(name,value);
+    }
+    touched.clear();
+  }
+  function moveStudio() {
+    if (studio) return;
+    studio = content.querySelector('.profile-customizer');
+    if (!studio) {studioHost.textContent = 'Racer Studio is available from your own profile.';return;}
+    const placeholder = doc.createComment('Racer Studio return position'); studio.before(placeholder);
+    const summary = studio.querySelector(':scope > summary');
+    snapshot = {placeholder,open:studio.open,hidden:studio.hidden,summary,summaryHidden:summary?.hidden};
+    if (summary) summary.hidden = true;
+    studio.open = true; studio.hidden = false;
+    studioHost.replaceChildren(studio);
+  }
+  function restoreStudio() {
+    clearTargets();
+    if (!studio || !snapshot) return;
+    studio.open = snapshot.open;
+    studio.hidden = disposed ? (studio === initialStudio ? initialHidden : snapshot.hidden) : true;
+    if (snapshot.summary) snapshot.summary.hidden = snapshot.summaryHidden;
+    // Missing placeholder means the root was replaced. Never resurrect an old account.
+    if (sameAccount() && snapshot.placeholder.parentNode) snapshot.placeholder.replaceWith(studio);
+    else {snapshot.placeholder.remove();studio.remove();}
+    studio = null; snapshot = null;
+  }
+  function focusReward(reward) {
+    if (!studio || !reward?.kind) return;
+    const group = [...studio.querySelectorAll('.profile-cosmetic-group')].find(node => node.classList.contains(`kind-${reward.kind}`));
+    if (!group) return;
+    const pane = group.closest('[data-studio-panel]');
+    if (pane) [...studio.querySelectorAll('[data-studio-tab]')].find(node => node.dataset.studioTab === pane.dataset.studioPanel)?.click();
+    clearTargets();
+    const choice = [...group.querySelectorAll('[data-cosmetic-choice]')].find(node => node.dataset.cosmeticKind === reward.kind && node.dataset.cosmeticValue === reward.id);
+    const target = choice ?? group;
+    touch(target,'data-hub-reward-target','');
+    if (!target.matches('button,input,select,textarea,[tabindex]')) touch(target,'tabindex','-1');
+    target.focus({preventScroll:true}); target.scrollIntoView({block:'nearest'});
+  }
+  function showTab(tab,reward,focus = false) {
+    activeTab = tab === 'studio' ? 'studio' : 'achievements';
+    for (const node of tabs) {
+      const selected = node.dataset.phTab === activeTab;
+      node.setAttribute('aria-selected',String(selected)); node.tabIndex = selected ? 0 : -1;
+      dialog.querySelector(`#${node.getAttribute('aria-controls')}`).hidden = !selected;
+    }
+    if (activeTab === 'achievements') void loadJournal(); else {measureStudio();focusReward(reward);}
+    if (focus && !reward) tabs.find(node => node.dataset.phTab === activeTab)?.focus({preventScroll:true});
+  }
+  function viewReward(reward) {
+    if (!current() || !dialog.open) return;
+    showTab('studio',reward); onTryCosmetic?.(reward);
+  }
+  function navigate(family) {
+    if (family === 'style' || family === 'titles') {
+      showTab('studio',family === 'titles' ? {kind:'title'} : undefined,true); onNavigate?.(family);
+    } else if (onNavigate) {closeHub();onNavigate(family);}
+  }
+  function loadJournal() {
+    if (!current() || !dialog.open || unbind || pending) return pending;
+    journalHost.setAttribute('aria-busy','true'); journalHost.textContent = 'Loading achievements...';
+    pending = import(moduleURL.href).then(api => {
+      if (!current() || !dialog.open) return;
+      journalHost.innerHTML = api.renderAchievementJournal({progress:{confirmed,local},cosmetics,model,buildModel,embedded:true});
+      unbind = api.bindAchievementJournal(journalHost,{onTryCosmetic:viewReward,onNavigate:navigate,onClose:closeHub,storage:preferenceStorage,getRecommendations,onRecommendedTrack});
+    }).catch(() => {
+      if (current() && dialog.open) journalHost.textContent = 'Achievements could not load. Close and reopen to try again.';
+    }).finally(() => {pending = null;if (current()) journalHost.removeAttribute('aria-busy');});
+    return pending;
+  }
+  const observer = new win.MutationObserver(() => {if (!current()) cleanup();});
+  function openHub(tab = 'achievements',reward) {
+    if (!current()) return false;
+    if (!dialog.open) {
+      returnFocus = doc.activeElement; moveStudio(); dialog.showModal();
+      win.addEventListener('keydown',captureEscape,true);
+      previewResize.observe(studioPanel);
+      previewResize.observe(dialog.querySelector('.ph-studio-note'));
+      observer.observe(doc.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['data-account-id']});
+    }
+    showTab(tab,reward,true); return true;
+  }
+  function finishClose(restoreFocus = true) {
+    win.removeEventListener('keydown',captureEscape,true);
+    previewResize.disconnect();
+    if (!snapshot && !returnFocus) {observer.disconnect();return;}
+    observer.disconnect(); restoreStudio();
+    if (restoreFocus) {
+      const returnable = returnFocus?.matches?.('button,input,select,textarea,a[href],summary,[tabindex]') && returnFocus.isConnected && returnFocus.getClientRects().length;
+      const target = returnable ? returnFocus : entry.isConnected ? entry.querySelector(`[data-ph-launch="${activeTab}"]`) : null;
+      target?.focus({preventScroll:true});
+    }
+    returnFocus = null;
+  }
+  function closeHub() {if (dialog.open) dialog.close();finishClose();}
+  function keydown(event) {
+    if (!dialog.open || !dialog.contains(event.target)) return;
+    if (event.key === 'Escape') {
+      if(event.defaultPrevented||event.target.closest?.('[data-cosmetic-favorite][aria-expanded="true"]'))return;
+      event.preventDefault();event.stopPropagation();closeHub();return;
+    }
+    if (event.key === 'Tab') {
+      // Trap only our Tab key, before the underlying profile's bubble-phase trap.
+      event.stopPropagation();
+      const focusables = [...dialog.querySelectorAll('button:not([disabled]),summary,input:not([disabled]),select:not([disabled]),textarea:not([disabled]),a[href],[tabindex]')].filter(node => node.tabIndex >= 0 && !node.closest('[hidden],[inert]') && node.getClientRects().length);
+      const first = focusables[0], last = focusables.at(-1);
+      if (event.shiftKey && doc.activeElement === first) {event.preventDefault();last?.focus();}
+      else if (!event.shiftKey && doc.activeElement === last) {event.preventDefault();first?.focus();}
+      return;
+    }
+    if (event.target.matches('[data-ph-tab]') && ['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) {
+      event.preventDefault(); event.stopPropagation();
+      const index = tabs.indexOf(event.target), next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+      showTab(tabs[next].dataset.phTab,undefined,true);
+    }
+  }
+  function captureEscape(event){
+    if(event.key!=='Escape'||event.defaultPrevented||!current()||!dialog.open||!dialog.contains(event.target))return;
+    // The native favorite input owns the first Escape; preview owns the next layer.
+    if(event.target.closest?.('[data-cosmetic-favorite][aria-expanded="true"]')||studio?.classList.contains('cosmetic-preview-active'))return;
+    keydown(event);
+  }
+  const click = event => {
+    const target = event.target.closest('button');
+    if(target===shopNav){if(current())content.__profileShopOpen?.();return;}
+    if (target?.hasAttribute('data-ph-close')) closeHub();
+    else if (target?.hasAttribute('data-ph-tab')) showTab(target.dataset.phTab,undefined,true);
+    // Native Studio click/change/input events bubble unchanged.
+  };
+  const launch = event => {const button = event.target.closest('[data-ph-launch]');if (button && entry.contains(button)){if(button===shopButton){if(current())content.__profileShopOpen?.();}else openHub(button.dataset.phLaunch);}};
+  const cancel = event => {event.preventDefault();event.stopPropagation();closeHub();};
+  const closed = () => {if (!dialog.open) finishClose();};
+  entry.addEventListener('click',launch);
+  dialog.addEventListener('click',click); dialog.addEventListener('keydown',keydown);
+  dialog.addEventListener('cancel',cancel); dialog.addEventListener('close',closed);
+  function closeOwnedHub(){if(!current())return false;content.__profileShopClose?.();closeHub();return true;}
+  function cleanup() {
+    if (disposed) return;
+    if(current())content.__profileShopClose?.();
+    disposed = true; observer.disconnect(); previewResize.disconnect(); unbind?.(); unbind = null;
+    if (dialog.open) dialog.close(); finishClose(false);
+    if (initialStudio) initialStudio.hidden = initialHidden;
+    content.removeEventListener('profile-shop-ready',shopReady);
+    entry.removeEventListener('click',launch);
+    dialog.removeEventListener('click',click); dialog.removeEventListener('keydown',keydown);
+    dialog.removeEventListener('cancel',cancel); dialog.removeEventListener('close',closed);
+    entry.remove(); dialog.remove();
+    if (content.__profileHubOpen === openHub) delete content.__profileHubOpen;
+    if(content.__profileHubClose===closeOwnedHub)delete content.__profileHubClose;
+  }
+  cleanup.open = openHub; cleanup.close = closeHub; cleanup.dialog = dialog;
+  content.__profileHubOpen = openHub;content.__profileHubClose=closeOwnedHub;
+  return cleanup;
+}
