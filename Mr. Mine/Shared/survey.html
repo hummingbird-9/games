@@ -1,0 +1,221 @@
+<html>
+    <head>
+        <link rel="stylesheet" type="text/css" href="bootstrap.min.css">
+        <script src="SurveyManagerFrontEnd.js"></script>
+        <script type="text/javascript" src="bootstrap.bundle.min.js"></script>
+        <style>
+            .blockRadio {
+                display: block;
+                margin: 0 auto !important;
+            }
+            label {
+                display: inline-block;
+                padding-left: 2%;
+                padding-right: 2%;
+                padding-top: 0;
+                padding-bottom: 0;
+            }
+            h1, h2, h3 {
+                padding-bottom: 18px;
+                font-size: 18px;
+            }
+            input[type=submit] {
+                margin-top: 15px;
+            }
+            .meter { 
+                height: 10px;
+                position: relative;
+                background: #333;
+                border-radius: 25px;
+                padding: 5px;
+                box-shadow: inset 0 -1px 1px rgba(255, 255, 255, 0.3);
+                box-sizing: content-box;
+                width: 50%;
+                margin: auto;
+            }
+            .meter > span {
+                display: block;
+                height: 100%;
+                border-top-right-radius: 8px;
+                border-bottom-right-radius: 8px;
+                border-top-left-radius: 20px;
+                border-bottom-left-radius: 20px;
+                background-color: rgb(17, 85, 233);
+                background-image: linear-gradient(
+                    center bottom,
+                    rgb(43,194,83) 37%,
+                    rgb(84,240,84) 69%
+                );
+                box-shadow: 
+                    inset 0 2px 9px  rgba(255,255,255,0.3),
+                    inset 0 -2px 6px rgba(0,0,0,0.4);
+                position: relative;
+                overflow: hidden;
+                box-sizing: content-box;
+            }
+            input[type='radio'] { 
+                transform: scale(1.5); 
+                margin-right: 3px;
+            }
+            input[type='checkbox'] { 
+                transform: scale(1.5); 
+                margin-right: 3px;
+            }
+            input[type=radio]:hover{
+                cursor: pointer;
+            }
+            input[type=checkbox]:hover{
+                cursor: pointer;
+            }
+        </style>
+    </head>
+    <body style="background-color: rgb(229, 242, 241);">
+        <script type="text/javascript">
+            var queryDict = {}
+            location.search.substr(1).split("&").forEach(function(item) {queryDict[item.split("=")[0]] = item.split("=")[1]});
+
+            var surveyManager = new SurveyManager("container");
+            surveyManager.gameName = "MrMine";
+            surveyManager.userId = queryDict["UID"];
+            surveyManager.endpoint = "https://playsaurusstats.com/SurveyManager.php";
+            surveyManager.version = 1;
+            surveyManager.logValue1 = queryDict["version"];
+            surveyManager.logValue2 = queryDict["depth"];
+            var rewardAmount = queryDict["reward"];
+
+            //should this be at the start or the end?
+            /*var question0 = new TextEntryQuestion(0, "What is your email address?");
+            surveyManager.appendQuestion(question0);*/
+
+            var confirmationQuestion = new ConfirmationPromptQuestion(0, "<h3>Thank you for taking the time to fill out this short 2 minute survey.</h3>You will receive "+rewardAmount+" tickets upon completing it.<br><br>We use the information you submit for two purposes.<br>"+
+            "1. As feedback in order to determine what we could do better to improve the game for everyone playing it.<br>"+
+            "2. To determine who is playing Mr.Mine to help us market more effectively and find more people who might like it.<br>",
+            "I confirm <b>I am 16 or older</b> or <b>I am 13 or older and have parental consent</b> and have read and agreed to the <a href='https://www.clickerheroes.com/privacyPolicy.txt' target='_blank'>privacy policy</a>."
+            );
+            surveyManager.appendQuestion(confirmationQuestion);
+
+            var question1 = new HorizontalMultipleChoiceQuestion(1, "How much have you enjoyed playing Mr.Mine so far?");
+            question1.appendAnswer(new SurveyAnswer(1, "1 - Hate it"));
+            question1.appendAnswer(new SurveyAnswer(2, "2"));
+            question1.appendAnswer(new SurveyAnswer(3, "3"));
+            question1.appendAnswer(new SurveyAnswer(4, "4"));
+            question1.appendAnswer(new SurveyAnswer(5, "5 - Love it"));
+            surveyManager.appendQuestion(question1);
+
+            var question2 = new MultipleChoiceQuestion(2, "How did you first hear about Mr.Mine?");
+            question2.appendAnswer(new SurveyAnswer(1, "Through recommendations on Steam"));
+            question2.appendAnswer(new SurveyAnswer(2, "From a friend"));
+            question2.appendAnswer(new SurveyAnswer(3, "From a web portal (CrazyGames, ArmorGames, etc)"));
+            question2.appendAnswer(new SurveyAnswer(4, "From a Google or Bing search"));
+            question2.appendAnswer(new SurveyAnswer(5, "From an Advertisement"));
+            question2.appendAnswer(new SurveyAnswer(6, "From a youtube video"));
+            question2.appendAnswer(new SurveyAnswer(7, "Other"));
+            question2.isRandomized = true;
+            surveyManager.appendQuestion(question2);
+
+            var question7 = new TextEntryQuestion(3, "In a few words what is your <b><u>least favorite</u></b> feature or functionality in Mr.Mine? (optional)");
+            surveyManager.appendQuestion(question7);
+
+            var question3 = new MultipleChoiceQuestion(4, "What is your age?");
+            question3.appendAnswer(new SurveyAnswer(1, "13 - 15"));
+            question3.appendAnswer(new SurveyAnswer(2, "16 - 17"));
+            question3.appendAnswer(new SurveyAnswer(3, "18 - 24"));
+            question3.appendAnswer(new SurveyAnswer(4, "25 - 34"));
+            question3.appendAnswer(new SurveyAnswer(5, "35 - 44"));
+            question3.appendAnswer(new SurveyAnswer(6, "45 - 54"));
+            question3.appendAnswer(new SurveyAnswer(7, "55+"));
+            question3.appendAnswer(new SurveyAnswer(8, "Prefer not to answer"));
+            surveyManager.appendQuestion(question3);
+
+            var question4 = new MultipleChoiceQuestion(5, "What is your gender?");
+            question4.appendAnswer(new SurveyAnswer(1, "Male"));
+            question4.appendAnswer(new SurveyAnswer(2, "Female"));
+            question4.appendAnswer(new SurveyAnswer(3, "Trans/Non-Binary/Other"));
+            question4.appendAnswer(new SurveyAnswer(4, "Prefer not to answer"));
+            surveyManager.appendQuestion(question4);
+
+            var question6 = new MultipleChoiceQuestion(6, "How much money (in USD $) do you spend on games in a month?<br><span style='font-size: 10px'>Provide your best guess.</span>");
+            question6.appendAnswer(new SurveyAnswer(1, "$0 (I don't spend $ on games)"));
+            question6.appendAnswer(new SurveyAnswer(2, "$1 - $10"));
+            question6.appendAnswer(new SurveyAnswer(3, "$11 - $100"));
+            question6.appendAnswer(new SurveyAnswer(4, "$101 - $500"));
+            question6.appendAnswer(new SurveyAnswer(5, "> $501"));
+            question6.appendAnswer(new SurveyAnswer(6, "Prefer not to answer"));
+            surveyManager.appendQuestion(question6);
+            
+            var question8 = new MultipleCheckboxQuestion(7, "What kind of game(s) do you usually like?<br><span style='font-size: 10px'>Choose all that apply.</span>");
+            question8.appendAnswer(new SurveyAnswer(1, "Casual Mobile Games"));
+            question8.appendAnswer(new SurveyAnswer(2, "Other Idle or Incremental Games"));
+            question8.appendAnswer(new SurveyAnswer(3, "Role-Playing Games (RPGs)"));
+            question8.appendAnswer(new SurveyAnswer(4, "Survival, Sandbox, or Open World Games"));
+            question8.appendAnswer(new SurveyAnswer(5, "Simulation Games"));
+            question8.appendAnswer(new SurveyAnswer(6, "Strategy Games (Real-time, Turn based, 4x, Grand)"));
+            question8.appendAnswer(new SurveyAnswer(7, "Puzzle & Word Games"));
+            question8.appendAnswer(new SurveyAnswer(8, "Arcade Games"));
+            question8.appendAnswer(new SurveyAnswer(9, "Shooters / First Person Shooters (FPS)"));
+            question8.appendAnswer(new SurveyAnswer(10, "Multiplayer Online Battle Arena (MOBA)"));
+            question8.appendAnswer(new SurveyAnswer(11, "Massive Multiplayer Online Games (MMORPG)"));
+            question8.appendAnswer(new SurveyAnswer(12, "Roguelike / Roguelite games"));
+            question8.appendAnswer(new SurveyAnswer(13, "Sports Games"));
+            question8.appendAnswer(new SurveyAnswer(14, "Racing Games"));
+            question8.appendAnswer(new SurveyAnswer(15, "Casino Games"));
+            question8.appendAnswer(new SurveyAnswer(16, "Fighting Games"));
+            question8.appendAnswer(new SurveyAnswer(17, "Gacha and Collectible Card Games"));
+            question8.appendAnswer(new SurveyAnswer(18, "Crafting Games"));
+            question8.isRandomized = true;
+            surveyManager.appendQuestion(question8);
+
+            var question5 = new MultipleChoiceQuestion(8, "What is your highest education level reached?");
+            question5.appendAnswer(new SurveyAnswer(1, "Current Student (any level)"));
+            question5.appendAnswer(new SurveyAnswer(2, "Some High School or less"));
+            question5.appendAnswer(new SurveyAnswer(3, "High School or equivalent"));
+            question5.appendAnswer(new SurveyAnswer(4, "Bachelor's Degree"));
+            question5.appendAnswer(new SurveyAnswer(5, "Master's Degree"));
+            question5.appendAnswer(new SurveyAnswer(6, "Ph.D. or higher"));
+            question5.appendAnswer(new SurveyAnswer(7, "Trade School"));
+            question5.appendAnswer(new SurveyAnswer(8, "Prefer not to answer"));
+            surveyManager.appendQuestion(question5);
+
+            var question9 = new HorizontalMultipleChoiceQuestion(9, "When you first started playing Mr.Mine how confusing did you find it?");
+            question9.appendAnswer(new SurveyAnswer(1, "1 - Very Confusing"));
+            question9.appendAnswer(new SurveyAnswer(2, "2"));
+            question9.appendAnswer(new SurveyAnswer(3, "3"));
+            question9.appendAnswer(new SurveyAnswer(4, "4"));
+            question9.appendAnswer(new SurveyAnswer(5, "5 - Not Confusing"));
+            question9.integerFormattingFunction = function(response){ return (response.answerValue-1) * 25; };
+            surveyManager.appendQuestion(question9);
+
+            var question10 = new TextEntryQuestion(10, "If you found it confusing which part was confusing? (optional)");
+            surveyManager.appendQuestion(question10);
+
+            var question11 = new MultipleCheckboxQuestion(11, "Which of the following applies to you?<br><span style='font-size: 10px'>Choose all that apply.</span>");
+            question11.appendAnswer(new SurveyAnswer(1, "I'm more interested in science than history & humanities"));
+            question11.appendAnswer(new SurveyAnswer(2, "I often upload gaming videos and/or stream on Twitch"));
+            question11.appendAnswer(new SurveyAnswer(3, "I often spend time programming games or game mods"));
+            question11.appendAnswer(new SurveyAnswer(4, "I primarily play mobile games"));
+            question11.appendAnswer(new SurveyAnswer(5, "I primarily play console games"));
+            question11.appendAnswer(new SurveyAnswer(6, "I honestly and accurately answered the questions on this survey"));
+            question11.appendAnswer(new SurveyAnswer(7, "I often play sports or participate in outdoor activies"));
+            question11.appendAnswer(new SurveyAnswer(8, "I would not play this game if it was only in English"));
+            question11.appendAnswer(new SurveyAnswer(9, "I almost exclusively play free games and rarely pay for a game"));
+            question11.appendAnswer(new SurveyAnswer(10, "I like advertisements in mobile games if they reward me for watching them"));
+            question11.appendAnswer(new SurveyAnswer(11, "I travel frequently"));
+            question11.isRandomized = true;
+            surveyManager.appendQuestion(question11);
+
+            var question12 = new HorizontalMultipleChoiceQuestion(12, "Last Question! How annoying was this survey?");
+            question12.appendAnswer(new SurveyAnswer(1, "1 - Horrible!"));
+            question12.appendAnswer(new SurveyAnswer(2, "2"));
+            question12.appendAnswer(new SurveyAnswer(3, "3"));
+            question12.appendAnswer(new SurveyAnswer(4, "4"));
+            question12.appendAnswer(new SurveyAnswer(5, "5 - Not bad"));
+            surveyManager.appendQuestion(question12);
+
+            surveyManager.onCompleteCallback = function(){
+                document.getElementById(this.wrapperDiv).innerHTML = "<center><h3>Thank you for completing the survey, it helps us a bunch.<br>You may now close the window.<h3></center>"; 
+                localStorage["isSurveyPending"] = true;
+            }
+            surveyManager.init();
+        </script>
+    </body>
+</html>
