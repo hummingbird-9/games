@@ -1,0 +1,49 @@
+{ "frames": [
+   {
+    "filename": "0",
+    "frame": { "x": 0, "y": 0, "w": 18, "h": 18 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 18, "h": 18 },
+    "sourceSize": { "w": 18, "h": 18 },
+    "duration": 300
+   },
+   {
+    "filename": "1",
+    "frame": { "x": 20, "y": 0, "w": 18, "h": 18 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 18, "h": 18 },
+    "sourceSize": { "w": 18, "h": 18 },
+    "duration": 300
+   },
+   {
+    "filename": "2",
+    "frame": { "x": 0, "y": 20, "w": 18, "h": 18 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 18, "h": 18 },
+    "sourceSize": { "w": 18, "h": 18 },
+    "duration": 300
+   },
+   {
+    "filename": "3",
+    "frame": { "x": 20, "y": 0, "w": 18, "h": 18 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 18, "h": 18 },
+    "sourceSize": { "w": 18, "h": 18 },
+    "duration": 300
+   }
+ ],
+ "meta": {
+  "app": "http://www.aseprite.org/",
+  "version": "1.3-rc2-dev",
+  "image": "dragonfur.png",
+  "format": "RGBA8888",
+  "size": { "w": 38, "h": 38 },
+  "scale": "1",
+  "frameTags": [
+  ]
+ }
+}

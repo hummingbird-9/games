@@ -1,0 +1,40 @@
+{ "frames": [
+   {
+    "filename": "0",
+    "frame": { "x": 0, "y": 0, "w": 21, "h": 19 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 21, "h": 19 },
+    "sourceSize": { "w": 21, "h": 19 },
+    "duration": 333
+   },
+   {
+    "filename": "1",
+    "frame": { "x": 23, "y": 0, "w": 21, "h": 19 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 21, "h": 19 },
+    "sourceSize": { "w": 21, "h": 19 },
+    "duration": 333
+   },
+   {
+    "filename": "2",
+    "frame": { "x": 0, "y": 21, "w": 21, "h": 19 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 21, "h": 19 },
+    "sourceSize": { "w": 21, "h": 19 },
+    "duration": 333
+   }
+ ],
+ "meta": {
+  "app": "http://www.aseprite.org/",
+  "version": "1.3-beta10-dev",
+  "image": "f_cookpot_black.png",
+  "format": "RGBA8888",
+  "size": { "w": 44, "h": 40 },
+  "scale": "1",
+  "frameTags": [
+  ]
+ }
+}

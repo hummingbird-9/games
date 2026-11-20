@@ -1,0 +1,49 @@
+{ "frames": [
+   {
+    "filename": "0",
+    "frame": { "x": 0, "y": 0, "w": 29, "h": 29 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 29, "h": 29 },
+    "sourceSize": { "w": 29, "h": 29 },
+    "duration": 266
+   },
+   {
+    "filename": "1",
+    "frame": { "x": 31, "y": 0, "w": 29, "h": 29 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 29, "h": 29 },
+    "sourceSize": { "w": 29, "h": 29 },
+    "duration": 266
+   },
+   {
+    "filename": "2",
+    "frame": { "x": 62, "y": 0, "w": 29, "h": 29 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 29, "h": 29 },
+    "sourceSize": { "w": 29, "h": 29 },
+    "duration": 266
+   },
+   {
+    "filename": "3",
+    "frame": { "x": 93, "y": 0, "w": 29, "h": 29 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 29, "h": 29 },
+    "sourceSize": { "w": 29, "h": 29 },
+    "duration": 266
+   }
+ ],
+ "meta": {
+  "app": "http://www.aseprite.org/",
+  "version": "1.3-rc2-dev",
+  "image": "rightHandhold.png",
+  "format": "RGBA8888",
+  "size": { "w": 122, "h": 29 },
+  "scale": "1",
+  "frameTags": [
+  ]
+ }
+}

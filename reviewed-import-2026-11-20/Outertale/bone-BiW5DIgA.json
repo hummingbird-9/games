@@ -1,0 +1,31 @@
+{ "frames": [
+   {
+    "filename": "0",
+    "frame": { "x": 0, "y": 0, "w": 13, "h": 5 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 13, "h": 5 },
+    "sourceSize": { "w": 13, "h": 5 },
+    "duration": 100
+   },
+   {
+    "filename": "1",
+    "frame": { "x": 15, "y": 0, "w": 13, "h": 5 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 13, "h": 5 },
+    "sourceSize": { "w": 13, "h": 5 },
+    "duration": 100
+   }
+ ],
+ "meta": {
+  "app": "http://www.aseprite.org/",
+  "version": "1.3-rc4-dev",
+  "image": "bone.png",
+  "format": "RGBA8888",
+  "size": { "w": 28, "h": 5 },
+  "scale": "1",
+  "frameTags": [
+  ]
+ }
+}

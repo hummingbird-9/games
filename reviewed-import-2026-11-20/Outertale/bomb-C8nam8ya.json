@@ -1,0 +1,31 @@
+{ "frames": [
+   {
+    "filename": "0",
+    "frame": { "x": 0, "y": 0, "w": 12, "h": 18 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 12, "h": 18 },
+    "sourceSize": { "w": 12, "h": 18 },
+    "duration": 33
+   },
+   {
+    "filename": "1",
+    "frame": { "x": 14, "y": 0, "w": 12, "h": 18 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 12, "h": 18 },
+    "sourceSize": { "w": 12, "h": 18 },
+    "duration": 33
+   }
+ ],
+ "meta": {
+  "app": "http://www.aseprite.org/",
+  "version": "1.3-beta21-dev",
+  "image": "bomb.png",
+  "format": "RGBA8888",
+  "size": { "w": 26, "h": 18 },
+  "scale": "1",
+  "frameTags": [
+  ]
+ }
+}

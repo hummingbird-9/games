@@ -1,0 +1,31 @@
+{ "frames": [
+   {
+    "filename": "0",
+    "frame": { "x": 0, "y": 0, "w": 48, "h": 53 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 53 },
+    "sourceSize": { "w": 48, "h": 53 },
+    "duration": 166
+   },
+   {
+    "filename": "1",
+    "frame": { "x": 48, "y": 0, "w": 48, "h": 53 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 53 },
+    "sourceSize": { "w": 48, "h": 53 },
+    "duration": 166
+   }
+ ],
+ "meta": {
+  "app": "http://www.aseprite.org/",
+  "version": "1.3-beta10-dev",
+  "image": "chairielTalk.png",
+  "format": "RGBA8888",
+  "size": { "w": 96, "h": 53 },
+  "scale": "1",
+  "frameTags": [
+  ]
+ }
+}

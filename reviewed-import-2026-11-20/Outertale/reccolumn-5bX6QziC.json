@@ -1,0 +1,49 @@
+{
+   "frames": [
+      {
+         "filename": "0",
+         "frame": { "x": 0, "y": 0, "w": 4, "h": 77 },
+         "rotated": false,
+         "trimmed": false,
+         "spriteSourceSize": { "x": 0, "y": 0, "w": 4, "h": 77 },
+         "sourceSize": { "w": 4, "h": 77 },
+         "duration": 66
+      },
+      {
+         "filename": "1",
+         "frame": { "x": 6, "y": 0, "w": 4, "h": 77 },
+         "rotated": false,
+         "trimmed": false,
+         "spriteSourceSize": { "x": 0, "y": 0, "w": 4, "h": 77 },
+         "sourceSize": { "w": 4, "h": 77 },
+         "duration": 66
+      },
+      {
+         "filename": "2",
+         "frame": { "x": 0, "y": 79, "w": 4, "h": 77 },
+         "rotated": false,
+         "trimmed": false,
+         "spriteSourceSize": { "x": 0, "y": 0, "w": 4, "h": 77 },
+         "sourceSize": { "w": 4, "h": 77 },
+         "duration": 66
+      },
+      {
+         "filename": "3",
+         "frame": { "x": 6, "y": 79, "w": 4, "h": 77 },
+         "rotated": false,
+         "trimmed": false,
+         "spriteSourceSize": { "x": 0, "y": 0, "w": 4, "h": 77 },
+         "sourceSize": { "w": 4, "h": 77 },
+         "duration": 66
+      }
+   ],
+   "meta": {
+      "app": "http://www.aseprite.org/",
+      "version": "1.3-beta21-dev",
+      "image": "reccolumn.png",
+      "format": "RGBA8888",
+      "size": { "w": 10, "h": 156 },
+      "scale": "1",
+      "frameTags": []
+   }
+}

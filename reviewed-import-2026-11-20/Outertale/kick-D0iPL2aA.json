@@ -1,0 +1,40 @@
+{ "frames": [
+   {
+    "filename": "0",
+    "frame": { "x": 0, "y": 0, "w": 26, "h": 49 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 26, "h": 49 },
+    "sourceSize": { "w": 26, "h": 49 },
+    "duration": 100
+   },
+   {
+    "filename": "1",
+    "frame": { "x": 26, "y": 0, "w": 26, "h": 49 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 26, "h": 49 },
+    "sourceSize": { "w": 26, "h": 49 },
+    "duration": 100
+   },
+   {
+    "filename": "2",
+    "frame": { "x": 52, "y": 0, "w": 26, "h": 49 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 26, "h": 49 },
+    "sourceSize": { "w": 26, "h": 49 },
+    "duration": 1000
+   }
+ ],
+ "meta": {
+  "app": "http://www.aseprite.org/",
+  "version": "1.3-beta10-dev",
+  "image": "kick.png",
+  "format": "RGBA8888",
+  "size": { "w": 78, "h": 49 },
+  "scale": "1",
+  "frameTags": [
+  ]
+ }
+}

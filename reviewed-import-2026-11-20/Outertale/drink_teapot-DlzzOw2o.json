@@ -1,0 +1,49 @@
+{ "frames": [
+   {
+    "filename": "0",
+    "frame": { "x": 0, "y": 0, "w": 18, "h": 17 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 18, "h": 17 },
+    "sourceSize": { "w": 18, "h": 17 },
+    "duration": 200
+   },
+   {
+    "filename": "1",
+    "frame": { "x": 20, "y": 0, "w": 18, "h": 17 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 18, "h": 17 },
+    "sourceSize": { "w": 18, "h": 17 },
+    "duration": 200
+   },
+   {
+    "filename": "2",
+    "frame": { "x": 0, "y": 19, "w": 18, "h": 17 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 18, "h": 17 },
+    "sourceSize": { "w": 18, "h": 17 },
+    "duration": 200
+   },
+   {
+    "filename": "3",
+    "frame": { "x": 20, "y": 19, "w": 18, "h": 17 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 18, "h": 17 },
+    "sourceSize": { "w": 18, "h": 17 },
+    "duration": 200
+   }
+ ],
+ "meta": {
+  "app": "http://www.aseprite.org/",
+  "version": "1.3-rc2-dev",
+  "image": "drink_teapot.png",
+  "format": "RGBA8888",
+  "size": { "w": 38, "h": 36 },
+  "scale": "1",
+  "frameTags": [
+  ]
+ }
+}

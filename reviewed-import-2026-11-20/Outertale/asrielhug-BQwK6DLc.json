@@ -1,0 +1,49 @@
+{ "frames": [
+   {
+    "filename": "0",
+    "frame": { "x": 0, "y": 0, "w": 55, "h": 61 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 55, "h": 61 },
+    "sourceSize": { "w": 55, "h": 61 },
+    "duration": 333
+   },
+   {
+    "filename": "1",
+    "frame": { "x": 57, "y": 0, "w": 55, "h": 61 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 55, "h": 61 },
+    "sourceSize": { "w": 55, "h": 61 },
+    "duration": 333
+   },
+   {
+    "filename": "2",
+    "frame": { "x": 0, "y": 0, "w": 55, "h": 61 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 55, "h": 61 },
+    "sourceSize": { "w": 55, "h": 61 },
+    "duration": 333
+   },
+   {
+    "filename": "3",
+    "frame": { "x": 0, "y": 63, "w": 55, "h": 61 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 55, "h": 61 },
+    "sourceSize": { "w": 55, "h": 61 },
+    "duration": 333
+   }
+ ],
+ "meta": {
+  "app": "http://www.aseprite.org/",
+  "version": "1.3-rc4-dev",
+  "image": "asrielhug.png",
+  "format": "RGBA8888",
+  "size": { "w": 112, "h": 124 },
+  "scale": "1",
+  "frameTags": [
+  ]
+ }
+}

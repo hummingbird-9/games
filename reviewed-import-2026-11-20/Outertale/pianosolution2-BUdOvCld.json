@@ -1,0 +1,49 @@
+{ "frames": [
+   {
+    "filename": "0",
+    "frame": { "x": 0, "y": 0, "w": 163, "h": 65 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 163, "h": 65 },
+    "sourceSize": { "w": 163, "h": 65 },
+    "duration": 500
+   },
+   {
+    "filename": "1",
+    "frame": { "x": 165, "y": 0, "w": 163, "h": 65 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 163, "h": 65 },
+    "sourceSize": { "w": 163, "h": 65 },
+    "duration": 500
+   },
+   {
+    "filename": "2",
+    "frame": { "x": 0, "y": 67, "w": 163, "h": 65 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 163, "h": 65 },
+    "sourceSize": { "w": 163, "h": 65 },
+    "duration": 500
+   },
+   {
+    "filename": "3",
+    "frame": { "x": 165, "y": 0, "w": 163, "h": 65 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 163, "h": 65 },
+    "sourceSize": { "w": 163, "h": 65 },
+    "duration": 500
+   }
+ ],
+ "meta": {
+  "app": "http://www.aseprite.org/",
+  "version": "1.3-rc4-dev",
+  "image": "pianosolution2.png",
+  "format": "RGBA8888",
+  "size": { "w": 328, "h": 132 },
+  "scale": "1",
+  "frameTags": [
+  ]
+ }
+}

@@ -1,0 +1,76 @@
+{ "frames": [
+   {
+    "filename": "0",
+    "frame": { "x": 0, "y": 0, "w": 26, "h": 35 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 26, "h": 35 },
+    "sourceSize": { "w": 26, "h": 35 },
+    "duration": 100
+   },
+   {
+    "filename": "1",
+    "frame": { "x": 26, "y": 0, "w": 26, "h": 35 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 26, "h": 35 },
+    "sourceSize": { "w": 26, "h": 35 },
+    "duration": 100
+   },
+   {
+    "filename": "2",
+    "frame": { "x": 52, "y": 0, "w": 26, "h": 35 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 26, "h": 35 },
+    "sourceSize": { "w": 26, "h": 35 },
+    "duration": 100
+   },
+   {
+    "filename": "3",
+    "frame": { "x": 0, "y": 35, "w": 26, "h": 35 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 26, "h": 35 },
+    "sourceSize": { "w": 26, "h": 35 },
+    "duration": 133
+   },
+   {
+    "filename": "4",
+    "frame": { "x": 26, "y": 35, "w": 26, "h": 35 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 26, "h": 35 },
+    "sourceSize": { "w": 26, "h": 35 },
+    "duration": 200
+   },
+   {
+    "filename": "5",
+    "frame": { "x": 52, "y": 35, "w": 26, "h": 35 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 26, "h": 35 },
+    "sourceSize": { "w": 26, "h": 35 },
+    "duration": 200
+   },
+   {
+    "filename": "6",
+    "frame": { "x": 26, "y": 35, "w": 26, "h": 35 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 26, "h": 35 },
+    "sourceSize": { "w": 26, "h": 35 },
+    "duration": 200
+   }
+ ],
+ "meta": {
+  "app": "http://www.aseprite.org/",
+  "version": "1.3-beta10-dev",
+  "image": "muffet.png",
+  "format": "I8",
+  "size": { "w": 78, "h": 70 },
+  "scale": "1",
+  "frameTags": [
+  ]
+ }
+}

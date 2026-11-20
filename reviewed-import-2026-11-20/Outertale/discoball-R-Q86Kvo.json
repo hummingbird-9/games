@@ -1,0 +1,85 @@
+{ "frames": [
+   {
+    "filename": "0",
+    "frame": { "x": 0, "y": 0, "w": 30, "h": 37 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 30, "h": 37 },
+    "sourceSize": { "w": 30, "h": 37 },
+    "duration": 100
+   },
+   {
+    "filename": "1",
+    "frame": { "x": 32, "y": 0, "w": 30, "h": 37 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 30, "h": 37 },
+    "sourceSize": { "w": 30, "h": 37 },
+    "duration": 100
+   },
+   {
+    "filename": "2",
+    "frame": { "x": 64, "y": 0, "w": 30, "h": 37 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 30, "h": 37 },
+    "sourceSize": { "w": 30, "h": 37 },
+    "duration": 100
+   },
+   {
+    "filename": "3",
+    "frame": { "x": 0, "y": 39, "w": 30, "h": 37 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 30, "h": 37 },
+    "sourceSize": { "w": 30, "h": 37 },
+    "duration": 100
+   },
+   {
+    "filename": "4",
+    "frame": { "x": 32, "y": 39, "w": 30, "h": 37 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 30, "h": 37 },
+    "sourceSize": { "w": 30, "h": 37 },
+    "duration": 100
+   },
+   {
+    "filename": "5",
+    "frame": { "x": 64, "y": 39, "w": 30, "h": 37 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 30, "h": 37 },
+    "sourceSize": { "w": 30, "h": 37 },
+    "duration": 100
+   },
+   {
+    "filename": "6",
+    "frame": { "x": 0, "y": 78, "w": 30, "h": 37 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 30, "h": 37 },
+    "sourceSize": { "w": 30, "h": 37 },
+    "duration": 100
+   },
+   {
+    "filename": "7",
+    "frame": { "x": 32, "y": 78, "w": 30, "h": 37 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 30, "h": 37 },
+    "sourceSize": { "w": 30, "h": 37 },
+    "duration": 100
+   }
+ ],
+ "meta": {
+  "app": "http://www.aseprite.org/",
+  "version": "1.3-rc2-dev",
+  "image": "discoball.png",
+  "format": "RGBA8888",
+  "size": { "w": 94, "h": 115 },
+  "scale": "1",
+  "frameTags": [
+  ]
+ }
+}

@@ -1,0 +1,31 @@
+{ "frames": [
+   {
+    "filename": "0",
+    "frame": { "x": 0, "y": 0, "w": 24, "h": 26 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 24, "h": 26 },
+    "sourceSize": { "w": 24, "h": 26 },
+    "duration": 166
+   },
+   {
+    "filename": "1",
+    "frame": { "x": 26, "y": 0, "w": 24, "h": 26 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 24, "h": 26 },
+    "sourceSize": { "w": 24, "h": 26 },
+    "duration": 166
+   }
+ ],
+ "meta": {
+  "app": "http://www.aseprite.org/",
+  "version": "1.3-rc4-dev",
+  "image": "sitside.png",
+  "format": "RGBA8888",
+  "size": { "w": 50, "h": 26 },
+  "scale": "1",
+  "frameTags": [
+  ]
+ }
+}

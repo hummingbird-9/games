@@ -1,0 +1,76 @@
+{ "frames": [
+   {
+    "filename": "0",
+    "frame": { "x": 0, "y": 0, "w": 28, "h": 50 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 28, "h": 50 },
+    "sourceSize": { "w": 28, "h": 50 },
+    "duration": 100
+   },
+   {
+    "filename": "1",
+    "frame": { "x": 29, "y": 0, "w": 28, "h": 50 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 28, "h": 50 },
+    "sourceSize": { "w": 28, "h": 50 },
+    "duration": 100
+   },
+   {
+    "filename": "2",
+    "frame": { "x": 58, "y": 0, "w": 28, "h": 50 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 28, "h": 50 },
+    "sourceSize": { "w": 28, "h": 50 },
+    "duration": 100
+   },
+   {
+    "filename": "3",
+    "frame": { "x": 87, "y": 0, "w": 28, "h": 50 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 28, "h": 50 },
+    "sourceSize": { "w": 28, "h": 50 },
+    "duration": 100
+   },
+   {
+    "filename": "4",
+    "frame": { "x": 116, "y": 0, "w": 28, "h": 50 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 28, "h": 50 },
+    "sourceSize": { "w": 28, "h": 50 },
+    "duration": 100
+   },
+   {
+    "filename": "5",
+    "frame": { "x": 145, "y": 0, "w": 28, "h": 50 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 28, "h": 50 },
+    "sourceSize": { "w": 28, "h": 50 },
+    "duration": 100
+   },
+   {
+    "filename": "6",
+    "frame": { "x": 174, "y": 0, "w": 28, "h": 50 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 28, "h": 50 },
+    "sourceSize": { "w": 28, "h": 50 },
+    "duration": 100
+   }
+ ],
+ "meta": {
+  "app": "http://www.aseprite.org/",
+  "version": "1.3-beta10-dev",
+  "image": "f_vending_machine.png",
+  "format": "I8",
+  "size": { "w": 202, "h": 50 },
+  "scale": "1",
+  "frameTags": [
+  ]
+ }
+}

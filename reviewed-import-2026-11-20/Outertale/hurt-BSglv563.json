@@ -1,0 +1,22 @@
+{ "frames": [
+   {
+    "filename": "0",
+    "frame": { "x": 0, "y": 0, "w": 122, "h": 102 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 122, "h": 102 },
+    "sourceSize": { "w": 122, "h": 102 },
+    "duration": 100
+   }
+ ],
+ "meta": {
+  "app": "http://www.aseprite.org/",
+  "version": "1.3-rc4-dev",
+  "image": "hurt.png",
+  "format": "RGBA8888",
+  "size": { "w": 122, "h": 102 },
+  "scale": "1",
+  "frameTags": [
+  ]
+ }
+}
