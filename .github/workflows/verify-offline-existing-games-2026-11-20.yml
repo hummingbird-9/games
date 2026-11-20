@@ -1,0 +1,46 @@
+name: Offline verification of existing local games — 2026-11-20
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/verify-offline-existing-games-2026-11-20.yml"
+      - "scripts/verify-offline-existing-games-2026-11-20.mjs"
+      - "8 Ball Pool/**"
+      - "3D Bowling/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+          sparse-checkout: |
+            8 Ball Pool
+            3D Bowling
+            scripts
+          sparse-checkout-cone-mode: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install pinned Playwright
+        run: |
+          npm install --no-save --package-lock=false playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Start local server and test with external requests blocked
+        run: node scripts/verify-offline-existing-games-2026-11-20.mjs
+      - name: Upload screenshots and JSON results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: offline-existing-games-2026-11-20
+          path: artifacts/
+          if-no-files-found: ignore
+          retention-days: 30
