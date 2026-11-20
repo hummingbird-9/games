@@ -131,16 +131,21 @@ async function createPage(game) {
       report.frameScreenCanvasChanged = afterSingle !== afterFrame;
       report.checks.push("Play Frame 1 button clicked; screen transition recorded");
       await page.screenshot({ path: path.join(artifactDir, "3d-bowling-frame1.png") });
-      await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.8);
-      await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.8);
+      await page.mouse.click(box.x + box.width * 0.03, box.y + box.height * 0.025); // Skip tutorial
+      await page.waitForTimeout(1000);
+      const afterSkip = await canvas.evaluate(c => c.toDataURL());
+      report.skipTutorialCanvasChanged = afterFrame !== afterSkip;
+      report.checks.push("Skip tutorial button clicked; transition recorded");
+      await page.screenshot({ path: path.join(artifactDir, "3d-bowling-after-skip.png") });
+      await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.875);
       await page.mouse.down();
-      await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.45, { steps: 10 });
+      await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.4, { steps: 12 });
       await page.mouse.up();
       await page.keyboard.press("Space");
       await page.waitForTimeout(2500);
       const after = await canvas.evaluate(c => c.toDataURL());
-      report.interactionCanvasChanged = afterFrame !== after;
-      report.checks.push("mouse drag and Space input attempted after frame selection");
+      report.interactionCanvasChanged = afterSkip !== after;
+      report.checks.push("drag from ball area toward pins and Space attempted after tutorial");
       await page.screenshot({ path: path.join(artifactDir, "3d-bowling-after-input.png") });
     }
     if (!loaded.has("BowlingOnline2.data")) throw new Error("Unity data package did not return HTTP 200");
