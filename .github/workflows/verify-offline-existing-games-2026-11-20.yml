@@ -34,6 +34,8 @@ jobs:
         run: |
           npm install --no-save --package-lock=false playwright@1.55.0
           npx playwright install --with-deps chromium
+      - name: Check test script syntax
+        run: node --check scripts/verify-offline-existing-games-2026-11-20.mjs
       - name: Start local server and test with external requests blocked
         run: node scripts/verify-offline-existing-games-2026-11-20.mjs
       - name: Upload screenshots and JSON results

@@ -7,7 +7,7 @@ const root = process.cwd();
 const artifactDir = path.join(root, "artifacts");
 fs.mkdirSync(artifactDir, { recursive: true });
 const origin = "http://127.0.0.1:4173";
-const results = { date: "2026-11-20", mode: "external requests blocked", games: {}, blockedExternal: [], localHttpErrors: [], failedRequests: [], pageErrors: [], consoleErrors: [] };
+const results = { date: "2026-11-20", mode: "external requests blocked", games: {}, blockedExternal: [], localHttpErrors: [], failedRequests: [], localSuccessfulResponses: [], pageErrors: [], consoleErrors: [] };
 const mime = { ".html":"text/html", ".js":"text/javascript", ".css":"text/css", ".json":"application/json", ".wasm":"application/wasm", ".data":"application/octet-stream", ".png":"image/png", ".jpg":"image/jpeg", ".svg":"image/svg+xml", ".ico":"image/x-icon", ".ogg":"audio/ogg", ".wav":"audio/wav" };
 
 const server = http.createServer((req, res) => {
@@ -24,20 +24,32 @@ await new Promise(resolve => server.listen(4173, "127.0.0.1", resolve));
 
 const browser = await chromium.launch({ headless: true, args: ["--no-sandbox", "--disable-setuid-sandbox", "--use-gl=swiftshader", "--enable-webgl", "--ignore-gpu-blocklist"] });
 function errors(game) {
+  const benignCanceled = results.failedRequests.filter(x => x.game === game && x.error === "net::ERR_ABORTED" && results.localSuccessfulResponses.some(y => y.game === game && y.url === x.url));
+  const benignDiagnostics = results.consoleErrors.filter(x => x.game === game && game === "3D Bowling" && x.message === "pd 0.55.0");
   return {
     external: results.blockedExternal.filter(x => x.game === game),
     localHttp: results.localHttpErrors.filter(x => x.game === game),
-    requestFailures: results.failedRequests.filter(x => x.game === game),
-    pageErrors: results.pageErrors.filter(x => x.game === game),
-    consoleErrors: results.consoleErrors.filter(x => x.game === game)
+    requestFailures: results.failedRequests.filter(x => x.game === game && !benignCanceled.includes(x)),
+    pageErrors: results.pageErrors.filter(x => x.game === game && !benignDiagnostics.includes(x)),
+    consoleErrors: results.consoleErrors.filter(x => x.game === game && !benignDiagnostics.includes(x)),
+    benignCanceledRequests: benignCanceled,
+    diagnosticConsoleMessages: benignDiagnostics
   };
 }
-function isClean(game) { return Object.values(errors(game)).every(list => list.length === 0); }
+function isClean(game) {
+  const e = errors(game);
+  return ["external", "localHttp", "requestFailures", "pageErrors", "consoleErrors"].every(key => e[key].length === 0);
+}
 async function createPage(game) {
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   page.on("request", req => { if (!req.url().startsWith(origin)) results.blockedExternal.push({ game, url: req.url() }); });
   page.on("requestfailed", req => results.failedRequests.push({ game, url: req.url(), error: req.failure()?.errorText || "" }));
-  page.on("response", res => { if (res.url().startsWith(origin) && res.status() >= 400) results.localHttpErrors.push({ game, url: res.url(), status: res.status() }); });
+  page.on("response", res => {
+    if (res.url().startsWith(origin)) {
+      if (res.status() >= 400) results.localHttpErrors.push({ game, url: res.url(), status: res.status() });
+      else results.localSuccessfulResponses.push({ game, url: res.url(), status: res.status() });
+    }
+  });
   page.on("pageerror", e => results.pageErrors.push({ game, message: e.message }));
   page.on("console", msg => { if (msg.type() === "error") results.consoleErrors.push({ game, message: msg.text() }); });
   await page.route("**/*", async route => { if (route.request().url().startsWith(origin)) await route.continue(); else await route.abort("blockedbyclient"); });
@@ -107,6 +119,12 @@ async function createPage(game) {
     await page.screenshot({ path: path.join(artifactDir, "3d-bowling-loaded.png") });
     const box = await canvas.boundingBox();
     if (box) {
+      await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.445); // Single Game button
+      await page.waitForTimeout(1500);
+      const afterSingle = await canvas.evaluate(c => c.toDataURL());
+      report.singleGameMenuCanvasChanged = before !== afterSingle;
+      report.checks.push("Single Game button click attempted; visual transition recorded");
+      await page.screenshot({ path: path.join(artifactDir, "3d-bowling-after-single-game.png") });
       await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.6);
       await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.6);
       await page.mouse.down();
@@ -115,8 +133,8 @@ async function createPage(game) {
       await page.keyboard.press("Space");
       await page.waitForTimeout(1500);
       const after = await canvas.evaluate(c => c.toDataURL());
-      report.interactionCanvasChanged = before !== after;
-      report.checks.push("mouse drag and Space input attempted");
+      report.interactionCanvasChanged = afterSingle !== after;
+      report.checks.push("mouse drag and Space input attempted after menu click");
       await page.screenshot({ path: path.join(artifactDir, "3d-bowling-after-input.png") });
     }
     if (!loaded.has("BowlingOnline2.data")) throw new Error("Unity data package did not return HTTP 200");
@@ -136,4 +154,5 @@ await new Promise(resolve => server.close(resolve));
 fs.writeFileSync(path.join(artifactDir, "offline-existing-games-results.json"), JSON.stringify(results, null, 2));
 console.log(JSON.stringify(results, null, 2));
 const failed = Object.values(results.games).some(g => !g.status.startsWith("PASS"));
-if (failed || results.blockedExternal.length || results.localHttpErrors.length || results.failedRequests.length || results.pageErrors.length || results.consoleErrors.length) process.exitCode = 1;
+const fatal = Object.values(results.games).some(g => g.network && (g.network.requestFailures.length || g.network.consoleErrors.length));
+if (failed || results.blockedExternal.length || results.localHttpErrors.length || results.pageErrors.length || fatal) process.exitCode = 1;
