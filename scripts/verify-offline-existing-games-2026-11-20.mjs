@@ -117,7 +117,7 @@ async function createPage(game) {
       const after = await canvas.evaluate(c => c.toDataURL());
       report.interactionCanvasChanged = before !== after;
       report.checks.push("mouse drag and Space input attempted");
-      await page.screenshot({ path: path.join(artifactDir, "3d-bowling-after-input.png" });
+      await page.screenshot({ path: path.join(artifactDir, "3d-bowling-after-input.png") });
     }
     if (!loaded.has("BowlingOnline2.data")) throw new Error("Unity data package did not return HTTP 200");
     if (!loaded.has("BowlingOnline2.wasm")) throw new Error("Unity WASM did not return HTTP 200");
