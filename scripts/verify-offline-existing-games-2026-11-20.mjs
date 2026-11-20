@@ -125,16 +125,22 @@ async function createPage(game) {
       report.singleGameMenuCanvasChanged = before !== afterSingle;
       report.checks.push("Single Game button click attempted; visual transition recorded");
       await page.screenshot({ path: path.join(artifactDir, "3d-bowling-after-single-game.png") });
-      await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.6);
-      await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.6);
+      await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.845); // Play Frame 1
+      await page.waitForTimeout(1800);
+      const afterFrame = await canvas.evaluate(c => c.toDataURL());
+      report.frameScreenCanvasChanged = afterSingle !== afterFrame;
+      report.checks.push("Play Frame 1 button clicked; screen transition recorded");
+      await page.screenshot({ path: path.join(artifactDir, "3d-bowling-frame1.png") });
+      await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.8);
+      await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.8);
       await page.mouse.down();
-      await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.35, { steps: 8 });
+      await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.45, { steps: 10 });
       await page.mouse.up();
       await page.keyboard.press("Space");
-      await page.waitForTimeout(1500);
+      await page.waitForTimeout(2500);
       const after = await canvas.evaluate(c => c.toDataURL());
-      report.interactionCanvasChanged = afterSingle !== after;
-      report.checks.push("mouse drag and Space input attempted after menu click");
+      report.interactionCanvasChanged = afterFrame !== after;
+      report.checks.push("mouse drag and Space input attempted after frame selection");
       await page.screenshot({ path: path.join(artifactDir, "3d-bowling-after-input.png") });
     }
     if (!loaded.has("BowlingOnline2.data")) throw new Error("Unity data package did not return HTTP 200");
