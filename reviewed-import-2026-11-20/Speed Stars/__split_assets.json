@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "chunk_bytes": 47185920,
+  "files": {
+    "Build/webgl.data": {
+      "size": 98225382,
+      "sha256": "514e7272ae2f318bf2dffc1e31ec2b7f2794477a3b888f17d1ef56e6ff8b91a8",
+      "mime": "application/octet-stream",
+      "parts": [
+        {
+          "path": "Build/webgl.data.part0000",
+          "size": 47185920,
+          "sha256": "7543266d997bfebe1badaf381813e7ab0a1c4f30c9e095f13c9168aeb6762cfb"
+        },
+        {
+          "path": "Build/webgl.data.part0001",
+          "size": 47185920,
+          "sha256": "1f56df28643826f7b87d67e8c0e379ed1ad85b9d44ccc94b78a9201d78e7060e"
+        },
+        {
+          "path": "Build/webgl.data.part0002",
+          "size": 3853542,
+          "sha256": "8cdc2aae2389af86aabb2bc46638f38de3259425f29dfc8f6b287d66041c156a"
+        }
+      ]
+    }
+  }
+}
