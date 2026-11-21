@@ -1,0 +1,300 @@
+import crypto from 'node:crypto';
+export function encode(value){if(value===null)return {nullValue:null};if(value instanceof Date)return {timestampValue:value.toISOString()};if(Array.isArray(value))return {arrayValue:{values:value.map(encode)}};if(typeof value==='object')return {mapValue:{fields:Object.fromEntries(Object.entries(value).map(([k,v])=>[k,encode(v)]))}};if(typeof value==='boolean')return {booleanValue:value};if(typeof value==='number'){if(!Number.isFinite(value))throw Error('Invalid number');return Number.isInteger(value)?{integerValue:String(value)}:{doubleValue:value};}return {stringValue:String(value)};}
+export function decode(v){if('nullValue'in v)return null;if('mapValue'in v)return Object.fromEntries(Object.entries(v.mapValue.fields||{}).map(([k,x])=>[k,decode(x)]));if('arrayValue'in v)return (v.arrayValue.values||[]).map(decode);if('integerValue'in v)return Number(v.integerValue);if('doubleValue'in v)return v.doubleValue;if('booleanValue'in v)return v.booleanValue;if('timestampValue'in v)return new Date(v.timestampValue);return v.stringValue??null;}
+export async function firestoreFailure(response) {
+  const error = new Error('Firestore request failed: ' + response.status);
+  error.status = response.status;
+  const body = await response.json().catch(() => null);
+  const apiError = Array.isArray(body) ? body.find(item => item?.error && typeof item.error === 'object')?.error : body?.error;
+  const code = typeof apiError?.status === 'string' && /^[A-Z0-9_]{1,64}$/.test(apiError.status) ? apiError.status : null;
+  if (code) error.code = code;
+  return error;
+}
+
+export const MAX_READ_RETRIES = 2;
+export const MAX_RETRY_AFTER_MS = 2000;
+
+export class FirestoreDocumentBudgetError extends Error {
+  constructor(reason) {
+    super('Firestore document budget stopped');
+    this.name = 'FirestoreDocumentBudgetError';
+    this.code = 'FIRESTORE_DOCUMENT_BUDGET';
+    this.deferred = true;
+    this.reason = reason;
+  }
+}
+
+function documentLimit(value, kind) {
+  if (value === undefined) return Infinity;
+  if (!Number.isSafeInteger(value) || value <= 0) throw Error('Invalid Firestore document ' + kind + ' limit');
+  return value;
+}
+
+function envDocumentLimit(value, kind) {
+  if (value === undefined) return Infinity;
+  if (typeof value !== 'string' || !/^[1-9][0-9]*$/.test(value)) throw Error('Invalid Firestore document ' + kind + ' limit');
+  return documentLimit(Number(value), kind);
+}
+
+// Configuration only: never read budgets from Firestore request bodies/options.
+export function firestoreDocumentLimits(env = process.env) {
+  return {documentReadLimit:envDocumentLimit(env.VERIFIER_DOCUMENT_READ_LIMIT, 'read'),
+    documentWriteLimit:envDocumentLimit(env.VERIFIER_DOCUMENT_WRITE_LIMIT, 'write')};
+}
+
+function documentOperationCost(path, body, hasBody) {
+  if (typeof path !== 'string') return null;
+  if (!hasBody && path.startsWith('/')) {
+    const parts = path.split('?')[0].slice(1).split('/');
+    try {
+      if (parts.length < 2 || parts.length % 2 || parts.some(part => {
+        const decoded = decodeURIComponent(part);
+        return !decoded || decoded === '.' || decoded === '..' || /[\\/:?#]/.test(decoded);
+      })) return null;
+    } catch { return null; }
+    return {reads:1, writes:0};
+  }
+  if (!hasBody || !body || typeof body !== 'object' || Array.isArray(body)) return null;
+  if (path === ':runQuery') {
+    const query = body.structuredQuery;
+    if (!query || !Number.isSafeInteger(query.limit) || query.limit <= 0 ||
+        Object.hasOwn(query, 'offset') || Object.hasOwn(query, 'findNearest')) return null;
+    return {reads:query.limit, writes:0};
+  }
+  if (path === ':batchGet' && Array.isArray(body.documents) && body.documents.every(name => typeof name === 'string' && name.length > 0)) {
+    return {reads:body.documents.length, writes:0};
+  }
+  if (path === ':commit' && Array.isArray(body.writes)) return {reads:0, writes:body.writes.length};
+  if (path === ':beginTransaction') return {reads:0, writes:0};
+  if (path === ':rollback' && Object.keys(body).length === 1 && typeof body.transaction === 'string' && body.transaction.length > 0) {
+    return {reads:0, writes:0, rollback:true};
+  }
+  return null;
+}
+
+function validateMode(mode) {
+  if (mode !== 'manual' && mode !== 'scheduled') throw Error('Invalid Firestore quota mode');
+  return mode;
+}
+
+export function firestoreQuotaMode(env = process.env) {
+  return validateMode(env.VERIFIER_FIRESTORE_MODE ?? 'manual');
+}
+
+export function boundedRetryAfter(response, now = Date.now()) {
+  const value = response.headers?.get?.('Retry-After');
+  if (value == null || value.trim() === '') return null;
+  const seconds = Number(value);
+  const delay = Number.isFinite(seconds) ? seconds * 1000 : Date.parse(value) - now;
+  if (!Number.isFinite(delay)) return null;
+  if (delay > MAX_RETRY_AFTER_MS) return null;
+  return Math.max(0, delay);
+}
+
+export function createFirestoreCaller({base, access, fetchImpl = fetch,
+  sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), maxReadRetries = MAX_READ_RETRIES, mode = 'manual',
+  documentReadLimit, documentWriteLimit}) {
+  validateMode(mode);
+  const readLimit = documentLimit(documentReadLimit, 'read'), writeLimit = documentLimit(documentWriteLimit, 'write');
+  const budgetEnabled = readLimit !== Infinity || writeLimit !== Infinity;
+  if (!Number.isInteger(maxReadRetries) || maxReadRetries < 0 || maxReadRetries > MAX_READ_RETRIES) {
+    throw Error('Invalid Firestore read retry limit');
+  }
+  let requests = 0, returnedDocuments = 0, queryCount = 0, emptyQueryMinimumReads = 0, estimatedDocumentReads = 0;
+  let failedRequests = 0, unknownReadOutcomes = 0, commitAttempts = 0, writeAttempts = 0, unknownCommitOutcomes = 0;
+  let quotaFailure = null;
+  let documentFailure = null, usedReads = 0, usedWrites = 0, estimatedDocumentWrites = 0;
+  const stopDocuments = reason => documentFailure ||= new FirestoreDocumentBudgetError(reason);
+  const call = async (path, body, {onRetry} = {}) => {
+    if (quotaFailure) throw quotaFailure;
+    if (documentFailure && path !== ':rollback') throw documentFailure;
+    const hasBody = Boolean(body);
+    let serializedBody, cost;
+    if (budgetEnabled) {
+      // Reserve against exactly the serialized request, not mutable caller input
+      // or toJSON values that could change across awaits/retry callbacks.
+      serializedBody = hasBody ? JSON.stringify(body) : undefined;
+      body = serializedBody === undefined ? undefined : JSON.parse(serializedBody);
+      cost = documentOperationCost(path, body, hasBody);
+      if (!cost) throw stopDocuments('unbounded_operation');
+      if (documentFailure && !cost.rollback) throw documentFailure;
+    }
+    const checkStopped = () => {
+      if (quotaFailure) throw quotaFailure;
+      if (documentFailure && !cost?.rollback) throw documentFailure;
+    };
+    const settle = (reads, writes) => {
+      if (!budgetEnabled) return;
+      usedReads += reads - cost.reads;
+      usedWrites += writes - cost.writes;
+      if (reads > cost.reads || writes > cost.writes) throw stopDocuments('response_exceeded_reservation');
+    };
+    const safeRead = (!body && !String(path).startsWith(':')) || path === ':runQuery' || path === ':batchGet';
+    for (let retry = 0; ; retry++) {
+      checkStopped();
+      if (retry > 0) onRetry?.();
+      // Serialize before charging: local validation failures are not transport attempts.
+      const options = {
+        method: body ? 'POST' : 'GET',
+        headers: {authorization: 'Bearer ' + access, 'content-type': 'application/json'},
+        body: budgetEnabled ? serializedBody : body ? JSON.stringify(body) : undefined,
+        signal: AbortSignal.timeout(20000)
+      };
+      // No await between admission and fetch: concurrent calls share reservations.
+      checkStopped();
+      if (budgetEnabled) {
+        if (cost.reads > 0 && cost.reads > readLimit - usedReads) throw stopDocuments('read_limit');
+        if (cost.writes > 0 && cost.writes > writeLimit - usedWrites) throw stopDocuments('write_limit');
+        usedReads += cost.reads;
+        usedWrites += cost.writes;
+      }
+      // Failed/ambiguous attempts never refund this reservation, even on retry.
+      requests++;
+      if (path === ':commit') {
+        commitAttempts++;
+        writeAttempts += Array.isArray(body?.writes) ? body.writes.length : 0;
+      }
+      let response;
+      try { response = await fetchImpl(base + path, options); }
+      catch (error) {
+        failedRequests++;
+        if (safeRead) unknownReadOutcomes++;
+        if (path === ':commit') unknownCommitOutcomes++;
+        throw error;
+      }
+      if (!response.ok) {
+        failedRequests++;
+        if ([408, 500, 502, 503, 504].includes(response.status)) {
+          if (safeRead) unknownReadOutcomes++;
+          if (path === ':commit') unknownCommitOutcomes++;
+        }
+      }
+      if (mode === 'scheduled' && response.status === 429) {
+        // Latch before reading an error body: no read, write, rollback or retry
+        // may probe an exhausted database again in this invocation.
+        quotaFailure = Object.assign(new Error('Firestore request failed: 429'), {
+          status: 429, code: safeRead ? 'FIRESTORE_READ_THROTTLED' : 'FIRESTORE_COMMIT_THROTTLED', deferred: true
+        });
+        const delay = boundedRetryAfter(response);
+        if (delay !== null) quotaFailure.retryAfterMs = delay;
+        throw quotaFailure;
+      }
+      if (response.status === 404) {
+        if (budgetEnabled && (!safeRead || path.startsWith(':'))) throw await firestoreFailure(response);
+        if (!body && !String(path).startsWith(':')) estimatedDocumentReads++;
+        settle(1, 0);
+        if (budgetEnabled) checkStopped();
+        return null;
+      }
+      if (response.ok) {
+        let result;
+        try { result = await response.json(); }
+        catch {
+          failedRequests++;
+          if (safeRead) unknownReadOutcomes++;
+          if (path === ':commit') unknownCommitOutcomes++;
+          throw Error('Firestore response decoding failed');
+        }
+        // Firestore's protobuf JSON omits an empty repeated writeResults field.
+        // Require an actual commit timestamp before accepting that zero-write case.
+        const emptyCommitAck=path===':commit'&&Array.isArray(body?.writes)&&body.writes.length===0&&
+          result&&typeof result==='object'&&!Array.isArray(result)&&!Object.hasOwn(result,'writeResults')&&
+          typeof result.commitTime==='string'&&/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,9})?Z$/.test(result.commitTime)&&
+          Number.isFinite(Date.parse(result.commitTime));
+        const validCommit = path !== ':commit' || emptyCommitAck || (Array.isArray(result?.writeResults) && Array.isArray(body?.writes) &&
+            result.writeResults.length === body.writes.length &&
+            (!budgetEnabled || result.writeResults.every(row => row && typeof row === 'object' && !row.error)));
+        if (!validCommit) {
+          unknownCommitOutcomes++;
+          if (budgetEnabled) throw stopDocuments('invalid_response');
+        }
+        const validReadShape = path === ':runQuery'
+          ? Array.isArray(result) && result.every(row => row && !row.error && (row.document || typeof row.readTime === 'string'))
+          : path === ':batchGet'
+            ? Array.isArray(result) && result.every(row => row && !row.error && (row.found || typeof row.missing === 'string')) &&
+              (!Array.isArray(body?.documents) || result.length === body.documents.length)
+            : result && typeof result.name === 'string';
+        if (safeRead && !validReadShape) {
+          failedRequests++;
+          unknownReadOutcomes++;
+          if (budgetEnabled) throw stopDocuments('invalid_response');
+          return result;
+        }
+        if (budgetEnabled) {
+          const reads = path === ':runQuery' ? Math.max(1, result.filter(row => row.document).length) :
+            path === ':batchGet' ? body.documents.length : safeRead ? 1 : 0;
+          // A skipped result would invalidate the no-offset upper bound.
+          if (path === ':runQuery' && result.some(row => row.skippedResults)) throw stopDocuments('invalid_response');
+          settle(reads, path === ':commit' ? body.writes.length : 0);
+        }
+        if (path === ':runQuery' && Array.isArray(result)) {
+          const count = result.filter(row => row?.document).length;
+          returnedDocuments += count;
+          queryCount++;
+          if (!count) emptyQueryMinimumReads++;
+          estimatedDocumentReads += Math.max(1, count);
+        } else if (path === ':batchGet' && Array.isArray(result)) {
+          const count = result.filter(row => row?.found).length;
+          const foundOrMissing = result.filter(row => row?.found || row?.missing).length;
+          returnedDocuments += count;
+          estimatedDocumentReads += foundOrMissing;
+        } else if (!body && !String(path).startsWith(':')) {
+          estimatedDocumentReads++;
+          if (result?.name) returnedDocuments++;
+        }
+        if (path === ':commit' && validCommit) estimatedDocumentWrites += body.writes.length;
+        // A concurrent admission failure must not expose a result that callers
+        // could catch and reuse to construct a stale publication.
+        if (budgetEnabled) checkStopped();
+        return result;
+      }
+      if (response.status === 429 && safeRead) {
+        const retryAfter = boundedRetryAfter(response);
+        const retryHeader = response.headers?.get?.('Retry-After');
+        const rawDelay = retryHeader == null ? null : Number.isFinite(Number(retryHeader))
+          ? Number(retryHeader) * 1000 : Date.parse(retryHeader) - Date.now();
+        if ((retryHeader != null && Number.isFinite(rawDelay) && rawDelay > MAX_RETRY_AFTER_MS) || retry >= maxReadRetries) {
+          const error = await firestoreFailure(response);
+          error.code = 'FIRESTORE_READ_THROTTLED';
+          error.deferred = true;
+          if (Number.isFinite(rawDelay)) error.retryAfterMs = rawDelay;
+          throw error;
+        }
+        await sleep(retryAfter ?? [250, 500][retry]);
+        continue;
+      }
+      const error = await firestoreFailure(response);
+      if (response.status === 429 && path === ':commit') {
+        error.code = 'FIRESTORE_COMMIT_THROTTLED';
+        error.deferred = true;
+      }
+      throw error;
+    }
+  };
+  return {call, requests: () => requests, returnedDocuments: () => returnedDocuments,
+    queryCount: () => queryCount, emptyQueryMinimumReads: () => emptyQueryMinimumReads,
+    estimatedDocumentReads: () => estimatedDocumentReads, httpRequests: () => requests,
+    estimatedDocumentWrites: () => estimatedDocumentWrites,
+    documentBudget: () => ({readLimit, writeLimit, usedReads, usedWrites,
+      remainingReads:readLimit - usedReads, remainingWrites:writeLimit - usedWrites, stopped:documentFailure !== null}),
+    failedRequests: () => failedRequests, unknownReadOutcomes: () => unknownReadOutcomes,
+    commitAttempts: () => commitAttempts, writeAttempts: () => writeAttempts,
+    unknownCommitOutcomes: () => unknownCommitOutcomes};
+}
+
+export async function connect(raw, {env = process.env, mode = firestoreQuotaMode(env), documentReadLimit, documentWriteLimit, maxReadRetries = MAX_READ_RETRIES} = {}){
+ validateMode(mode);
+ if(!Number.isInteger(maxReadRetries)||maxReadRetries<0||maxReadRetries>MAX_READ_RETRIES)throw Error('Invalid Firestore read retry limit');
+ const readLimit = documentReadLimit === undefined ? envDocumentLimit(env.VERIFIER_DOCUMENT_READ_LIMIT, 'read') : documentLimit(documentReadLimit, 'read');
+ const writeLimit = documentWriteLimit === undefined ? envDocumentLimit(env.VERIFIER_DOCUMENT_WRITE_LIMIT, 'write') : documentLimit(documentWriteLimit, 'write');
+ const credentials=JSON.parse(raw);if(credentials.project_id!=='polytrack-052')throw Error('Unexpected Firebase project');
+ const b=x=>Buffer.from(JSON.stringify(x)).toString('base64url'),now=Math.floor(Date.now()/1000);
+ const unsigned=b({alg:'RS256',typ:'JWT'})+'.'+b({iss:credentials.client_email,scope:'https://www.googleapis.com/auth/datastore',aud:'https://oauth2.googleapis.com/token',iat:now,exp:now+1800});
+ const sig=crypto.sign('RSA-SHA256',Buffer.from(unsigned),credentials.private_key).toString('base64url');
+ const r=await fetch('https://oauth2.googleapis.com/token',{method:'POST',body:new URLSearchParams({grant_type:'urn:ietf:params:oauth:grant-type:jwt-bearer',assertion:unsigned+'.'+sig}),signal:AbortSignal.timeout(20000)});if(!r.ok)throw Error('Firebase authentication failed: '+r.status);
+ const access=(await r.json()).access_token,base='https://firestore.googleapis.com/v1/projects/polytrack-052/databases/(default)/documents';
+ const firestore = createFirestoreCaller({base, access, mode, maxReadRetries,
+   documentReadLimit:readLimit === Infinity ? undefined : readLimit,
+   documentWriteLimit:writeLimit === Infinity ? undefined : writeLimit});
+ return {...firestore,get:async(collection,id)=>{const d=await firestore.call('/'+collection+'/'+encodeURIComponent(id));return d?{...d,data:decode({mapValue:{fields:d.fields||{}}})}:null;},write:(collection,id,data,prior)=>({update:{name:base.replace('https://firestore.googleapis.com/v1/','')+'/'+collection+'/'+id,fields:encode(data).mapValue.fields},currentDocument:prior?.updateTime?{updateTime:prior.updateTime}:{exists:false}})};
+}
