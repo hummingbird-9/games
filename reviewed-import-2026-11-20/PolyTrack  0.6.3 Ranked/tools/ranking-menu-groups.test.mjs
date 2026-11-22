@@ -1,5 +1,0 @@
-import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';
-const source=fs.readFileSync(new URL('../polytrack_062_patch.js',import.meta.url),'utf8');
-const menu=source.slice(source.indexOf('  function openRankedCategoryMenu('));
-const group=name=>JSON.parse(menu.match(new RegExp('const '+name+'=(\\[[^;]+\\]);'))[1].replaceAll("'",'"'));
-test('ranking popup has eight ordered main choices and keeps every ranking in More',()=>{const primary=group('primary'),secondary=group('secondary'),extra=group('extras'),all=[...primary,...secondary,...extra];assert.equal(primary.length,4);assert.equal(secondary.length,4);assert.ok(extra.length<=primary.length+secondary.length);assert.equal(new Set(all).size,15);assert.deepEqual(new Set(all),new Set(['overall','field','events','casual','topTracks','tracks','average','medals','wins','skill','competitiveAverage','podiumRate','pbs','playtime','veterans']));assert.ok(extra.includes('playtime'));assert.ok(secondary.includes('medals'));assert.ok(primary.includes('casual'));});
