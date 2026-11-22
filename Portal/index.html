@@ -459,6 +459,7 @@
             const res = await origFetch(p);
             if (res.ok) {
               const buf = await res.arrayBuffer();
+              if (!buf.byteLength) throw new Error(`Empty chunk: ${baseName}.part${pad4}`);
               updateUI(undefined, `${baseName} (.part${pad4})`, buf.byteLength);
               return buf;
             }
@@ -550,7 +551,8 @@
             const assembled = await assembleSplit(split);
             return new Response(assembled, { status: 200, statusText: 'OK' });
           } catch(e) {
-            return new Response(new ArrayBuffer(0), { status: 200, statusText: 'OK' });
+            showCrash(`Split asset ${split.baseName} failed: ${e && e.message ? e.message : e}`);
+            throw e;
           }
         }
 

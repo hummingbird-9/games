@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en-us">
   <head>
-    <base href="https://cdn.jsdelivr.net/gh/web-ports/20-minutes@main/">
+    <base href="./">
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <title>Unity Web Player | 20 Minutes Till Dawn</title>
@@ -56,6 +56,8 @@ var loadingText = document.querySelector("#loading-text");
 
     async function fetchWithProgress(url) {
       const response = await fetch(url);
+      if (!response.ok) throw new Error("Failed to fetch split part " + url + " (HTTP " + response.status + ")");
+      if (!response.body) throw new Error("Missing response body for split part " + url);
       const reader = response.body.getReader();
       let chunks = [];
       let received = 0;
@@ -69,9 +71,10 @@ var loadingText = document.querySelector("#loading-text");
         loadedBytes += value.length;
         chunks.push(value);
         let mbDone = (loadedBytes / (1024 * 1024)).toFixed(2);
-        let mbTotal = '48.02';
+        let mbTotal = '54.98';
         loadingText.textContent = `LOADING... ${mbDone} MB / ${mbTotal} MB`;
       }
+      if (!received) throw new Error("Empty split part: " + url);
       let fullBuffer = new Uint8Array(received);
       let offset = 0;
       for (let chunk of chunks) {

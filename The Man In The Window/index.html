@@ -2,7 +2,7 @@
 <html lang="en-us">
 
 <head>
-    <base href="https://cdn.jsdelivr.net/gh/genizy/web-port@main/the-man-in-the-window/">
+    <base href="./">
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <title>Unity WebGL Player | TheManFromTheWindow</title>
@@ -46,8 +46,12 @@ function mergeFiles(fileParts) {
 				return;
 			}
 			fetch(fileParts[index])
-				.then((response) => response.arrayBuffer())
-				.then((data) => {
+			.then((response) => {
+			    if (!response.ok) throw new Error("Missing split part: " + fileParts[index] + " (HTTP " + response.status + ")");
+			    return response.arrayBuffer();
+			})
+			.then((data) => {
+			    if (!data.byteLength) throw new Error("Empty split part: " + fileParts[index]);
 					buffers.push(data);
 					done = done+1;
 					document.querySelector("#loading-text").textContent = `LOADING... (${done}/${max})`;

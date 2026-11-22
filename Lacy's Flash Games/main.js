@@ -14,8 +14,12 @@ function mergeFiles(fileParts) {
 				return;
 			}
 			fetch(fileParts[index])
-				.then((response) => response.arrayBuffer())
-				.then((data) => {
+			.then((response) => {
+			    if (!response.ok) throw new Error("Missing split part: " + fileParts[index] + " (HTTP " + response.status + ")");
+			    return response.arrayBuffer();
+			})
+			.then((data) => {
+			    if (!data.byteLength) throw new Error("Empty split part: " + fileParts[index]);
 					buffers.push(data);
 					done = done+1;
 					document.querySelector("#loading-text").textContent = `LOADING... (${done}/${max})`;

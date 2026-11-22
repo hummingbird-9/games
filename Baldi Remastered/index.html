@@ -64,6 +64,8 @@
         }
         async function fetchWithProgress(url) {
             const response = await fetch(url);
+            if (!response.ok) throw new Error("Failed to fetch split part " + url + " (HTTP " + response.status + ")");
+            if (!response.body) throw new Error("Missing response body for split part " + url);
             const reader = response.body.getReader();
             let chunks = [];
             let received = 0;
@@ -81,6 +83,7 @@
                 const percent = totalBytes > 0 ? ((loadedBytes / totalBytes) * 100).toFixed(1) : "?";
                 loadingText.textContent = `LOADING... ${doneText} / ${totalText} (${percent}%)`;
             }
+            if (!received) throw new Error("Empty split part: " + url);
             let fullBuffer = new Uint8Array(received);
             let offset = 0;
             for (let chunk of chunks) {
