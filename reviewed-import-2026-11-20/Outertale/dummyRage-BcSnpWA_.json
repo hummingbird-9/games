@@ -1,0 +1,49 @@
+{ "frames": [
+   {
+    "filename": "0",
+    "frame": { "x": 0, "y": 0, "w": 24, "h": 30 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 24, "h": 30 },
+    "sourceSize": { "w": 24, "h": 30 },
+    "duration": 100
+   },
+   {
+    "filename": "1",
+    "frame": { "x": 26, "y": 0, "w": 24, "h": 30 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 24, "h": 30 },
+    "sourceSize": { "w": 24, "h": 30 },
+    "duration": 100
+   },
+   {
+    "filename": "2",
+    "frame": { "x": 0, "y": 32, "w": 24, "h": 30 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 24, "h": 30 },
+    "sourceSize": { "w": 24, "h": 30 },
+    "duration": 100
+   },
+   {
+    "filename": "3",
+    "frame": { "x": 26, "y": 32, "w": 24, "h": 30 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 24, "h": 30 },
+    "sourceSize": { "w": 24, "h": 30 },
+    "duration": 100
+   }
+ ],
+ "meta": {
+  "app": "http://www.aseprite.org/",
+  "version": "1.3-rc2-dev",
+  "image": "dummyRage.png",
+  "format": "RGBA8888",
+  "size": { "w": 50, "h": 62 },
+  "scale": "1",
+  "frameTags": [
+  ]
+ }
+}

@@ -1,0 +1,49 @@
+{ "frames": [
+   {
+    "filename": "0",
+    "frame": { "x": 0, "y": 0, "w": 12, "h": 12 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 12, "h": 12 },
+    "sourceSize": { "w": 12, "h": 12 },
+    "duration": 100
+   },
+   {
+    "filename": "1",
+    "frame": { "x": 14, "y": 0, "w": 12, "h": 12 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 12, "h": 12 },
+    "sourceSize": { "w": 12, "h": 12 },
+    "duration": 100
+   },
+   {
+    "filename": "2",
+    "frame": { "x": 0, "y": 14, "w": 12, "h": 12 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 12, "h": 12 },
+    "sourceSize": { "w": 12, "h": 12 },
+    "duration": 100
+   },
+   {
+    "filename": "3",
+    "frame": { "x": 14, "y": 14, "w": 12, "h": 12 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 12, "h": 12 },
+    "sourceSize": { "w": 12, "h": 12 },
+    "duration": 100
+   }
+ ],
+ "meta": {
+  "app": "http://www.aseprite.org/",
+  "version": "1.3-rc4-dev",
+  "image": "heart.png",
+  "format": "RGBA8888",
+  "size": { "w": 26, "h": 26 },
+  "scale": "1",
+  "frameTags": [
+  ]
+ }
+}

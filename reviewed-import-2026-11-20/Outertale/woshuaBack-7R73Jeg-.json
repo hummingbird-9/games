@@ -1,0 +1,49 @@
+{ "frames": [
+   {
+    "filename": "0",
+    "frame": { "x": 0, "y": 0, "w": 42, "h": 26 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 42, "h": 26 },
+    "sourceSize": { "w": 42, "h": 26 },
+    "duration": 366
+   },
+   {
+    "filename": "1",
+    "frame": { "x": 44, "y": 0, "w": 42, "h": 26 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 42, "h": 26 },
+    "sourceSize": { "w": 42, "h": 26 },
+    "duration": 366
+   },
+   {
+    "filename": "2",
+    "frame": { "x": 0, "y": 28, "w": 42, "h": 26 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 42, "h": 26 },
+    "sourceSize": { "w": 42, "h": 26 },
+    "duration": 366
+   },
+   {
+    "filename": "3",
+    "frame": { "x": 44, "y": 28, "w": 42, "h": 26 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 42, "h": 26 },
+    "sourceSize": { "w": 42, "h": 26 },
+    "duration": 366
+   }
+ ],
+ "meta": {
+  "app": "http://www.aseprite.org/",
+  "version": "1.3-rc4-dev",
+  "image": "woshuaBack.png",
+  "format": "RGBA8888",
+  "size": { "w": 86, "h": 54 },
+  "scale": "1",
+  "frameTags": [
+  ]
+ }
+}

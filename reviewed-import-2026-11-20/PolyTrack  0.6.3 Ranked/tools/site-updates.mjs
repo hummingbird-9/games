@@ -1,0 +1,933 @@
+const {updateReminderPreference,bindUpdateDismissal}=await import(new URL('./site-update-dismissal.mjs'+new URL(import.meta.url).search,import.meta.url).href);
+const {RELEASE_HISTORY,countKnownUpdates,findAcknowledgedRelease,missedReleaseUpdates,createReleaseHistory,bindReleaseHistory}=await import(new URL('./release-history.mjs'+new URL(import.meta.url).search,import.meta.url).href);
+
+const oldCopyBoots = new WeakMap();
+const OLD_COPY_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+function confirmedOldCopyBoot(document, revision, now) {
+  const prior = oldCopyBoots.get(document);
+  if (prior?.revision === revision) return prior.count;
+  try {
+    const page = new URL(document.location?.href || document.baseURI);
+    if (!['https:', 'http:'].includes(page.protocol) || page.pathname.length > 256 ||
+        /^https:\/\/cdn\.jsdelivr\.net\/gh\/StaticQuasar931\/PolyTrack-0\.6\.3-Ranked@/.test(page.href)) return 0;
+    const key = 'polytrack-old-copy-v1:' + encodeURIComponent(page.pathname);
+    const storage = document.defaultView?.localStorage, at = now();
+    if (!storage || !Number.isFinite(at) || at < 0) return 0;
+    const raw = storage.getItem(key);
+    let saved;
+    if (typeof raw === 'string' && raw.length <= 256) { try { saved = JSON.parse(raw); } catch { /* Reset invalid optional state. */ } }
+    const valid = saved && saved.revision === revision && Number.isSafeInteger(saved.count) && saved.count >= 1 && saved.count <= 3 &&
+      Number.isFinite(saved.firstSeenAt) && saved.firstSeenAt >= 0 && at >= saved.firstSeenAt && at - saved.firstSeenAt < OLD_COPY_TTL_MS;
+    const record = {revision, count:valid ? Math.min(saved.count + 1, 3) : 1, firstSeenAt:valid ? saved.firstSeenAt : at};
+    storage.setItem(key, JSON.stringify(record));
+    oldCopyBoots.set(document, record);
+    return record.count;
+  } catch { return 0; } // Optional local storage must never affect updates or compatibility.
+}
+
+const CHECK_INTERVAL_MS = 30 * 60 * 1000;
+const REQUEST_TIMEOUT_MS = 8000;
+const installations = new WeakMap();
+// Explicit menu opens bypass only the background cooldown, never reload safety.
+export function requestSiteUpdateCheck(document = globalThis.document) {
+  return installations.get(document)?.check({force:true});
+}
+const noticeInstallations = new WeakMap();
+const initialNoticeReadiness = new WeakMap();
+const acknowledgedRevisions = new WeakMap();
+const LAST_RELEASE_ACK_KEY='polytrack-site-update-last-ack-v2';
+/** Snapshot the prior manual release identity before any dialog acknowledgement. */
+export function readReleaseAcknowledgement(release,{document=globalThis.document,storage,sessionStorage,history=RELEASE_HISTORY}={}) {
+  const stores=[],identities=[];
+  for(const [provided,name]of [[storage,'localStorage'],[sessionStorage,'sessionStorage']]){try{const value=provided===undefined?document?.defaultView?.[name]:provided;if(value)stores.push(value);}catch{}}
+  for(const store of stores){try{const raw=store.getItem(LAST_RELEASE_ACK_KEY);if(typeof raw==='string'&&raw.length<=1024){const value=JSON.parse(raw);if(Number.isSafeInteger(value?.number)&&value.number>0&&(value.commit===null||/^[a-f0-9]{40}$/.test(value.commit||'')))identities.push({number:value.number,commit:value.commit});}}catch{}}
+  const remembered=acknowledgedRevisions.get(document);
+  const legacy=findAcknowledgedRelease(release,number=>{const key='polytrack-site-update-ack-release-v1:'+number;if(remembered?.has(key))return true;for(const store of stores){try{if(store.getItem(key)==='acknowledged')return true;}catch{}}return false;},history);
+  // Do not let a number-only legacy key override an explicit conflicting commit.
+  if(legacy&&!identities.some(value=>value.number===legacy.number&&value.commit&&value.commit!==legacy.commit))identities.push(legacy);
+  const known=identities.map(identity=>({identity,count:missedReleaseUpdates(release,identity,history).count})).filter(value=>value.count!==null).sort((a,b)=>a.count-b.count);
+  const chosen=known[0]?.identity||identities[0]||null;
+  return chosen?Object.freeze({...chosen}):null;
+}
+
+const ageBindings = new WeakMap();
+const verifiedPointers = new WeakMap();
+export const UPDATED_GAME_URL = 'https://staticquasar931.github.io/PolyTrack-0.6.3-Ranked/';
+export const CANONICAL_SITE_VERSION_URL = `${UPDATED_GAME_URL}site-version.json`;
+const CDN_REPOSITORY = 'StaticQuasar931/PolyTrack-0.6.3-Ranked';
+const CDN_BASE = `https://cdn.jsdelivr.net/gh/${CDN_REPOSITORY}@`;
+export const CANONICAL_RELEASE_POINTER_URL = `${CDN_BASE}cdn-release/release.json`;
+
+/** Same-page attribution only: preserve saves, existing query parameters and anchors. */
+export function updateTrackingUrl(href, revision) {
+  if (!Number.isSafeInteger(revision) || revision < 0) return null;
+  try {
+    const url = new URL(href);
+    if (!['https:', 'http:'].includes(url.protocol)) return null;
+    url.searchParams.set('utm_source', 'update');
+    url.searchParams.set('utm_medium', 'in_game');
+    url.searchParams.set('utm_campaign', 'client_' + revision);
+    return url.href;
+  } catch { return null; }
+}
+
+function releaseVersionUrl(pointer) {
+  if (pointer?.schemaVersion !== 1 || pointer.repository !== CDN_REPOSITORY ||
+      !/^[a-f0-9]{40}$/.test(pointer.commit || '') || !/^[a-f0-9]{64}$/.test(pointer.indexSha256 || '') ||
+      !/^public-snapshots[1-9][0-9]{0,8}$/.test(pointer.snapshotDirectory || '') ||
+      typeof pointer.publishedAt !== 'string' || !Number.isFinite(Date.parse(pointer.publishedAt))) {
+    throw new TypeError('Invalid CDN release pointer');
+  }
+  // Ignore all URLs in the pointer. Only the immutable commit controls this path.
+  return new URL(`${CDN_BASE}${pointer.commit}/site-version.json`);
+}
+
+async function readManifest(response) {
+  if (!response?.ok || response.redirected || Number(response.headers?.get('content-length')) > 16384) throw Error('Update request failed');
+  if (!response.body?.getReader) return response.json();
+  const reader = response.body.getReader(), chunks = [];
+  let length = 0;
+  try {
+    for (;;) {
+      const {value, done} = await reader.read(); if (done) break;
+      length += value.byteLength;
+      if (length > 16384) throw Error('Update response too large');
+      chunks.push(value);
+    }
+    const bytes = new Uint8Array(length); let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
+    return JSON.parse(new TextDecoder().decode(bytes));
+  } finally { void reader.cancel().catch(() => {}); }
+}
+
+const snapshotGeneration = value => {
+  const match = /^public-snapshots([1-9][0-9]{0,8})$/.exec(value || '');
+  return match ? Number(match[1]) : null;
+};
+function installedSnapshotGeneration(document) {
+  try {
+    const meta=document.querySelector?.('meta[name="polytrack-snapshot"]');
+    const value=meta?.getAttribute?.('content') || meta?.content;
+    return typeof value==='string' ? snapshotGeneration(value.match(/(?:^|\/)(public-snapshots[1-9][0-9]{0,8})\/?$/)?.[1]) : null;
+  } catch { return null; }
+}
+
+const validRevision = value => Number.isSafeInteger(value) && value >= 0;
+function themeControl(element) {
+  element.className = 'button';
+  Object.assign(element.style, { padding: '10px 14px', minHeight: '44px', boxSizing: 'border-box',
+    display: 'inline-block', position: 'relative', isolation: 'isolate', border: 'none', borderRadius: '0',
+    clipPath: 'polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)',
+    background: 'var(--button-color, #112052)', color: 'var(--text-color, #ffffff)',
+    font: 'clamp(18px, 5dvh, 22px)/1.25 ForcedSquare, sans-serif', cursor: 'pointer', textAlign: 'center' });
+}
+
+function themeDialog(node, title, description) {
+  Object.assign(node.style, {width: 'min(640px, calc(100vw - 24px))', maxHeight: 'calc(100dvh - 24px)',
+    overflow: 'auto', boxSizing: 'border-box', padding: 'clamp(12px, 3dvh, 24px)', border: '2px solid #6389bf',
+    borderRadius: '0', background: '#1c2959', color: '#fff', font: 'clamp(18px, 5dvh, 22px)/1.35 ForcedSquare, sans-serif'});
+  Object.assign(title.style, {margin: '0 0 14px', paddingBottom: '12px', borderBottom: '2px solid #a7d5ff',
+    fontSize: 'clamp(22px, min(4vw, 7dvh), 30px)', fontWeight: 'normal', lineHeight: '1.15'});
+  Object.assign(description.style, {margin: '0 0 18px'});
+}
+
+function isVisible(document) { return document.visibilityState !== 'hidden'; }
+function defaultIdle(document) { return isVisible(document) && (typeof document.hasFocus !== 'function' || document.hasFocus()); }
+
+function utcTime(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)) return null;
+  const time = Date.parse(value);
+  return Number.isFinite(time) && time > 0 && new Date(time).toISOString() === value ? time : null;
+}
+
+function publicationTime(value) {
+  // Git commit metadata uses whole-second UTC; release pointers use milliseconds.
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(value)) {
+    return utcTime(value.replace(/Z$/, '.000Z'));
+  }
+  return utcTime(value);
+}
+
+function embeddedSiteCommit(release, document) {
+  try {
+    // A copied host/base tag cannot attest the official Pages deployment. This
+    // metadata is generated into the deployment artifact, never before commit.
+    const canonical = new URL(UPDATED_GAME_URL);
+    const page = new URL(document.location?.href || document.baseURI);
+    const base = new URL(document.baseURI);
+    const official = url => !url.username && !url.password && url.origin === canonical.origin &&
+      [canonical.pathname, canonical.pathname.slice(0,-1), canonical.pathname+'index.html'].includes(url.pathname);
+    if (!official(page) || !official(base)) return null;
+    const raw = document.querySelector?.('meta[name="polytrack-site-publication"]')?.getAttribute('content');
+    if (typeof raw !== 'string' || raw.length > 2048) return null;
+    const value = JSON.parse(raw);
+    const fields = ['schemaVersion','repository','commit','revision','releaseNumber','committedAt'];
+    if (!value || Array.isArray(value) || Object.keys(value).some(key => !fields.includes(key)) ||
+        value.schemaVersion !== 1 || value.repository !== CDN_REPOSITORY || !/^[a-f0-9]{40}$/.test(value.commit || '') ||
+        !validRevision(release.number) || !validRevision(release.revision) || value.releaseNumber !== release.number ||
+        value.revision !== release.revision || publicationTime(value.committedAt) === null) return null;
+    return value;
+  } catch { return null; }
+}
+
+/** Formatting only, not publication verification. Help may retain the already
+ * selected public timestamp/source in its rendered markup for local-only ticks.
+ */
+export function formatReleaseUpdateAge(dateTime, source = 'unknown', now = Date.now()) {
+  const labels = {updated: 'Updated', pushed: 'Pushed', committed: 'Committed'};
+  const label = Object.hasOwn(labels, source) ? labels[source] : null;
+  const time = label ? publicationTime(dateTime) : null;
+  const details = {source: time === null ? 'unknown' : source, label: time === null ? '' : label,
+    dateTime: time === null ? '' : new Date(time).toISOString(),
+    title: time === null ? '' : `${label}: ${new Date(time).toLocaleString()}`};
+  if (time === null || !Number.isFinite(now)) return {...details, text: 'Publication time unavailable', nextUpdateMs: null};
+  const elapsed = now - time;
+  if (elapsed < 0) return {...details, text: `Device clock is before ${source === 'committed' ? 'commit' : source === 'pushed' ? 'push' : 'update'} time`, nextUpdateMs: Math.min(-elapsed, 60000)};
+  const [unit, size] = elapsed >= 604800000 ? ['week', 604800000] : elapsed >= 86400000 ? ['day', 86400000] : elapsed >= 3600000 ? ['hour', 3600000] : ['minute', 60000];
+  const count = Math.floor(elapsed / size);
+  return {...details, text: `${label} ${count ? `${count} ${unit}${count === 1 ? '' : 's'} ago` : 'less than a minute ago'}`,
+    nextUpdateMs: Math.min(size - elapsed % size, 60000)};
+}
+
+/** Local-only age API for the installed notice and Help Release renderer.
+ * verifiedReleaseCommitAt is supplied only from locally imported RELEASE_INFO
+ * after the parent's audited commit-date stamp. It wins over all discovery.
+ * Verified inputs must come from existing trusted publication/commit validation,
+ * not a new fetch, storage, or arbitrary release fields. Both require the exact
+ * installed full commit. A commit date is never labelled as publication time.
+ */
+export function releaseUpdateAge(release = {}, {now = Date.now(), verifiedReleasePointer,
+  verifiedSiteCommitMetadata, verifiedReleaseCommitAt, installedReleaseCommittedAt, installedCommit, document} = {}) {
+  if (installedReleaseCommittedAt !== undefined) verifiedReleaseCommitAt=installedReleaseCommittedAt;
+  if (verifiedReleaseCommitAt !== undefined) {
+    const time = publicationTime(verifiedReleaseCommitAt);
+    // Git commit objects store whole seconds, not milliseconds.
+    return formatReleaseUpdateAge(time !== null && time % 1000 === 0 ? verifiedReleaseCommitAt : undefined,'committed',now);
+  }
+  installedCommit ||= automaticLauncherCommit(document);
+  const embedded = embeddedSiteCommit(release, document);
+  installedCommit ||= embedded?.commit;
+  verifiedSiteCommitMetadata ||= embedded;
+  verifiedReleasePointer ||= verifiedPointers.get(document);
+  let dateTime, source = 'unknown';
+  const matches = value => /^[a-f0-9]{40}$/.test(installedCommit || '') &&
+    value?.repository === CDN_REPOSITORY && value.commit === installedCommit;
+  if (matches(verifiedSiteCommitMetadata)) {
+    for (const [field, kind] of [['publishedAt', 'updated'], ['pushedAt', 'pushed'], ['committedAt', 'committed']]) {
+      if (publicationTime(verifiedSiteCommitMetadata[field]) === null) continue;
+      dateTime = verifiedSiteCommitMetadata[field]; source = kind; break;
+    }
+  }
+  try {
+    releaseVersionUrl(verifiedReleasePointer);
+    if (matches(verifiedReleasePointer) && publicationTime(verifiedReleasePointer.publishedAt) !== null) {
+      dateTime = verifiedReleasePointer.publishedAt; source = 'updated';
+    }
+  } catch { /* Missing/unverified publication remains explicitly unavailable. */ }
+  return formatReleaseUpdateAge(dateTime, source, now);
+}
+
+/** Bind one local age timer. Rebinding disposes the previous binding. The caller
+ * should dispose when closing Help; a detached node also stops at the next tick.
+ * refresh() handles parent UI transitions without requesting any data.
+ */
+export function bindReleaseUpdateAge(element, {release = {}, document = element?.ownerDocument,
+  verifiedReleasePointer, verifiedSiteCommitMetadata, verifiedReleaseCommitAt, installedReleaseCommittedAt, installedCommit, now = Date.now,
+  setTimeout: schedule = globalThis.setTimeout, clearTimeout: unschedule = globalThis.clearTimeout} = {}) {
+  if (!element || !document?.addEventListener) throw new TypeError('age element and document are required');
+  ageBindings.get(element)?.dispose();
+  let timer = null, disposed = false, suspended = false;
+  const view = document.defaultView;
+  const stop = () => {
+    if (timer !== null) { try { unschedule(timer); } catch { /* Best effort. */ } }
+    timer = null;
+  };
+  const refresh = () => {
+    stop();
+    if (disposed) return;
+    if (!element.isConnected) { handle.dispose(); return; }
+    if (suspended || !isVisible(document)) return;
+    try {
+      const age = releaseUpdateAge(release, {now: now(), verifiedReleasePointer, verifiedSiteCommitMetadata, verifiedReleaseCommitAt, installedReleaseCommittedAt, installedCommit, document});
+      if (element.textContent !== age.text) element.textContent = age.text;
+      if (element.title !== age.title) element.title = age.title;
+      if (age.dateTime) {
+        if (element.getAttribute?.('datetime') !== age.dateTime) element.setAttribute('datetime', age.dateTime);
+      } else if (element.getAttribute?.('datetime') !== null) element.removeAttribute?.('datetime');
+      if (age.nextUpdateMs !== null) timer = schedule(refresh, age.nextUpdateMs);
+    } catch { /* A local clock/timer failure must not affect the surrounding UI. */ }
+  };
+  const pagehide = () => { suspended = true; stop(); };
+  const pageshow = () => { suspended = false; refresh(); };
+  document.addEventListener('visibilitychange', refresh);
+  document.addEventListener('polytrack-release-publication', refresh);
+  view?.addEventListener('focus', refresh);
+  view?.addEventListener('pagehide', pagehide);
+  view?.addEventListener('pageshow', pageshow);
+  const handle = Object.freeze({refresh, dispose() {
+    if (disposed) return;
+    disposed = true; stop();
+    document.removeEventListener('visibilitychange', refresh);
+    document.removeEventListener('polytrack-release-publication', refresh);
+    view?.removeEventListener('focus', refresh);
+    view?.removeEventListener('pagehide', pagehide);
+    view?.removeEventListener('pageshow', pageshow);
+    if (ageBindings.get(element) === handle) ageBindings.delete(element);
+  }});
+  ageBindings.set(element, handle); refresh(); return handle;
+}
+
+function canUpdateHere(document, endpoint) {
+  try {
+    const page = new URL(document.location?.href || document.baseURI);
+    const canonical = new URL(UPDATED_GAME_URL);
+    if (page.origin === canonical.origin && (page.pathname === canonical.pathname.slice(0, -1) ||
+        page.pathname === canonical.pathname || page.pathname === `${canonical.pathname}index.html`)) return true;
+    // Explicit local manifests support development without treating copied hosts as current.
+    return endpoint !== CANONICAL_SITE_VERSION_URL && ['http:', 'https:'].includes(page.protocol) &&
+      new URL(endpoint, document.baseURI).origin === page.origin;
+  } catch { return false; }
+}
+
+function automaticLauncherCommit(document) {
+  try {
+    const page = new URL(document.location?.href || document.baseURI);
+    const base = new URL(document.baseURI);
+    const commit = base.href.match(/^https:\/\/cdn\.jsdelivr\.net\/gh\/StaticQuasar931\/PolyTrack-0\.6\.3-Ranked@([a-f0-9]{40})\/(?:index\.html)?$/)?.[1];
+    if (!commit || typeof document.defaultView?.__polytrackAutomaticLoad?.then !== 'function') return null;
+    const appsScript = page.protocol === 'https:' && !page.port && !page.username && !page.password &&
+      (page.hostname === 'script.google.com' && /^\/macros\/s\/[A-Za-z0-9_-]+\/(?:exec|dev)$/.test(page.pathname) ||
+       (page.hostname === 'script.googleusercontent.com' || /^[a-z0-9-]+-script\.googleusercontent\.com$/.test(page.hostname)) &&
+       /^\/(?:userCodeAppPanel|macros\/echo)$/.test(page.pathname));
+    const cdnLauncher = /^https:\/\/cdn\.jsdelivr\.net\/gh\/StaticQuasar931\/PolyTrack-0\.6\.3-Ranked@(?:[a-f0-9]{40}|main|cdn-assets)\/(?:apps-script\/)?index\.html$/.test(page.origin + page.pathname);
+    return appsScript || cdnLauncher ? commit : null;
+  } catch { return null; }
+}
+
+function expireLauncherDiscovery(document, commit) {
+  // Audited automatic loader cache only. Never clear game saves or accept a URL.
+  try {
+    const storage = document.defaultView?.localStorage;
+    const key = 'polytrack-automatic-release-v2', value = storage?.getItem(key);
+    if (!value || value.length > 2048) return;
+    const saved = JSON.parse(value);
+    if (saved?.sha === commit && /^[a-f0-9]{64}$/.test(saved.indexSha256 || '')) {
+      storage.setItem(key, JSON.stringify({...saved, checkedAt: 0}));
+    }
+  } catch { /* With storage blocked, the loader already bypasses its cache. */ }
+}
+
+/** Local installed-build notice, independent of the remote manifest/check interval.
+ * Parent must supply gameplay-aware readiness/safety predicates and call resume()
+ * after UI transitions. Mounting is NOT acknowledgement; only OK/Escape is.
+ * Local storage persists across refreshes, session storage is the fallback, and
+ * memory is the final fallback when both stores are denied (this page only).
+ */
+export function installInstalledRevisionNotice({revision, release = {}, document = globalThis.document,
+  isReady = () => false, isIdle = defaultIdle, isInitialLoading, storage, sessionStorage,
+  verifiedReleasePointer, verifiedSiteCommitMetadata, verifiedReleaseCommitAt, installedReleaseCommittedAt, installedCommit,
+  now = Date.now, releaseHistory = RELEASE_HISTORY, setTimeout: schedule = globalThis.setTimeout, clearTimeout: unschedule = globalThis.clearTimeout} = {}) {
+  if (!validRevision(revision)) throw new TypeError('revision must be a non-negative safe integer');
+  if (!document?.addEventListener) throw new TypeError('document is required');
+  // A slow early import may finish after the patch installed the shared notice.
+  // Attach only its one-way boot check; preserve identity, acknowledgement and menu policy.
+  if (typeof isInitialLoading === 'function') initialNoticeReadiness.set(document, {revision, number:release.number, check:isInitialLoading});
+  const existing = noticeInstallations.get(document);
+  if (existing) {
+    if (typeof isInitialLoading === 'function') existing.resume();
+    return existing;
+  }
+  const view = document.defaultView;
+  const key = validRevision(release.number) ? `polytrack-site-update-ack-release-v1:${release.number}` : `polytrack-site-update-ack-v1:${revision}`;
+  let remembered = acknowledgedRevisions.get(document);
+  if (!remembered) acknowledgedRevisions.set(document, remembered = new Set());
+  const stores = () => {
+    const result = [];
+    for (const [provided, name] of [[storage, 'localStorage'], [sessionStorage, 'sessionStorage']]) {
+      try { const store = provided === undefined ? view?.[name] : provided; if (store) result.push(store); } catch { /* Sandboxed/blocked storage. */ }
+    }
+    return result;
+  };
+  const acknowledged = () => {
+    if (remembered.has(key)) return true;
+    for (const store of stores()) {
+      try { if (store.getItem(key) === 'acknowledged') { remembered.add(key); return true; } } catch { /* Try next store. */ }
+    }
+    return false;
+  };
+  let previousAcknowledgement;
+  let disposed = false, dialog = null, previousFocus = null, ageBinding = null, historyBinding = null;
+  const close = (restoreFocus = false) => {
+    ageBinding?.dispose(); ageBinding = null;
+    historyBinding?.dispose(); historyBinding = null;
+    const node = dialog; dialog = null;
+    if (!node) return;
+    try { node.close?.(); } catch { /* Removal is sufficient. */ }
+    node.remove();
+    if (restoreFocus && previousFocus?.isConnected) { try { previousFocus.focus(); } catch { /* Best effort. */ } }
+  };
+  const acknowledge = () => {
+    if (disposed || !dialog?.isConnected) return;
+    remembered.add(key);
+    for (const store of stores()) { try { store.setItem(key, 'acknowledged'); } catch { /* Keep the in-page acknowledgement. */ }
+      if(validRevision(release.number))try{store.setItem(LAST_RELEASE_ACK_KEY,JSON.stringify({number:release.number,commit:/^[a-f0-9]{40}$/.test(release.commit||'')?release.commit:null}));}catch{} }
+    close(true);
+  };
+  const resume = () => {
+    if (disposed) return;
+    if (acknowledged()) { close(); return; }
+    let safe = false;
+    try {
+      const boot = initialNoticeReadiness.get(document);
+      const loading = boot?.revision === revision && boot.number === release.number && boot.check(document);
+      safe = !!document.body && isVisible(document) && (loading || isReady(document) && isIdle(document));
+    } catch { /* Defer. */ }
+    if (!safe) { close(); return; }
+    if (dialog?.isConnected && dialog.open) { ageBinding?.refresh(); return; }
+    close();
+    const node = document.createElement('dialog');
+    dialog = node; previousFocus = document.activeElement;
+    void requestSiteUpdateCheck(document);
+    node.dataset.siteInstalledRevision = String(revision);
+    if (validRevision(release.number)) node.dataset.siteInstalledRelease = String(release.number);
+    node.setAttribute('aria-labelledby', 'pt-installed-update-title');
+    node.setAttribute('aria-describedby', 'pt-installed-update-description');
+    const title = document.createElement('h2'); title.id = 'pt-installed-update-title';
+    title.textContent = validRevision(release.number) ? `PolyTrack Ranked - Update ${release.number}` : 'PolyTrack Ranked - Updated';
+    const description = document.createElement('p'); description.id = 'pt-installed-update-description';
+    const ageNode = document.createElement('time');
+    ageNode.dataset.siteUpdateAge = '';
+    Object.assign(ageNode.style, {display: 'block', marginTop: '8px', color: '#a7d5ff', fontSize: '0.85em'});
+    description.append(ageNode);
+    if(previousAcknowledgement===undefined)previousAcknowledgement=readReleaseAcknowledgement(release,{document,storage,sessionStorage,history:releaseHistory});
+    const updates=missedReleaseUpdates(release,previousAcknowledgement,releaseHistory).count;
+    if(updates>1){
+      const count=document.createElement('small');count.dataset.siteUpdatesSinceAck='';
+      count.textContent=updates+' update'+(updates===1?'':'s')+' since you last checked';
+      count.setAttribute('role','status');Object.assign(count.style,{display:'block',marginTop:'6px',fontSize:'18px',color:'#a7d5ff'});description.append(count);
+    }
+    themeDialog(node, title, description);
+    const notes = document.createElement('ul');
+    Object.assign(notes.style, {margin: '0 0 18px', paddingLeft: '24px'});
+    for (const text of (Array.isArray(release.notes) ? release.notes : []).slice(0, 8).filter(text => typeof text === 'string' && text.slice(0, 1024).trim()).slice(0, 4)) {
+      const item = document.createElement('li');
+      const compact = text.slice(0, 1024).trim().replace(/\s+/g, ' ');
+      item.textContent = compact.length > 220 ? `${compact.slice(0, 217).trimEnd()}...` : compact;
+      Object.assign(item.style, {marginBottom: '8px', overflowWrap: 'anywhere'});
+      notes.append(item);
+    }
+    const archive = createReleaseHistory(document, {release,history:releaseHistory,now:now(),acknowledgedRelease:previousAcknowledgement});
+    if (archive) historyBinding = bindReleaseHistory(archive);
+    const ok = document.createElement('button'); ok.type = 'button'; ok.textContent = 'OK'; themeControl(ok);
+    Object.assign(ok.style, {display: 'block', marginLeft: 'auto', minWidth: '88px'});
+    const trapTab = event => {
+      const controls = node.querySelectorAll ? [...node.querySelectorAll('button, summary, a[href], [tabindex]')].filter(control =>
+        control.tabIndex !== -1 && (!control.getClientRects || control.getClientRects().length)) : [ok];
+      const first = controls[0] || ok, last = controls.at(-1) || ok;
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if ((!event.shiftKey && document.activeElement === last) || !controls.includes(document.activeElement)) { event.preventDefault(); first.focus(); }
+    };
+    node.__trapInstalledTab = trapTab;
+    ok.addEventListener('click', acknowledge);
+    node.addEventListener('close', () => { if (dialog === node) close(); });
+    node.addEventListener('cancel', event => { event.preventDefault(); acknowledge(); });
+    node.addEventListener('keydown', event => {
+      event.stopPropagation();
+      if (event.key === 'Tab') trapTab(event);
+    });
+    if (archive) node.append(title, description, notes, archive, ok);
+    else node.append(title, description, notes, ok);
+    document.body.append(node);
+    try {
+      node.showModal(); ok.focus();
+      ageBinding = bindReleaseUpdateAge(ageNode, {document, release, verifiedReleasePointer, verifiedSiteCommitMetadata, verifiedReleaseCommitAt, installedReleaseCommittedAt, installedCommit,
+        now, setTimeout: schedule, clearTimeout: unschedule});
+    } catch { close(); }
+  };
+  // Stop game shortcuts, including the keyup following Escape/Enter dismissal.
+  const held = new Set();
+  const guard = event => {
+    const code = event.code || event.key;
+    if (dialog?.open || event.type === 'keyup' && held.has(code)) event.stopImmediatePropagation();
+    if (dialog?.open && event.type === 'keydown') {
+      held.add(code);
+      if (event.key === 'Tab') dialog.__trapInstalledTab?.(event);
+      if (event.key === 'Escape') historyBinding?.collapse(event);
+    }
+    if (event.type === 'keyup') held.delete(code);
+  };
+  const storageChanged = event => { if (event.key === key || event.key === null) resume(); };
+  document.addEventListener('visibilitychange', resume);
+  for (const type of ['focus', 'pageshow']) view?.addEventListener(type, resume);
+  const suspend = () => close();
+  view?.addEventListener('pagehide', suspend);
+  for (const type of ['keydown', 'keyup']) view?.addEventListener(type, guard, true);
+  view?.addEventListener('storage', storageChanged);
+  const handle = Object.freeze({resume, dispose() {
+    if (disposed) return;
+    disposed = true; close(); held.clear();
+    document.removeEventListener('visibilitychange', resume);
+    for (const type of ['focus', 'pageshow']) view?.removeEventListener(type, resume);
+    view?.removeEventListener('pagehide', suspend);
+    for (const type of ['keydown', 'keyup']) view?.removeEventListener(type, guard, true);
+    view?.removeEventListener('storage', storageChanged);
+    noticeInstallations.delete(document);
+    initialNoticeReadiness.delete(document);
+  }});
+  noticeInstallations.set(document, handle); resume(); return handle;
+}
+
+/**
+ * Manifest: {revision: N, minimumSupportedRevision?: M}, with 0 <= M <= N.
+ * Omit the minimum to leave compatibility policy inactive. Errors fail open.
+ * onCompatibilityChange receives {onlineAllowed, revision, latestRevision,
+ * minimumSupportedRevision, reason}. Parent must default to allowed and gate NEW
+ * online actions when false, without interrupting a run or deleting queued data.
+ * Supply a gameplay-aware isIdle; document focus alone does not identify a run.
+ * This UI policy cannot affect older clients lacking this code and is not security.
+ * Default endpoint is canonical, including on copied builds. Pass 'site-version.json'
+ * explicitly for local testing. Only same-origin HTTP(S) or the exact canonical
+ * manifest URL is accepted. If canonical fails, try the fixed CDN release pointer
+ * and its validated immutable commit's site-version.json (at most 3 requests).
+ * No fallback for explicit local endpoints. All requests omit credentials, reject
+ * redirects, and have bounded time/body size. The pointer supplies no policy.
+ */
+export function installSiteUpdates({ revision, document = globalThis.document, fetch: fetchImpl = globalThis.fetch,
+  now = Date.now, setTimeout: schedule = globalThis.setTimeout, clearTimeout: unschedule = globalThis.clearTimeout,
+  isIdle = defaultIdle, canReload = () => true, endpoint = CANONICAL_SITE_VERSION_URL,
+  intervalMs = CHECK_INTERVAL_MS, timeoutMs = REQUEST_TIMEOUT_MS, onCompatibilityChange = () => {} }) {
+  if (!Number.isSafeInteger(revision) || revision < 0) throw new TypeError('revision must be a non-negative safe integer');
+  if (!document || typeof document.addEventListener !== 'function') throw new TypeError('document is required');
+  if (typeof fetchImpl !== 'function') throw new TypeError('fetch is required');
+  const existing = installations.get(document);
+  if (existing) return existing;
+
+  let lastCheckedAt = -Infinity, inFlight = null, timer = null, disposed = false, button = null;
+  let dialog = null, offlineMinimum = null, controller = null, cancelRequest = null;
+  let compatibility = null, pendingManifest = null, latestManifest = null;
+  const loadedSnapshotGeneration=installedSnapshotGeneration(document);
+  let latestSnapshotGeneration=null;
+  const snapshotUpdate=()=>latestManifest?.revision===revision && loadedSnapshotGeneration!==null && latestSnapshotGeneration>loadedSnapshotGeneration;
+  const reminder = updateReminderPreference(document);
+  let dismissalMenu = null, explicitOffer = false;
+  const criticalUpdate = () => validRevision(latestManifest?.minimumSupportedRevision) && revision < latestManifest.minimumSupportedRevision;
+  const suppressReminder = () => !explicitOffer && !criticalUpdate() && reminder.suppressed();
+  let oldCopyNotice = null, oldCopyDismissed = false, oldCopyCount = 0, oldCopyConfirmed = false;
+  let blockedUpdate = false, blockedObserver = null, blockedTimer = null;
+  const stopBlockedWatch = () => {
+    blockedObserver?.disconnect(); blockedObserver = null;
+    if (blockedTimer !== null) { unschedule(blockedTimer); blockedTimer = null; }
+  };
+  const blockedFeedback = () => {
+    blockedUpdate = true;
+    button.textContent = 'To update, leave the current run or editor';
+    button.title = 'Your current game stays open. Return to any menu, then click Update available.';
+    button.setAttribute('aria-label', button.textContent);
+    // Observe menu transitions only after an explicit blocked click; never poll or auto-reload.
+    const Observer = document.defaultView?.MutationObserver;
+    if (!blockedObserver && Observer) {
+      blockedObserver = new Observer((records = []) => {
+        if (disposed || !blockedUpdate || blockedTimer !== null) return;
+        // HUD clocks and leaderboard row churn are not menu transitions.
+        const surfaces='#ui,.menu-ui,.menu,.main-buttons-container,#overallLeaderboardPanel,.track-selection-ui,.track-info-ui,.settings-menu-ui,.editor-ui,.pause-screen-ui,.sq-extra-overlay,.sq-events-dialog,dialog';
+        if(records.length&&!records.some(record=>record.target===document.body||record.target?.matches?.(surfaces)||
+          record.type==='childList'&&[...record.addedNodes,...record.removedNodes].some(node=>node.nodeType===1&&(node.matches?.(surfaces)||node.querySelector?.(surfaces)))))return;
+        blockedTimer = schedule(() => { blockedTimer = null; resume(); }, 100);
+      });
+      blockedObserver.observe(document.body, {subtree:true, childList:true, attributes:true, attributeFilter:['class','style','hidden','open']});
+    }
+  };
+  const reloadMessage = result => result === 'blocked' ? 'To update, leave the current run or editor' : 'Update could not reload. Try again.';
+  const failedReloadFeedback = () => {
+    blockedUpdate = false; stopBlockedWatch();
+    button.textContent = reloadMessage('failed');
+    button.title = 'Your current session stays open. Try updating again when you are ready.';
+    button.setAttribute('aria-label', button.textContent);
+  };
+  const refreshBlockedFeedback = () => {
+    if (!blockedUpdate || !button?.isConnected) return;
+    try {
+      if (!isVisible(document) || !isIdle(document) || !canReload()) return;
+      blockedUpdate = false; stopBlockedWatch();
+      button.textContent = 'Update available';
+      button.title = button.__updateTitle;
+      button.setAttribute('aria-label', 'Update available. Reload game.');
+    } catch { /* Keep the explicit safe-menu instruction. */ }
+  };
+  const clearOldCopyNotice = () => {
+    const node = oldCopyNotice; oldCopyNotice = null;
+    if (!node) return;
+    const restore = node.contains?.(document.activeElement);
+    node.remove();
+    try { if (restore && node.__previousFocus?.isConnected) node.__previousFocus.focus(); } catch { /* Best-effort focus restoration. */ }
+  };
+  const refreshOldCopyNotice = () => {
+    if (suppressReminder()) { clearOldCopyNotice(); return; }
+    try {
+      const blocked = [...(document.querySelectorAll?.('dialog[open], [role="dialog"][aria-modal="true"]') || [])]
+        .some(node => node.isConnected && (node.open || node.getClientRects?.().length));
+      if (disposed || !oldCopyConfirmed || oldCopyCount < 2 || oldCopyDismissed || dialog || blocked ||
+          !document.body || !isVisible(document) || !isIdle(document) || !button?.isConnected) { clearOldCopyNotice(); return; }
+      if (oldCopyNotice?.isConnected) return;
+      const node = document.createElement('aside');
+      node.__previousFocus = document.activeElement;
+      node.dataset.siteOldCopy = 'notice'; node.setAttribute('role', 'status');
+      Object.assign(node.style, {position:'fixed', right:'16px', bottom:'80px', zIndex:'10000',
+        maxWidth:'min(420px, calc(100vw - 32px))', maxHeight:'calc(100dvh - 112px)', overflow:'auto',
+        boxSizing:'border-box', padding:'12px', background:'var(--surface-secondary-color, #212b58)',
+        color:'var(--text-color, #fff)', font:'20px/1.3 ForcedSquare, sans-serif'});
+      const text = document.createElement('p');
+      text.textContent = 'This copy is still on an older version. Refreshing may not update it.';
+      text.style.margin = '0 0 10px';
+      const open = document.createElement('a');
+      open.href = UPDATED_GAME_URL; open.target = '_blank'; open.rel = 'noopener noreferrer';
+      open.textContent = 'Open updated game'; open.setAttribute('aria-label', 'Open updated game in a new tab'); themeControl(open);
+      open.addEventListener('click', event => {
+        try { if (!isVisible(document) || !isIdle(document) || !canReload()) event.preventDefault(); }
+        catch { event.preventDefault(); }
+      });
+      const dismiss = document.createElement('button'); dismiss.type = 'button'; dismiss.textContent = 'Dismiss'; themeControl(dismiss);
+      dismiss.addEventListener('click', () => {
+        oldCopyDismissed = true;
+        const restore = node.contains?.(document.activeElement) || document.activeElement === dismiss || document.activeElement === open;
+        clearOldCopyNotice();
+        if (restore && !document.activeElement?.isConnected && button?.isConnected) button.focus();
+      });
+      node.append(text, open, dismiss); document.body.append(node); oldCopyNotice = node;
+    } catch { clearOldCopyNotice(); }
+  };
+  const clearDialog = () => {
+    if (!dialog) return;
+    const { node, previousFocus } = dialog;
+    dialog = null;
+    try { node.close?.(); } catch { /* Removal still releases the dialog. */ }
+    node.remove();
+    try { if (previousFocus?.isConnected) previousFocus.focus(); } catch { /* Focus is best-effort. */ }
+  };
+  const publish = (next, recover = true) => {
+    if (compatibility && Object.keys(next).every(key => compatibility[key] === next[key])) return;
+    compatibility = Object.freeze(next);
+    const failed = () => {
+      if (recover && !disposed && compatibility === next) failOpen('callback-failed', false);
+    };
+    try { Promise.resolve(onCompatibilityChange(next)).catch(failed); } catch { failed(); }
+  };
+  const failOpen = (reason = 'check-failed', recover = true) => {
+    clearDialog();
+    pendingManifest = latestManifest = null;
+    oldCopyConfirmed = false; clearOldCopyNotice();
+    offlineMinimum = null;
+    publish({ onlineAllowed: true, revision, latestRevision: null, minimumSupportedRevision: null, reason }, recover);
+  };
+  const reloadInPlace = (event, launcherCommit, ownDialog = null, targetRevision = latestManifest?.revision) => {
+    let previousUrl = null;
+    const restore = () => {
+      try { if (ownDialog?.isConnected) { ownDialog.showModal(); ownDialog.querySelector?.('button')?.focus(); } } catch { /* Keep the current session. */ }
+    };
+    try {
+      // The updater's own modal is not an unsaved game. All other parent guards remain authoritative.
+      ownDialog?.close();
+      if (!isVisible(document) || !isIdle(document) || !canReload()) { event?.preventDefault(); restore(); return 'blocked'; }
+      const location = document.defaultView?.location;
+      if (typeof location?.reload !== 'function') throw Error('Reload unavailable');
+      if (launcherCommit) expireLauncherDiscovery(document, launcherCommit);
+      document.defaultView?.__polytrackExitGuard?.allowReload();
+      // Attribution is optional and must never bypass reload safety or change host/path.
+      const tracked = updateTrackingUrl(location.href, targetRevision);
+      if (tracked && typeof document.defaultView?.history?.replaceState === 'function') {
+        try {
+          previousUrl = location.href;
+          document.defaultView.history.replaceState(document.defaultView.history.state, '', tracked);
+        } catch { previousUrl = null; }
+      }
+      location.reload();
+      return 'reloading';
+    } catch {
+      if (previousUrl) { try { document.defaultView.history.replaceState(document.defaultView.history.state, '', previousUrl); } catch {} }
+      document.defaultView?.__polytrackExitGuard?.cancelReload();event?.preventDefault(); restore(); return 'failed';
+    }
+  };
+  const applyCompatibility = (data) => {
+    // The optional manifest field is dormant when absent. No remote navigation URL is accepted.
+    const minimum = data.minimumSupportedRevision;
+    if (minimum !== undefined && (!validRevision(minimum) || minimum > data.revision)) {
+      throw new TypeError('Invalid minimumSupportedRevision');
+    }
+    const unsupported = minimum !== undefined && revision < minimum;
+    const state = { onlineAllowed: !unsupported, revision, latestRevision: data.revision,
+      minimumSupportedRevision: minimum ?? null,
+      reason: unsupported ? 'unsupported' : minimum === undefined ? 'inactive' : 'supported' };
+    if (!unsupported) { clearDialog(); offlineMinimum = null; publish(state); return; }
+    const stayOffline = () => {
+      offlineMinimum = minimum;
+      clearDialog();
+      publish({ ...compatibility, onlineAllowed: false, minimumSupportedRevision: minimum, reason: 'offline-selected' });
+    };
+    if (offlineMinimum === minimum) { publish({ ...state, reason: 'offline-selected' }); return; }
+    if (dialog?.minimum !== minimum) {
+      clearDialog();
+      const node = document.createElement('dialog');
+      dialog = { node, minimum, previousFocus: document.activeElement };
+      node.dataset.siteCompatibility = 'unsupported';
+      node.setAttribute('aria-labelledby', 'pt-site-compatibility-title');
+      node.setAttribute('aria-describedby', 'pt-site-compatibility-description');
+      const title = document.createElement('h2');
+      title.id = 'pt-site-compatibility-title';
+      title.textContent = 'Update needed for online play';
+      const description = document.createElement('p');
+      description.id = 'pt-site-compatibility-description';
+      const launcherCommit = automaticLauncherCommit(document);
+      const reloadHere = launcherCommit !== null || canUpdateHere(document, endpoint);
+      description.textContent = reloadHere
+        ? 'This version is no longer supported for online play. Reload to update from any menu, outside a run, replay or editor, or stay here offline. Your saved runs stay on this device.'
+        : 'This version is no longer supported for online play. Open the updated game in a new tab, or stay here offline. Your current session will not reload.';
+      const feedback = document.createElement('span');
+      feedback.setAttribute('role', 'status'); feedback.hidden = true;
+      Object.assign(feedback.style, {display: 'none', marginTop: '10px'});
+      description.append(feedback);
+      themeDialog(node, title, description);
+      const actions = document.createElement('div');
+      Object.assign(actions.style, { display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: '10px' });
+      const open = document.createElement(reloadHere ? 'button' : 'a');
+      if (reloadHere) {
+        open.type = 'button'; open.textContent = 'Reload to update';
+        open.addEventListener('click', event => {
+          const result = reloadInPlace(event, launcherCommit, node, data.revision);
+          if (result !== 'reloading') { feedback.hidden = false; feedback.style.display = 'block'; feedback.textContent = reloadMessage(result); }
+        });
+      } else {
+        open.href = UPDATED_GAME_URL; open.target = '_blank'; open.rel = 'noopener noreferrer';
+        open.textContent = 'Open updated game';
+        open.setAttribute('aria-label', 'Open updated game in a new tab');
+      }
+      themeControl(open);
+      const offline = document.createElement('button');
+      offline.type = 'button';
+      offline.textContent = 'Stay here offline';
+      themeControl(offline);
+      offline.addEventListener('click', stayOffline);
+      node.addEventListener('cancel', event => { event.preventDefault(); stayOffline(); });
+      const trapTab = event => {
+        if (event.key !== 'Tab') return;
+        if (!node.contains(document.activeElement) || !event.shiftKey && document.activeElement === offline) {
+          event.preventDefault(); open.focus();
+        } else if (event.shiftKey && document.activeElement === open) {
+          event.preventDefault(); offline.focus();
+        }
+      };
+      node.__trapCompatibilityTab = trapTab;
+      node.addEventListener('keydown', event => {
+        event.stopPropagation(); trapTab(event);
+      });
+      actions.append(open, offline);
+      node.append(title, description, actions);
+      document.body.append(node);
+      // Native dialog supplies modal semantics, focus containment and inert background.
+      // Unsupported dialog APIs fail open rather than emulate an inaccessible modal.
+      node.showModal();
+      offline.focus();
+    }
+    publish(state);
+  };
+  const resume = () => {
+    // The parent owns run/editor state. Recheck it on every transition, not just
+    // when a new manifest arrives, so an existing offer cannot follow a live run.
+    try {
+      const safe = !!document.body && isVisible(document) && isIdle(document);
+      if (button) { button.hidden = !safe || suppressReminder(); button.style.display = button.hidden ? 'none' : 'inline-block'; }
+      if (!safe || suppressReminder() || criticalUpdate()) dismissalMenu?.close();
+      if (!safe) {
+        clearOldCopyNotice();
+        if (dialog) { clearDialog(); pendingManifest = latestManifest; }
+        return;
+      }
+    } catch { if (button) button.hidden = true; failOpen(); return; }
+    refreshBlockedFeedback();
+    refreshOldCopyNotice();
+    if (disposed || !pendingManifest) return;
+    try {
+      if (!document.body || !isVisible(document) || !isIdle(document)) return;
+      const data = pendingManifest;
+      pendingManifest = null;
+      // Invalid policy must not suppress an otherwise valid optional update offer.
+      try { applyCompatibility(data); } catch { failOpen(); }
+      oldCopyConfirmed = false;
+      if (data.revision <= revision && !snapshotUpdate()) { clearOldCopyNotice(); stopBlockedWatch(); blockedUpdate = false; dismissalMenu?.dispose(); dismissalMenu=null; button?.remove(); button = null; return; }
+      if (suppressReminder()) { dismissalMenu?.close(); if (button) { button.hidden = true; button.style.display='none'; } clearOldCopyNotice(); return; }
+      const launcherCommit = automaticLauncherCommit(document);
+      const reloadHere = launcherCommit !== null || canUpdateHere(document, endpoint);
+      const minimum = data.minimumSupportedRevision;
+      if (!reloadHere && data.revision > revision && (minimum === undefined || validRevision(minimum) && minimum <= data.revision)) {
+        oldCopyCount = confirmedOldCopyBoot(document, revision, now); oldCopyConfirmed = true;
+      }
+      if (button?.isConnected) { refreshOldCopyNotice(); return; }
+      dismissalMenu?.dispose();
+      button = document.createElement(reloadHere ? 'button' : 'a');
+      if (reloadHere) button.type = 'button';
+      else { button.href = UPDATED_GAME_URL; button.target = '_blank'; button.rel = 'noopener noreferrer'; }
+      button.textContent = 'Update available';
+      button.setAttribute('aria-label', reloadHere ? 'Update available. Reload game.' : 'Update available. Open official game in a new tab.');
+      button.title = launcherCommit ? 'Reload this launcher to check the latest CDN release. Your saved runs stay here.' :
+        reloadHere ? 'Reload this page when you are ready.' : 'Open the official updated game. This copy and your current session will stay open.';
+      button.__updateTitle = button.title;
+      button.dataset.siteUpdate = 'available';
+      themeControl(button);
+      Object.assign(button.style, { position: 'fixed', right: '16px', bottom: '16px', maxWidth: 'calc(100vw - 32px)',
+        zIndex: '2147483647', fontFamily: 'ForcedSquare, sans-serif' });
+      button.addEventListener('click', event => {
+        try {
+          if (reloadHere) {
+            const result = reloadInPlace(event, launcherCommit, null, data.revision);
+            if (result === 'blocked') blockedFeedback();
+            else if (result === 'failed') failedReloadFeedback();
+            return;
+          }
+          if (!isVisible(document) || !isIdle(document) || !canReload()) { event?.preventDefault(); return; }
+        } catch { event?.preventDefault(); failOpen(); }
+      });
+      document.body.append(button);
+      dismissalMenu = bindUpdateDismissal({document,button,preference:reminder,enabled:()=>!criticalUpdate(),
+        onDismiss:()=>{explicitOffer=false; button.hidden=true; button.style.display='none'; clearOldCopyNotice();
+          const body=document.body, prior=body.getAttribute?.('tabindex'); body.setAttribute('tabindex','-1'); body.focus?.();
+          if (prior == null) body.removeAttribute?.('tabindex'); else body.setAttribute('tabindex',prior);}});
+      refreshOldCopyNotice();
+    } catch { /* Keep gameplay independent of notification UI. */ }
+  };
+  const check = async ({force = false} = {}) => {
+    if (disposed) return;
+    if (force === true) explicitOffer = true;
+    resume();
+    // Discovery is safe during a race; displaying prompts and reloading remain idle-only.
+    try { if (!isVisible(document)) return; }
+    catch { failOpen(); return; }
+    if (inFlight) return inFlight;
+    let startedAt;
+    try { startedAt = now(); } catch { failOpen(); return; }
+    if (force !== true && startedAt - lastCheckedAt < intervalMs) return;
+    lastCheckedAt = startedAt;
+    inFlight = Promise.resolve().then(async () => {
+      const read = async url => {
+        if (disposed) throw Error('Update check disposed');
+        controller = new AbortController();
+        let timeout = null;
+        try {
+          const request = async () => {
+            const response = await fetchImpl(url.href, {method: 'GET', credentials: 'omit',
+              mode: url.origin === new URL(document.baseURI).origin ? 'same-origin' : 'cors',
+              redirect: 'error', referrerPolicy: 'no-referrer', cache: 'no-store',
+              headers: {Accept: 'application/json'}, signal: controller.signal});
+            return readManifest(response);
+          };
+          return await Promise.race([request(), new Promise((_, reject) => {
+            cancelRequest = () => reject(new Error('Update check disposed'));
+            timeout = schedule(() => { controller?.abort(); reject(new Error('Update request timed out')); }, timeoutMs);
+          })]);
+        } finally {
+          if (timeout !== null) unschedule(timeout);
+          cancelRequest = null;
+        }
+      };
+      const version = async url => {
+        const data = await read(url);
+        if (!validRevision(data?.revision)) throw new Error('Invalid update manifest');
+        return data;
+      };
+      try {
+        if (disposed) return;
+        const url = new URL(endpoint, document.baseURI);
+        const sameOrigin = url.origin === new URL(document.baseURI).origin;
+        if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password ||
+            (!sameOrigin && url.href !== CANONICAL_SITE_VERSION_URL)) throw new Error('Disallowed update endpoint');
+        const canonical = url.href === CANONICAL_SITE_VERSION_URL;
+        url.searchParams.set('_updateCheck', String(startedAt));
+        let data, discoveredSnapshot=null;
+        try { data = await version(url); }
+        catch (error) {
+          if (disposed || !canonical) throw error;
+          const pointer = await read(new URL(CANONICAL_RELEASE_POINTER_URL));
+          data = await version(releaseVersionUrl(pointer));
+          discoveredSnapshot=snapshotGeneration(pointer.snapshotDirectory);
+          if (!disposed && pointer.commit === automaticLauncherCommit(document)) {
+            // Reuse the existing credential-free check, never fetch just for age.
+            verifiedPointers.set(document, Object.freeze({...pointer}));
+            document.dispatchEvent(new Event('polytrack-release-publication'));
+          }
+        }
+        if (disposed) return;
+        // Reuse this check cadence and bounded static reader; no independent polling.
+        if(loadedSnapshotGeneration!==null && data.revision===revision){
+          discoveredSnapshot ??= snapshotGeneration(data.snapshotDirectory);
+          if(discoveredSnapshot===null){
+            try {
+              const pointerUrl=new URL('snapshot-current.json',url);
+              pointerUrl.searchParams.set('_updateCheck',String(startedAt));
+              discoveredSnapshot=snapshotGeneration((await read(pointerUrl))?.currentdir);
+            } catch { /* Optional data freshness never changes client compatibility. */ }
+          }
+        }
+        if(disposed)return;
+        latestSnapshotGeneration=discoveredSnapshot;
+        // A run/menu may start during fetch. Retain the result, independently of
+        // the network cooldown, until the parent reports a safe UI transition.
+        pendingManifest = latestManifest = data;
+        resume();
+      } catch {
+        // Update checks are best-effort and must not affect gameplay.
+        if (!disposed) failOpen();
+      } finally {
+        controller = null;
+        cancelRequest = null;
+      }
+    }).finally(() => { inFlight = null; });
+    return inFlight;
+  };
+  const scheduleNext = () => {
+    if (disposed) return;
+    try { timer = schedule(async () => { await check(); scheduleNext(); }, intervalMs); }
+    catch { failOpen(); }
+  };
+  const onVisibilityChange = () => { if (isVisible(document)) void check(); };
+  const onResume = () => { resume(); void check(); };
+  // Match the installed notice: modal keys and their dismissal keyup must not
+  // reach the game's document-level shortcuts. Native button defaults remain.
+  const held = new Set();
+  const guardDialogKey = event => {
+    const code = event.code || event.key;
+    if (dialog?.node.open || event.type === 'keyup' && held.has(code)) event.stopImmediatePropagation();
+    if (dialog?.node.open && event.type === 'keydown') {
+      held.add(code); dialog.node.__trapCompatibilityTab?.(event);
+    }
+    if (event.type === 'keyup') held.delete(code);
+  };
+  document.addEventListener('visibilitychange', onVisibilityChange);
+  for (const type of ['keydown', 'keyup']) document.defaultView?.addEventListener(type, guardDialogKey, true);
+  document.defaultView?.addEventListener('focus', onResume);
+  document.defaultView?.addEventListener('pageshow', onResume);
+  const handle = Object.freeze({ check, resume, getCompatibility: () => ({ ...compatibility }), dispose() {
+    if (disposed) return;
+    disposed = true;
+    held.clear();
+    stopBlockedWatch();
+    clearOldCopyNotice();
+    document.removeEventListener('visibilitychange', onVisibilityChange);
+    for (const type of ['keydown', 'keyup']) document.defaultView?.removeEventListener(type, guardDialogKey, true);
+    document.defaultView?.removeEventListener('focus', onResume);
+    document.defaultView?.removeEventListener('pageshow', onResume);
+    pendingManifest = null;
+    try { if (timer !== null) unschedule(timer); } catch { /* Disposal must still release compatibility. */ }
+    controller?.abort();
+    cancelRequest?.();
+    clearDialog();
+    publish({ onlineAllowed: true, revision, latestRevision: null, minimumSupportedRevision: null, reason: 'disposed' });
+    dismissalMenu?.dispose();
+    button?.remove();
+    installations.delete(document);
+  } });
+  installations.set(document, handle);
+  failOpen('inactive');
+  void check();
+  scheduleNext();
+  return handle;
+}
+
+export const installInstalledUpdateNotice = installInstalledRevisionNotice;

@@ -1,0 +1,40 @@
+{ "frames": [
+   {
+    "filename": "brachistochrone 0.ase",
+    "frame": { "x": 0, "y": 0, "w": 180, "h": 65 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 180, "h": 65 },
+    "sourceSize": { "w": 180, "h": 65 },
+    "duration": 200
+   },
+   {
+    "filename": "brachistochrone 1.ase",
+    "frame": { "x": 182, "y": 0, "w": 180, "h": 65 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 180, "h": 65 },
+    "sourceSize": { "w": 180, "h": 65 },
+    "duration": 166
+   },
+   {
+    "filename": "brachistochrone 2.ase",
+    "frame": { "x": 0, "y": 67, "w": 180, "h": 65 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 180, "h": 65 },
+    "sourceSize": { "w": 180, "h": 65 },
+    "duration": 1000
+   }
+ ],
+ "meta": {
+  "app": "http://www.aseprite.org/",
+  "version": "1.3-rc4-dev",
+  "image": "brachistochrone.png",
+  "format": "RGBA8888",
+  "size": { "w": 362, "h": 132 },
+  "scale": "1",
+  "frameTags": [
+  ]
+ }
+}

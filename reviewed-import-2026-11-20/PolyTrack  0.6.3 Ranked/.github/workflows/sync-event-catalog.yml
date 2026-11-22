@@ -1,0 +1,189 @@
+name: Manually sync public event catalog and bounded snapshots
+
+on:
+  # Scheduled reconciliation belongs to verify-runs.yml; this is the manual fallback.
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    # Release this lock before downstream snapshot/CDN jobs wait on their own locks.
+    concurrency:
+      group: public-repository-captures-${{ github.repository }}
+      cancel-in-progress: false
+    outputs:
+      publication_changed: ${{ steps.publication.outputs.changed }}
+    if: github.repository == 'StaticQuasar931/PolyTrack-0.6.3-Ranked' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Test conflict-safe publishing
+        run: node --test tools/push-public-capture.test.mjs tools/workflow-release-contract.test.mjs tools/workflow-capture-coordination.test.mjs
+      - name: Check Extra catalog, registry, and pins
+        # Local consistency check; fail before fetching or writing public captures.
+        run: node tools/extra-verification-check.mjs
+      - name: Test snapshot integrity and resumable capture
+        # Offline safeguards run before any production reads.
+        run: node --test --test-concurrency=2 tools/snapshot-lookup.test.mjs tools/public-snapshot-backup.test.mjs tools/published-snapshot-pages.test.mjs tools/public-event-totals-backup.test.mjs tools/snapshot-package.test.mjs tools/public-snapshot-client.test.mjs tools/track-snapshot-paging.test.mjs tools/update-public-snapshot.test.mjs tools/snapshot-export-auth.test.mjs tools/snapshot-export-auth-workflow.test.mjs tools/public-profile-replay-export.test.mjs tools/snapshot-retry-workflow.test.mjs tools/merge-frozen-event-catalog-workflow.test.mjs tools/sync-event-catalog.test.mjs tools/capture-overall-projection.test.mjs tools/overall-projection-bundle.test.mjs tools/offline-overall.test.mjs tools/rebuild-snapshot-overall.test.mjs tools/captured-source-reuse.test.mjs
+      - name: Check explicit manual capture coordination
+        id: coordination
+        env:
+          CAPTURE_REQUESTED_AT: ''
+          CAPTURE_SCHEDULE: ''
+        run: node tools/workflow-capture-coordination.mjs check
+      # Workflow-private state, NOT secret storage: only public binding IDs and
+      # retry timestamps/counters. Never cache the raw export checkpoint or repo.
+      - name: Restore private replay retry ledger
+        continue-on-error: true
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v4.2.3
+        with:
+          path: ${{ runner.temp }}/polytrack-replay-retries/history.json
+          key: replay-retries-v1-${{ github.repository_id }}-${{ github.event.repository.default_branch }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            replay-retries-v1-${{ github.repository_id }}-${{ github.event.repository.default_branch }}-
+      - name: Prepare validated private replay retry checkpoint
+        id: retry_prepare
+        run: |
+          cat > "$RUNNER_TEMP/polytrack-replay-retry-cache.mjs" <<'NODE'
+          import fs from 'node:fs/promises';
+          import path from 'node:path';
+          import {randomUUID} from 'node:crypto';
+          const PROJECT='polytrack-052',MAX_BYTES=16*1024*1024,MAX_RECORDS=20000,MAX_AGE=30*86400000;
+          const HASH=/^[a-f0-9]{64}$/;
+          const REASONS=new Set(['missing','binding-mismatch','upload-conflict','output-too-large']);
+          const object=value=>value&&typeof value==='object'&&!Array.isArray(value);
+          export function ledger(source,now=Date.now()){
+            const records={};let count=0;
+            if(source?.schemaVersion!==1||source.projectId!==PROJECT||!object(source.records))return {schemaVersion:1,projectId:PROJECT,records};
+            // Keep the most recent bounded set; unknown fields are never copied.
+            for(const [signature,row] of Object.entries(source.records).slice(0,MAX_RECORDS*2)
+              .sort((a,b)=>(Number(b[1]?.checkedAt)||0)-(Number(a[1]?.checkedAt)||0))){
+              if(count>=MAX_RECORDS)break;
+              let binding;try{binding=JSON.parse(signature);}catch{continue;}
+              if(!Array.isArray(binding)||binding.length!==5||JSON.stringify(binding)!==signature||
+                !HASH.test(binding[0]||'')||!HASH.test(binding[1]||'')||!HASH.test(binding[4]||'')||
+                !Number.isSafeInteger(binding[2])||binding[2]<1||!Number.isSafeInteger(binding[3])||binding[3]<1||binding[3]>4000000||
+                !object(row)||row.available!==false||!REASONS.has(row.reason)||
+                !Number.isSafeInteger(row.checkedAt)||row.checkedAt<0||row.checkedAt>now||now-row.checkedAt>MAX_AGE)continue;
+              if(Object.hasOwn(row,'bindingTimeMs')&&row.bindingTimeMs!==null&&(!Number.isSafeInteger(row.bindingTimeMs)||row.bindingTimeMs<=0))continue;
+              records[signature]={signature,available:false,reason:row.reason,checkedAt:row.checkedAt,
+                attempts:Number.isSafeInteger(row.attempts)&&row.attempts>0?Math.min(32,row.attempts):1,
+                ...(Object.hasOwn(row,'bindingTimeMs')?{bindingTimeMs:row.bindingTimeMs}:{})};count++;
+            }
+            return {schemaVersion:1,projectId:PROJECT,records};
+          }
+          async function read(file){
+            try{const stat=await fs.lstat(file);if(!stat.isFile()||stat.size>MAX_BYTES)return null;return JSON.parse(await fs.readFile(file,'utf8'));}catch{return null;}
+          }
+          async function write(file,value){
+            const text=JSON.stringify(value)+'\n';if(Buffer.byteLength(text)>MAX_BYTES)throw Error('Private retry ledger exceeds limit');
+            await fs.mkdir(path.dirname(file),{recursive:true});
+            const temporary=file+'.'+randomUUID()+'.tmp';await fs.writeFile(temporary,text,{flag:'wx',mode:0o600});await fs.rename(temporary,file);
+          }
+          export async function run(mode,cacheFile,progressFile,now=Date.now()){
+            const cached=ledger(await read(cacheFile),now),raw=await read(progressFile);
+            const progress=raw?.schemaVersion===2&&raw.projectId===PROJECT?raw:null;
+            if(mode==='restore'){
+              if(!Object.keys(cached.records).length)return;
+              // No profile cursor, covered flag, or completeness may come from cache.
+              const next=progress||{schemaVersion:2,projectId:PROJECT};
+              const local=object(next.raceExport?.records)?next.raceExport.records:{};
+              next.raceExport={...next.raceExport,records:{...cached.records,...local}};
+              await write(progressFile,next);
+            }else if(mode==='save'){
+              const next=progress?ledger({schemaVersion:1,projectId:PROJECT,records:progress.raceExport?.records},now):cached;
+              await write(cacheFile,next);
+            }else throw Error('Unknown retry ledger operation');
+          }
+          if(['restore','save'].includes(process.argv[2]))await run(process.argv[2],process.argv[3],process.argv[4]);
+          NODE
+          node "$RUNNER_TEMP/polytrack-replay-retry-cache.mjs" restore "$RUNNER_TEMP/polytrack-replay-retries/history.json" local-reports/snapshot-staging/export-progress.json
+      - name: Capture public event assignments
+        id: catalog
+        if: steps.coordination.outputs.reuse != 'true'
+        env:
+          FIREBASE_VERIFIER_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_VERIFIER_SERVICE_ACCOUNT }}
+        run: |
+          node --input-type=module <<'CATALOG'
+          import {checkWorkerCaptureAccess} from './tools/check-worker-capture-access.mjs';
+          import {syncPublicEventCatalog} from './tools/sync-event-catalog.mjs';
+          import {reportCaptureOutcome} from './tools/update-public-snapshot.mjs';
+          await checkWorkerCaptureAccess();
+          await reportCaptureOutcome(await syncPublicEventCatalog());
+          CATALOG
+      - name: Capture bounded public snapshots
+        id: snapshot
+        if: steps.coordination.outputs.reuse != 'true' && steps.catalog.outputs.capture_status == 'complete'
+        # Only changed/missing trusted normal replays are fetched; bounded to 100 documents.
+        # Explicit manual recovery uses the same bounded capture as the scheduled pipeline.
+        # The same private signer is scoped only to capture steps, never cache, tests or publishing.
+        env:
+          FIREBASE_VERIFIER_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_VERIFIER_SERVICE_ACCOUNT }}
+        run: node tools/update-public-snapshot.mjs --refresh-replays
+      - name: Index all saved frozen event periods
+        if: always() && !cancelled() && steps.catalog.outcome == 'success' && steps.catalog.outputs.capture_status == 'complete'
+        # Local files only, including catalog-only and failed-capture runs; staging is optional.
+        run: node tools/merge-frozen-event-catalog.mjs
+      - name: Retain validated private replay retry ledger
+        id: retry_checkpoint
+        if: always() && !cancelled() && steps.retry_prepare.outcome == 'success' && (steps.snapshot.outcome == 'success' || steps.snapshot.outcome == 'failure')
+        run: |
+          node "$RUNNER_TEMP/polytrack-replay-retry-cache.mjs" save "$RUNNER_TEMP/polytrack-replay-retries/history.json" local-reports/snapshot-staging/export-progress.json
+          echo 'ready=true' >> "$GITHUB_OUTPUT"
+      - name: Save private replay retry ledger
+        if: always() && !cancelled() && steps.retry_checkpoint.outputs.ready == 'true'
+        continue-on-error: true
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v4.2.3
+        with:
+          path: ${{ runner.temp }}/polytrack-replay-retries/history.json
+          key: replay-retries-v1-${{ github.repository_id }}-${{ github.event.repository.default_branch }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Record the successful bounded capture binding
+        if: success() && steps.catalog.outputs.capture_status == 'complete' && steps.snapshot.outputs.capture_status == 'complete'
+        env:
+          CAPTURE_STARTED_AT: ${{ steps.coordination.outputs.started_at }}
+        run: node tools/workflow-capture-coordination.mjs record
+      - name: Commit changed assignments
+        id: publication
+        # A successful step can be explicitly deferred; never publish that capture.
+        if: success() && steps.catalog.outputs.capture_status == 'complete' && steps.snapshot.outputs.capture_status == 'complete'
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          git add -- events/public-catalog.json
+          if [ -f tools/workflow-capture-state.json ]; then
+            git add -- tools/workflow-capture-state.json
+          fi
+          if [ -f snapshot-current.json ]; then
+            node tools/build-overall-rank-history.mjs
+            git add -- tools/overall-rank-history.json
+            node tools/build-event-standings-preview.mjs
+            git add -- events/standings-preview.json
+            git add -- index.html snapshot-current.json
+            git add -A -- ':(glob)public-snapshots[0-9]*/**'
+          fi
+          if git diff --cached --quiet; then
+            echo "Public static backups are current."
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Sync public ranked snapshots"
+          node tools/push-public-capture.mjs
+          echo 'changed=true' >> "$GITHUB_OUTPUT"
+
+  publish_cdn_release:
+    needs: sync
+    if: needs.sync.result == 'success' && needs.sync.outputs.publication_changed == 'true'
+    permissions:
+      contents: write
+    uses: ./.github/workflows/publish-cdn-release.yml

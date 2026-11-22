@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "chunk_bytes": 47185920,
+  "files": {
+    "Build/Build.data": {
+      "size": 412589720,
+      "sha256": "e3fd19183688cf12f460e92edb5fd5e205bf277419aa42b133cbbf1b0b066b76",
+      "mime": "application/octet-stream",
+      "parts": [
+        {
+          "path": "Build/Build.data.part0000",
+          "size": 47185920,
+          "sha256": "a316e9e1b2bfdb1d6537ea15e6bb982ef89184bb83bf19e2342960d502b57178"
+        },
+        {
+          "path": "Build/Build.data.part0001",
+          "size": 47185920,
+          "sha256": "e56c16320d33ca138798cbe40867930b5a9c76c04a6d5dc1679a8c73b8d25dc4"
+        },
+        {
+          "path": "Build/Build.data.part0002",
+          "size": 47185920,
+          "sha256": "b65b8e5737bffece58539c67c4801d252b3248a1aa147efc4a4dbd2f0de3d739"
+        },
+        {
+          "path": "Build/Build.data.part0003",
+          "size": 47185920,
+          "sha256": "111529672d6a87f59493943e18ef8b4df20271947793f0ff05eb95e875e865f9"
+        },
+        {
+          "path": "Build/Build.data.part0004",
+          "size": 47185920,
+          "sha256": "bb462ade319c98134fdbb6b4daeb43ee7090add7629cc7f6e3b3c736a5c6743c"
+        },
+        {
+          "path": "Build/Build.data.part0005",
+          "size": 47185920,
+          "sha256": "6473b907b8e0a67350acef19f30ce3f9aaee1e71afcac7c9db80e57505cc74e6"
+        },
+        {
+          "path": "Build/Build.data.part0006",
+          "size": 47185920,
+          "sha256": "d2e49e8fa58c9ff1852baa677856129a278df2878f8af5fdcbcb9857eb432deb"
+        },
+        {
+          "path": "Build/Build.data.part0007",
+          "size": 47185920,
+          "sha256": "5a0d8f3cb98e43874e1f1f78fc377b8f6d2bfd2fdd72f8bab0696ac4c09ab59a"
+        },
+        {
+          "path": "Build/Build.data.part0008",
+          "size": 35102360,
+          "sha256": "1cfc86ed04e4fd06f63110bdd47fb04167aa57e3264a559c25b2547b99f1af03"
+        }
+      ]
+    }
+  }
+}

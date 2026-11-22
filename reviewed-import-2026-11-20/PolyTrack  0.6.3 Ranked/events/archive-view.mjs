@@ -1,0 +1,548 @@
+const KIND_LABELS = Object.freeze({
+  daily: 'Daily',
+  weekly: 'Weekly',
+  kodub: 'Kodub weekly',
+  custom: 'Event'
+});
+const PERMANENT_ROLLING_ID = 'permanent-rolling-hills';
+
+function finiteInteger(value, fallback = 0) {
+  return Number.isSafeInteger(value) ? value : fallback;
+}
+
+function snapshotFor(snapshots, id) {
+  if (snapshots instanceof Map) return snapshots.get(id);
+  return snapshots && typeof snapshots === 'object' ? snapshots[id] : undefined;
+}
+
+function validEntries(snapshot) {
+  return Array.isArray(snapshot?.entries)
+    ? snapshot.entries.filter(row => row && typeof row === 'object')
+    : [];
+}
+
+function snapshotMatchesPeriod(snapshot, period) {
+  if (!snapshot || !Array.isArray(snapshot.entries)) return false;
+  if (!period.trackId && !snapshot.period) return true;
+  return snapshot.period?.id === period.id &&
+    snapshot.period.trackId === period.trackId &&
+    snapshot.period.kind === period.kind;
+}
+
+function isPending(row) {
+  return row.pending === true || row.verified === false || row.runVerified === false || row.eventRpEligible === false ||
+    ['status', 'verificationStatus'].some(field => row[field] !== undefined && row[field] !== 'verified');
+}
+
+export function archiveSnapshotState(period, snapshot) {
+  if (!snapshot) return period.historyOnly ? 'selection-only' : 'unavailable';
+  if (!snapshotMatchesPeriod(snapshot, period)) return 'mismatched';
+  if (snapshot.archived !== true) return 'non-final';
+  if (snapshot.complete === false || snapshot.sourceComplete === false || snapshot.publicationPending === true ||
+      Number.isSafeInteger(snapshot.totalEntries) && snapshot.totalEntries > snapshot.entries.length ||
+      snapshot.pagination?.hasMore === true) return 'partial-final';
+  return 'final';
+}
+
+function racerIdentity(row, index) {
+  return typeof row.accountId === 'string' && row.accountId ? `account:${row.accountId}` : `anonymous:${index}`;
+}
+
+function dedupeVerifiedEntries(snapshot) {
+  const best = new Map();
+  for (const [index, row] of validEntries(snapshot).entries()) {
+    if (isPending(row) || !Number.isSafeInteger(row.timeMs) || row.timeMs <= 0) continue;
+    const key = racerIdentity(row, index);
+    const prior = best.get(key);
+    const time = Number.isFinite(row.timeMs) && row.timeMs > 0 ? row.timeMs : Number.POSITIVE_INFINITY;
+    const priorTime = Number.isFinite(prior?.timeMs) && prior.timeMs > 0 ? prior.timeMs : Number.POSITIVE_INFINITY;
+    if (!prior || time < priorTime) best.set(key, row);
+  }
+  const rows = [...best.values()].sort((a, b) => {
+    const aTime = Number.isFinite(a.timeMs) && a.timeMs > 0 ? a.timeMs : Number.POSITIVE_INFINITY;
+    const bTime = Number.isFinite(b.timeMs) && b.timeMs > 0 ? b.timeMs : Number.POSITIVE_INFINITY;
+    return aTime - bTime || String(a.accountId || '').localeCompare(String(b.accountId || ''));
+  });
+  let rank = 0;
+  return rows.map((row, index) => {
+    if (!index || row.timeMs !== rows[index - 1].timeMs) rank = index + 1;
+    return Object.freeze({ ...row, rank });
+  });
+}
+
+function safeCount(value) {
+  return Number.isSafeInteger(value) && value >= 0 ? value : null;
+}
+
+function declaredRacerCount(value) {
+  if (!value || typeof value !== 'object') return null;
+  return safeCount(value.racerCount) ?? safeCount(value.entrantCount);
+}
+
+export function archivePeriodCounts(period, snapshot) {
+  if (snapshot && !snapshotMatchesPeriod(snapshot, period)) snapshot = null;
+  const entries = validEntries(snapshot);
+  const verifiedEntries = dedupeVerifiedEntries(snapshot);
+  const pending = Array.isArray(snapshot?.pendingPlaybacks) ? snapshot.pendingPlaybacks.filter(row => row && typeof row === 'object') : [];
+  const uniqueRacers = new Set([...entries, ...pending].map(racerIdentity));
+  const declared = declaredRacerCount(snapshot) ?? declaredRacerCount(snapshot?.period) ??
+    declaredRacerCount(period) ?? (snapshot ? uniqueRacers.size : null);
+  const racers = snapshot ? Math.max(declared ?? 0, uniqueRacers.size) : declared;
+  const state = archiveSnapshotState(period, snapshot);
+  const rows = state === 'partial-final' ? verifiedEntries.map(row => ({ ...row,
+    rank: validEntries(snapshot).find(entry => entry.accountId === row.accountId && entry.timeMs === row.timeMs)?.rank || null })) : verifiedEntries;
+  return Object.freeze({ racers, verified: snapshot ? rows.length : null, verifiedEntries: rows,
+    winner: state === 'final' ? rows[0] || null : null });
+}
+
+export function normalizeArchivePeriods(periods) {
+  const unique = new Map();
+  for (const value of Array.isArray(periods) ? periods : []) {
+    if (!value || typeof value.id !== 'string' || !value.id || value.id === PERMANENT_ROLLING_ID || value.kind === 'permanent') continue;
+    const period = {
+      ...value,
+      kind: KIND_LABELS[value.kind] ? value.kind : 'custom',
+      startsAt: finiteInteger(value.startsAt),
+      endsAt: finiteInteger(value.endsAt),
+      maxRp: safeCount(value.maxRp)
+    };
+    if (period.endsAt <= 0) continue;
+    const prior = unique.get(period.id);
+    if (!prior || period.endsAt > prior.endsAt) unique.set(period.id, period);
+    else if (period.endsAt === prior.endsAt) unique.set(period.id, { ...prior, ...period });
+  }
+  return [...unique.values()].sort((a, b) => b.endsAt - a.endsAt || a.id.localeCompare(b.id));
+}
+
+export function catalogArchivePeriods(catalog, now = Date.now()) {
+  const periods = Array.isArray(catalog?.periods) ? catalog.periods : [];
+  const archives = Array.isArray(catalog?.archives) ? catalog.archives : [];
+  const ended = periods.filter(period => period?.archived === true || Number.isSafeInteger(period?.endsAt) && period.endsAt <= now);
+  return normalizeArchivePeriods([...ended, ...archives]);
+}
+
+export function paginateArchivePeriods(periods, page = 1, pageSize = 12) {
+  const items = Array.isArray(periods) ? periods : [];
+  const size = Number.isSafeInteger(pageSize) && pageSize > 0 ? pageSize : 12;
+  const pageCount = Math.max(1, Math.ceil(items.length / size));
+  const requested = Number.isSafeInteger(page) ? page : 1;
+  const currentPage = Math.min(pageCount, Math.max(1, requested));
+  const start = (currentPage - 1) * size;
+  return Object.freeze({
+    page: currentPage,
+    pageCount,
+    pageSize: size,
+    total: items.length,
+    periods: items.slice(start, start + size)
+  });
+}
+
+export function summarizeArchives(periods, snapshots = new Map()) {
+  const normalized = normalizeArchivePeriods(periods);
+  const kindCounts = { daily: 0, weekly: 0, kodub: 0, custom: 0 };
+  const racers = new Set();
+  let loadedEvents = 0;
+  let verifiedFinishes = 0;
+  for (const period of normalized) {
+    kindCounts[period.kind] += 1;
+    const snapshot = snapshotFor(snapshots, period.id);
+    if (archiveSnapshotState(period, snapshot) !== 'final') continue;
+    loadedEvents += 1;
+    const counts = archivePeriodCounts(period, snapshot);
+    verifiedFinishes += counts.verified;
+    for (const row of counts.verifiedEntries) if (typeof row.accountId === 'string' && row.accountId) racers.add(row.accountId);
+  }
+  return Object.freeze({
+    events: normalized.length,
+    loadedEvents,
+    verifiedFinishes,
+    uniqueRacers: racers.size,
+    kindCounts: Object.freeze(kindCounts)
+  });
+}
+
+function appendText(document, parent, tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  node.textContent = text;
+  parent.append(node);
+  return node;
+}
+
+function periodThumbnailUrl(period, document) {
+  for (const candidate of [period?.thumbnailUrl, period?.thumbnail, period?.coverUrl]) {
+    if (typeof candidate !== 'string' || !candidate.trim() || candidate.length > 2048) continue;
+    try {
+      const base = document.baseURI || globalThis.location?.href || 'https://polytrack.invalid/';
+      const url = new URL(candidate.trim(), base);
+      if ((url.protocol === 'http:' || url.protocol === 'https:') && !url.username && !url.password) return candidate.trim();
+    } catch {}
+  }
+  return '';
+}
+
+function formatDate(value, locale) {
+  if (!Number.isSafeInteger(value) || value <= 0) return 'Date unavailable';
+  try {
+    return new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric', year: 'numeric' }).format(value);
+  } catch {
+    return 'Date unavailable';
+  }
+}
+
+function archivePeriodSearchText(period, resolveName, locale) {
+  const instant = new Date(period.endsAt);
+  const isoDate = Number.isFinite(instant.getTime()) ? instant.toISOString().slice(0, 10) : '';
+  return [resolveName(period), period.label, period.kind, period.id, formatDate(period.endsAt, locale), isoDate]
+    .join(' ')
+    .toLocaleLowerCase();
+}
+
+function defaultTime(value) {
+  if (!Number.isFinite(value) || value <= 0) return 'No time';
+  const minutes = Math.floor(value / 60000);
+  const seconds = Math.floor(value % 60000 / 1000);
+  const milliseconds = Math.floor(value % 1000);
+  return `${minutes}:${String(seconds).padStart(2, '0')}.${String(milliseconds).padStart(3, '0')}`;
+}
+
+function renderStats(document, target, periods, snapshots) {
+  const summary = summarizeArchives(periods, snapshots);
+  const values = [
+    ['Events', summary.events],
+    ['Daily', summary.kindCounts.daily],
+    ['Weekly', summary.kindCounts.weekly],
+    ['Kodub weekly', summary.kindCounts.kodub],
+    ...(summary.loadedEvents ? [[summary.loadedEvents === summary.events ? 'Final verified finishes' : 'Verified finishes loaded', summary.verifiedFinishes]] : [])
+  ];
+  target.replaceChildren();
+  for (const [label, value] of values) {
+    const item = document.createElement('div');
+    item.className = 'sq-archive-stat';
+    appendText(document, item, 'dt', '', label);
+    appendText(document, item, 'dd', '', String(value));
+    target.append(item);
+  }
+  target.dataset.loadedEvents = String(summary.loadedEvents);
+  target.dataset.totalEvents = String(summary.events);
+}
+
+function renderRows(document, target, entries, formatTime, accountId, state = 'final', description = '') {
+  target.replaceChildren();
+  if (description) appendText(document, target, 'p', 'sq-archive-standings-status', description);
+  if (!entries.length) {
+    appendText(document, target, 'p', 'sq-archive-empty', state === 'final'
+      ? 'No verified finishes are present in the saved final standings.'
+      : 'No verified finishes are present in this saved capture. Final results are not known.');
+    return;
+  }
+  const list = document.createElement('ol');
+  list.className = 'sq-event-results';
+  for (const [index, row] of entries.entries()) {
+    const item = document.createElement('li');
+    appendText(document, item, 'b', '', Number.isSafeInteger(row.rank) && row.rank > 0 ? `#${row.rank}` : 'Rank unavailable');
+    const racer = appendText(document, item, 'span', '', typeof row.name === 'string' && row.name ? row.name : 'Racer');
+    if (accountId && row.accountId === accountId) {
+      racer.append(document.createTextNode(' '));
+      appendText(document, racer, 'strong', 'sq-event-you', 'YOU');
+    }
+    appendText(document, item, 'time', '', formatTime(row.timeMs));
+    appendText(document, item, 'strong', '', Number.isSafeInteger(row.rp) && row.rp >= 0
+      ? `${row.rp} RP${state === 'non-final' ? ' (saved)' : ''}` : 'RP unavailable');
+    list.append(item);
+  }
+  target.append(list);
+}
+
+/**
+ * Mounts a complete archive browser into root. Snapshots are fetched only when
+ * an event is expanded; pass a Map in snapshots to seed already-cached boards.
+ */
+export function mountArchiveView(root, options = {}) {
+  if (!root || typeof root.replaceChildren !== 'function') throw new TypeError('Archive root is required.');
+  const document = root.ownerDocument;
+  const periods = normalizeArchivePeriods(options.periods);
+  const enabledKinds = new Set(['daily', 'weekly', 'kodub']);
+  let searchQuery='',oldestFirst=false;
+  const visiblePeriods = () => {
+    const rows=periods.filter(period => (!['daily', 'weekly', 'kodub'].includes(period.kind) || enabledKinds.has(period.kind)) &&
+      (!searchQuery||archivePeriodSearchText(period,resolveName,locale).includes(searchQuery)));
+    return oldestFirst?rows.reverse():rows;
+  };
+  const snapshots = options.snapshots instanceof Map ? options.snapshots : new Map(Object.entries(options.snapshots || {}));
+  const loadSnapshot = typeof options.loadSnapshot === 'function' ? options.loadSnapshot : null;
+  const formatTime = typeof options.formatTime === 'function' ? options.formatTime : defaultTime;
+  const resolveName = typeof options.resolveName === 'function'
+    ? options.resolveName
+    : period => period.trackName || period.label || 'Archived event';
+  const renderThumbnail = typeof options.renderThumbnail === 'function' ? options.renderThumbnail : null;
+  const locale = options.locale;
+
+  const view = document.createElement('section');
+  view.className = 'sq-archive-view';
+  const toolbar = document.createElement('div');
+  toolbar.className = 'sq-archive-toolbar';
+  const intro = document.createElement('div');
+  appendText(document, intro, 'h3', '', options.title || 'Past events');
+  appendText(document, intro, 'p', '', 'Final event results. Imported tracks open a separate all-time leaderboard.');
+  toolbar.append(intro);
+  let jumpToMonth = () => {};
+  {
+    const dates = document.createElement('details');
+    dates.className = 'sq-archive-dates';
+    appendText(document, dates, 'summary', '', 'Browse older dates');
+    const form = document.createElement('form');
+    form.className = 'sq-event-archive-filter';
+    const label = appendText(document, form, 'label', '', 'Month ');
+    const input = document.createElement('input');
+    input.type = 'month';
+    input.name = 'archive-month';
+    input.value = typeof options.month === 'string' ? options.month : '';
+    input.setAttribute('aria-label', 'Archive month');
+    input.title = 'Grouped by event end month in UTC. Event dates are shown in your local time.';
+    label.append(input);
+    const submit = appendText(document, form, 'button', 'button', 'Go');
+    submit.type = 'submit';
+    for (const [text, offset] of [['Previous month', -1], ['Next month', 1], ['All saved events', 0]]) {
+      const button = appendText(document, form, 'button', 'button', text);
+      button.type = 'button';
+      button.addEventListener('click', () => {
+        if (!offset) { input.value = ''; jumpToMonth(''); return; }
+        if (!/^\d{4}-\d{2}$/.test(input.value)) return;
+        const [year, month] = input.value.split('-').map(Number);
+        input.value = new Date(Date.UTC(year, month - 1 + offset, 1)).toISOString().slice(0, 7);
+        jumpToMonth(input.value);
+      });
+    }
+    form.addEventListener('submit', event => {
+      event.preventDefault();
+      if (/^\d{4}-(0[1-9]|1[0-2])$/.test(input.value)) jumpToMonth(input.value);
+    });
+    dates.append(form);
+    toolbar.append(dates);
+  }
+  const filters = document.createElement('fieldset');
+  filters.className = 'sq-archive-kind-filters';
+  appendText(document, filters, 'legend', '', 'Show archived events');
+  for (const [kind, label] of [['daily', 'Daily'], ['weekly', 'Weekly'], ['kodub', 'Kodub weekly']]) {
+    const wrapper = document.createElement('label');
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.name = 'archive-kind';
+    input.value = kind;
+    input.checked = true;
+    input.addEventListener('change', () => {
+      if (input.checked) enabledKinds.add(kind);
+      else enabledKinds.delete(kind);
+      currentPage = 1;
+      renderPage();
+    });
+    wrapper.append(input, document.createTextNode(label));
+    filters.append(wrapper);
+  }
+  toolbar.append(filters);
+  const searchLabel=appendText(document,toolbar,'label','sq-archive-search','Find event');
+  const search=document.createElement('input');search.type='search';search.placeholder='Track, event or date';search.setAttribute('aria-label','Search saved events');
+  search.addEventListener('input',()=>{searchQuery=search.value.trim().toLocaleLowerCase();currentPage=1;renderPage();});searchLabel.append(search);
+  const orderLabel=appendText(document,toolbar,'label','sq-archive-order','Order');
+  const order=document.createElement('select');order.setAttribute('aria-label','Sort events by date');
+  for(const [value,label] of [['newest','Newest first'],['oldest','Oldest first']]){const option=document.createElement('option');option.value=value;option.textContent=label;order.append(option);}
+  order.addEventListener('change',()=>{oldestFirst=order.value==='oldest';currentPage=1;renderPage();});orderLabel.append(order);
+  view.append(toolbar);
+
+  const stats = document.createElement('dl');
+  stats.className = 'sq-archive-stats';
+  view.append(stats);
+
+  const events = document.createElement('div');
+  events.className = 'sq-archive-events';
+  view.append(events);
+
+  const pagination = document.createElement('nav');
+  pagination.className = 'sq-archive-pagination';
+  pagination.setAttribute('aria-label', 'Archived event pages');
+  view.append(pagination);
+
+  function renderPeriod(period) {
+    const details = document.createElement('details');
+    details.className = 'sq-archive-event';
+    details.dataset.archiveEventId = period.id;
+    details.dataset.eventKind = period.kind;
+    const summary = document.createElement('summary');
+    summary.className = 'sq-archive-event-summary';
+    summary.dataset.eventKind = period.kind;
+    const thumbnail = document.createElement('span');
+    thumbnail.className = 'sq-archive-thumb';
+    const thumbnailUrl = periodThumbnailUrl(period, document);
+    if (thumbnailUrl) {
+      const image = document.createElement('img');
+      image.src = thumbnailUrl;
+      image.alt = `${String(resolveName(period) || 'Archived event')} thumbnail`;
+      image.loading = 'lazy';
+      image.decoding = 'async';
+      image.addEventListener('error', () => {
+        const fallback = renderThumbnail?.(period);
+        if (fallback && typeof fallback.nodeType === 'number') thumbnail.replaceChildren(fallback);
+        else image.hidden = true;
+      }, { once: true });
+      thumbnail.append(image);
+    } else {
+      const artwork = renderThumbnail?.(period);
+      if (artwork && typeof artwork.nodeType === 'number') thumbnail.append(artwork);
+    }
+    summary.append(thumbnail);
+    const title = document.createElement('span');
+    title.className = 'sq-archive-title';
+    appendText(document, title, 'strong', '', String(resolveName(period) || 'Archived event'));
+    appendText(document, title, 'small', 'sq-archive-kind', KIND_LABELS[period.kind]);
+    appendText(document, title, 'small', 'sq-archive-date', `${formatDate(period.endsAt, locale)} | ${period.historyOnly
+      ? 'Saved selection; results unavailable' : period.maxRp === null ? 'Event RP limit unavailable' : `Up to ${period.maxRp} RP`}`);
+    summary.append(title);
+    const initialRacers = declaredRacerCount(period);
+    const count = appendText(document, summary, 'span', 'sq-archive-count',
+      initialRacers === null ? 'Open standings' : `${initialRacers} event ${initialRacers === 1 ? 'racer' : 'racers'}`);
+    summary.setAttribute('aria-label', `${KIND_LABELS[period.kind]}: ${String(resolveName(period) || 'Archived event')}; ${initialRacers === null ? 'standings not loaded' : `${initialRacers} event ${initialRacers === 1 ? 'racer' : 'racers'}`}`);
+    details.append(summary);
+    const board = document.createElement('div');
+    board.className = 'sq-archive-board';
+    appendText(document, board, 'p', 'sq-archive-track-details',
+      [period.author ? `Author: ${period.author}` : '', period.trackId ? `Track: ${period.trackId}` : '',
+        'Closed event. Practice uses the ordinary track leaderboard, not these historic event standings, and does not change its final Event RP.'].filter(Boolean).join(' | '));
+    const canImport = typeof options.onImportPeriod === 'function' && (period.kind === 'kodub' || period.kind === 'custom');
+    if (typeof options.onOpenPeriod === 'function' || canImport) {
+      const actions = document.createElement('div');
+      actions.className = 'sq-event-actions sq-archive-actions';
+      if (typeof options.onOpenPeriod === 'function') {
+        const open = appendText(document, actions, 'button', 'button', 'Track details / practice');
+        open.type = 'button';
+        open.addEventListener('click', () => {
+          const saved = snapshots.get(period.id);
+          options.onOpenPeriod(period, snapshotMatchesPeriod(saved, period) ? saved : null);
+        });
+      }
+      if (canImport) {
+        const importButton = appendText(document, actions, 'button', 'button', 'Import saved track');
+        importButton.type = 'button';
+        importButton.addEventListener('click', () => options.onImportPeriod(period));
+      }
+      board.append(actions);
+    }
+    const results = document.createElement('div');
+    results.className = 'sq-archive-standings';
+    board.append(results);
+    details.append(board);
+    events.append(details);
+
+    let loading = null;
+    const showSnapshot = snapshot => {
+      const counts = archivePeriodCounts(period, snapshot);
+      const state = archiveSnapshotState(period, snapshot);
+      details.dataset.standingsState = state;
+      snapshots.set(period.id, snapshot);
+      count.replaceChildren();
+      appendText(document, count, 'span', 'sq-archive-racer-count', `${counts.racers} event ${counts.racers === 1 ? 'racer' : 'racers'}`);
+      appendText(document, count, 'span', 'sq-archive-verified-count', `${counts.verified} verified${state === 'final' ? '' : ' in saved capture'}`);
+      if (counts.winner) {
+        const winnerName = typeof counts.winner.name === 'string' && counts.winner.name ? counts.winner.name : 'Racer';
+        appendText(document, count, 'span', 'sq-archive-winner', `Winner ${winnerName} ${formatTime(counts.winner.timeMs)}`);
+      }
+      const countLabel = `${KIND_LABELS[period.kind]}: ${String(resolveName(period) || 'Archived event')}; ${counts.racers} event ${counts.racers === 1 ? 'racer' : 'racers'}; ${counts.verified} verified${counts.winner ? `; winner ${counts.winner.name || 'Racer'}, ${formatTime(counts.winner.timeMs)}` : ''}`;
+      const description = state === 'final' ? 'Saved final event standings.' : state === 'partial-final'
+        ? 'Only part of the final event standings was saved. The full ranking and winner are unavailable.'
+        : 'Final standings are unavailable. Showing the last saved event capture, not final results. Saved RP and positions may have changed before closure.';
+      renderRows(document, results, counts.verifiedEntries, formatTime, options.accountId || '', state, description);
+      summary.setAttribute('aria-label', `${countLabel}; ${description}`);
+      renderStats(document, stats, visiblePeriods(), snapshots);
+    };
+    if (snapshots.has(period.id) && snapshotMatchesPeriod(snapshots.get(period.id), period)) showSnapshot(snapshots.get(period.id));
+
+    details.addEventListener('toggle', () => {
+      if (!details.open || snapshots.has(period.id) && snapshotMatchesPeriod(snapshots.get(period.id), period) || loading) return;
+      if (period.historyOnly) {
+        results.replaceChildren();
+        appendText(document, results, 'p', 'sq-archive-empty', 'The weekly selection was saved, but no final standings or Event RP were captured.');
+        return;
+      }
+      if (initialRacers === 0 && !loadSnapshot) {
+        results.replaceChildren();
+        appendText(document, results, 'p', 'sq-archive-empty', 'The saved event catalog lists 0 racers. No final standings have been loaded.');
+        return;
+      }
+      if (!loadSnapshot) {
+        results.replaceChildren();
+        appendText(document, results, 'p', 'sq-archive-error', 'Final standings are unavailable in this view.');
+        return;
+      }
+      results.replaceChildren();
+      appendText(document, results, 'p', 'sq-archive-loading', 'Loading final standings...');
+      loading = Promise.resolve().then(() => loadSnapshot(period))
+        .then(snapshot => {
+          if (!snapshotMatchesPeriod(snapshot, period)) throw new Error('Invalid archive snapshot');
+          showSnapshot(snapshot);
+        })
+        .catch(() => {
+          results.replaceChildren();
+          appendText(document, results, 'p', 'sq-archive-error', 'Final standings could not be loaded. Close and reopen this event to retry.');
+        })
+        .finally(() => { loading = null; });
+    });
+  }
+
+  let currentPage = 1;
+  const locationStatus = appendText(document, toolbar, 'p', 'sq-archive-location', 'All saved events');
+  locationStatus.setAttribute('role', 'status');
+  jumpToMonth = month => {
+    if (!month) {
+      currentPage = 1;
+      locationStatus.textContent = 'All saved events';
+      renderPage();
+    } else {
+      const rows = visiblePeriods();
+      const index = rows.findIndex(period => new Date(period.endsAt).toISOString().slice(0, 7) === month);
+      if (index < 0) locationStatus.textContent = `No saved events in ${month} match the current filters.`;
+      else {
+        renderPage(Math.floor(index / 12) + 1);
+        locationStatus.textContent = `Jumped to ${month}. Other months remain available.`;
+        const card = [...events.children].find(node => node.dataset.archiveEventId === rows[index].id);
+        card?.scrollIntoView?.({ block: 'nearest' });
+        card?.querySelector?.('summary')?.focus();
+      }
+    }
+    options.onMonthChange?.(month);
+  };
+  function renderPage(page = currentPage) {
+    const filtered = visiblePeriods();
+    const pageInfo = paginateArchivePeriods(filtered, page);
+    currentPage = pageInfo.page;
+    events.replaceChildren();
+    renderStats(document, stats, filtered, snapshots);
+    if (!pageInfo.total) {
+      appendText(document, events, 'p', 'sq-archive-empty', 'No archived events in this view.');
+      pagination.replaceChildren();
+      return;
+    }
+    for (const period of pageInfo.periods) renderPeriod(period);
+    pagination.replaceChildren();
+    if (pageInfo.pageCount < 2) return;
+    const previous = appendText(document, pagination, 'button', 'button', 'Previous');
+    previous.type = 'button';
+    previous.disabled = pageInfo.page === 1;
+    previous.addEventListener('click', () => renderPage(currentPage - 1));
+    const pageLabel = appendText(document, pagination, 'span', 'sq-archive-page-count', `Page ${pageInfo.page} of ${pageInfo.pageCount}`);
+    pageLabel.setAttribute('aria-live', 'polite');
+    const next = appendText(document, pagination, 'button', 'button', 'Next');
+    next.type = 'button';
+    next.disabled = pageInfo.page === pageInfo.pageCount;
+    next.addEventListener('click', () => renderPage(currentPage + 1));
+  }
+
+  pagination.addEventListener('sq:page', (event) => {
+    const page = Number(event.detail?.page);
+    if (Number.isSafeInteger(page) && page > 0) renderPage(page);
+  });
+  renderPage();
+
+  root.replaceChildren(view);
+  if (/^\d{4}-(0[1-9]|1[0-2])$/.test(options.month || '')) jumpToMonth(options.month);
+  return Object.freeze({ element: view, periods, snapshots });
+}

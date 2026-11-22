@@ -1,0 +1,92 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import {deflateSync} from 'node:zlib';
+import {prepareOwnEventGhost,EVENT_REPLAY_LIMITS} from './native-replay.mjs';
+function runtime(){
+ const source=fs.readFileSync(new URL('../main.bundle.js',import.meta.url),'utf8'),end=source.lastIndexOf('},n={};function i(e)');assert(end>0);
+ const context=vm.createContext({console,TextEncoder,TextDecoder,Uint8Array,Uint16Array,Int32Array,ArrayBuffer,DataView,atob,btoa,setTimeout,clearTimeout});
+ const factories=vm.runInContext('('+source.slice(source.indexOf('t={')+2,end+1)+')',context),cache={};
+ function require(id){if(cache[id])return cache[id].exports;const module=cache[id]={exports:{}};factories[id](module,module.exports,require);return module.exports;}
+ require.d=(exports,names)=>{for(const key in names)Object.defineProperty(exports,key,{get:names[key]});};require.o=(object,key)=>Object.hasOwn(object,key);require.r=exports=>Object.defineProperty(exports,'__esModule',{value:true});require.n=exports=>{const getter=exports?.__esModule?()=>exports.default:()=>exports;require.d(getter,{a:getter});return getter;};require.g=context;require.p='';return require;
+}
+function fixture(){const require=runtime(),session={accountId:'a'.repeat(64),trackId:'b'.repeat(64),periodId:'daily-fixture'},best={attemptId:'event-attempt',timeMs:20000};const recording=new (require(1754).A)();recording.recordFrame(0,{up:true,right:false,down:false,left:false,reset:false});recording.recordFrame(1500,{up:true,right:true,down:false,left:false,reset:false});const row={...session,...best,frames:best.timeMs,replay:recording.serialize(),carStyle:require(8724).A.default().serialize(),source:'local-event-recording'};return {require,session,best,row,recording};}
+test('own event ghost constructs real native recording, style and time without verification claims',()=>{
+ const f=fixture(),ghost=prepareOwnEventGhost(f);assert(ghost.recording instanceof f.require(1754).A);assert(ghost.carStyle instanceof f.require(8724).A);assert.equal(ghost.time.numberOfFrames,20000);assert.equal(ghost.recording.serialize(),f.row.replay);assert.equal(ghost.nickname,'Your event PB (local)');assert.equal(ghost.isSelf,true);assert.equal(ghost.verified,undefined);
+});
+test('ghost rejects another account, period, track, attempt, PB time or normal source',()=>{
+ for(const edit of [{accountId:'c'.repeat(64)},{periodId:'weekly-fixture'},{trackId:'d'.repeat(64)},{attemptId:'old'},{timeMs:19000,frames:19000},{source:'normal-recording'}]){const f=fixture();assert.throws(()=>prepareOwnEventGhost({...f,row:{...f.row,...edit}}));}
+});
+test('bounded native inflate rejects malformed data and compression bombs',()=>{
+ for(const replay of ['AAAA','!',deflateSync(Buffer.alloc(30016)).toString('base64url'),'A'.repeat(65537)]){const f=fixture();assert.throws(()=>prepareOwnEventGhost({...f,row:{...f.row,replay}}));}
+});
+test('ghost rejects transition after event PB and invalid car style',()=>{
+ const f=fixture(),recording=new (f.require(1754).A)();recording.recordFrame(20001,{up:true,right:false,down:false,left:false,reset:false});assert.throws(()=>prepareOwnEventGhost({...f,row:{...f.row,replay:recording.serialize()}}));assert.throws(()=>prepareOwnEventGhost({...f,row:{...f.row,carStyle:'AAAA'}}));
+});
+test('playback resource limits stay equal to verifier decoder limits',async()=>{
+ const {default:verifier}=await import('../tools/verifier/replay.cjs');for(const [name,value] of Object.entries(EVENT_REPLAY_LIMITS))assert.equal(value,verifier.LIMITS[name],name);
+});
+
+test('published waiting replay binds run, period, account, exact time and content hash before native playback',async()=>{
+ const {preparePublishedEventGhost}=await import('./public-replay.mjs');
+ const {createHash}=await import('node:crypto');const f=fixture();
+ const period={id:f.session.periodId,trackId:f.session.trackId};
+ const runId='a'.repeat(64),entry={accountId:f.session.accountId,runId,timeMs:f.row.timeMs,name:'Other racer',pending:true};
+ const row={...f.row,runId,replayHash:createHash('sha256').update(f.row.replay).digest('hex'),
+  verificationStatus:'waiting',pending:true,verified:false,eventRpEligible:false,source:'pending-event-recording'};
+ const options={require:f.require,row,period,entry,viewer:'c'.repeat(64)};
+ await assert.rejects(preparePublishedEventGhost({...options,entry:{...entry,replayHash:'0'.repeat(64)}}));
+ const ghost=await preparePublishedEventGhost(options);assert.equal(ghost.isSelf,false);assert.equal(ghost.nickname,'Other racer');assert.equal(ghost.time.numberOfFrames,20000);
+ for(const change of [{runId:'d'.repeat(64)},{replayHash:'0'.repeat(64)},{accountId:'d'.repeat(64)},{periodId:'another'}])
+  await assert.rejects(preparePublishedEventGhost({...options,row:{...row,...change}}));
+});
+
+async function publishedFixture(){
+ const {preparePublishedEventGhost}=await import('./public-replay.mjs');
+ const {createHash}=await import('node:crypto');const f=fixture();
+ const row={...f.row,runId:'a'.repeat(64),replayHash:createHash('sha256').update(f.row.replay).digest('hex')};
+ return {prepare:preparePublishedEventGhost,options:{require:f.require,row,
+  period:{id:f.session.periodId,trackId:f.session.trackId},
+  entry:{accountId:row.accountId,timeMs:row.timeMs,runId:row.runId,replayHash:row.replayHash,name:'Original'},viewer:'c'.repeat(64)}};
+}
+
+test('release280: event playback rejects time-only snapshot binding',async()=>{
+ const {prepare,options}=await publishedFixture();
+ delete options.entry.runId;delete options.entry.replayHash;
+ await assert.rejects(prepare(options),/binding|changed/i);
+});
+
+test('release280: event playback snapshots replay and metadata before hashing',async()=>{
+ const {prepare,options}=await publishedFixture();
+ const work=prepare(options);
+ options.row.frames=options.row.timeMs=options.entry.timeMs=21000;
+ options.entry.name='Changed';
+ const ghost=await work;
+ assert.equal(ghost.time.numberOfFrames,20000);assert.equal(ghost.nickname,'Original');
+});
+
+test('release280: rejected event replay status cannot authorize playback',async()=>{
+ const {prepare,options}=await publishedFixture();
+ for(const key of ['row','entry'])for(const verificationStatus of ['rejected','mismatch','deleted','unknown'])
+  await assert.rejects(prepare({...options,[key]:{...options[key],verificationStatus}}),/eligible/);
+});
+
+test('high-work own replay requires a live branded engine after full structure and style validation',async()=>{
+ const {confirmPlaybackEngine,revokePlaybackEngine}=await import('../tools/playback-engine-session.mjs');
+ const {PLAYBACK_ENGINE_PIN:pin}=await import('../tools/playback-engine-pin.mjs');
+ const f=fixture(),lists={up:Array.from({length:200},(_,i)=>i),right:[],down:[],left:[],reset:[]};
+ const replay=new (f.require(1754).A)(lists).serialize();
+ const options={...f,best:{...f.best,timeMs:300000},row:{...f.row,timeMs:300000,frames:300000,replay}};
+ assert.throws(()=>prepareOwnEventGhost(options),error=>error.code==='EVENT_REPLAY_WORK_LIMIT');
+ assert.throws(()=>prepareOwnEventGhost({...options,playbackEngine:{lookupVersion:pin.lookupVersion}}),error=>error.code==='EVENT_REPLAY_WORK_LIMIT');
+ assert.throws(()=>prepareOwnEventGhost({...options,row:{...options.row,carStyle:'AAAA'}}),error=>!error.code);
+ class Worker extends EventTarget{postMessage(message){queueMicrotask(()=>this.dispatchEvent(new MessageEvent('message',{data:{...message,lookupVersion:pin.lookupVersion,lookupDigest:pin.lookupDigest}})));}}
+ const playbackEngine=await confirmPlaybackEngine({worker:new Worker(),workerBytes:fs.readFileSync(new URL('../simulation_worker.bundle.js',import.meta.url)),mainBytes:fs.readFileSync(new URL('../main.bundle.js',import.meta.url))});
+ const ghost=prepareOwnEventGhost({...options,playbackEngine});
+ assert.ok(ghost.requiredPlaybackEngine);assert.equal(ghost.time.numberOfFrames,300000);assert.equal(ghost.verified,undefined);
+ for(const change of [{accountId:'c'.repeat(64)},{periodId:'other'},{trackId:'c'.repeat(64)},{attemptId:'old'},{source:'normal-recording'}])
+   assert.throws(()=>prepareOwnEventGhost({...options,playbackEngine,row:{...options.row,...change}}));
+ revokePlaybackEngine(playbackEngine);
+ assert.throws(()=>prepareOwnEventGhost({...options,playbackEngine}),error=>error.code==='EVENT_REPLAY_WORK_LIMIT');
+});

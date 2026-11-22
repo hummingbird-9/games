@@ -1,0 +1,58 @@
+{ "frames": [
+   {
+    "filename": "0",
+    "frame": { "x": 0, "y": 0, "w": 65, "h": 32 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 65, "h": 32 },
+    "sourceSize": { "w": 65, "h": 32 },
+    "duration": 100
+   },
+   {
+    "filename": "1",
+    "frame": { "x": 67, "y": 0, "w": 65, "h": 32 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 65, "h": 32 },
+    "sourceSize": { "w": 65, "h": 32 },
+    "duration": 100
+   },
+   {
+    "filename": "2",
+    "frame": { "x": 134, "y": 0, "w": 65, "h": 32 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 65, "h": 32 },
+    "sourceSize": { "w": 65, "h": 32 },
+    "duration": 100
+   },
+   {
+    "filename": "3",
+    "frame": { "x": 0, "y": 34, "w": 65, "h": 32 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 65, "h": 32 },
+    "sourceSize": { "w": 65, "h": 32 },
+    "duration": 100
+   },
+   {
+    "filename": "4",
+    "frame": { "x": 67, "y": 34, "w": 65, "h": 32 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 65, "h": 32 },
+    "sourceSize": { "w": 65, "h": 32 },
+    "duration": 100
+   }
+ ],
+ "meta": {
+  "app": "http://www.aseprite.org/",
+  "version": "1.3-rc4-dev",
+  "image": "sunball.png",
+  "format": "RGBA8888",
+  "size": { "w": 199, "h": 66 },
+  "scale": "1",
+  "frameTags": [
+  ]
+ }
+}

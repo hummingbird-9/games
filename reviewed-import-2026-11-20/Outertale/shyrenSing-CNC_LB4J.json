@@ -1,0 +1,49 @@
+{ "frames": [
+   {
+    "filename": "0",
+    "frame": { "x": 0, "y": 0, "w": 26, "h": 33 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 26, "h": 33 },
+    "sourceSize": { "w": 26, "h": 33 },
+    "duration": 200
+   },
+   {
+    "filename": "1",
+    "frame": { "x": 28, "y": 0, "w": 26, "h": 33 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 26, "h": 33 },
+    "sourceSize": { "w": 26, "h": 33 },
+    "duration": 200
+   },
+   {
+    "filename": "2",
+    "frame": { "x": 0, "y": 35, "w": 26, "h": 33 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 26, "h": 33 },
+    "sourceSize": { "w": 26, "h": 33 },
+    "duration": 200
+   },
+   {
+    "filename": "3",
+    "frame": { "x": 28, "y": 35, "w": 26, "h": 33 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 26, "h": 33 },
+    "sourceSize": { "w": 26, "h": 33 },
+    "duration": 200
+   }
+ ],
+ "meta": {
+  "app": "http://www.aseprite.org/",
+  "version": "1.3-rc4-dev",
+  "image": "shyrenSing.png",
+  "format": "RGBA8888",
+  "size": { "w": 54, "h": 68 },
+  "scale": "1",
+  "frameTags": [
+  ]
+ }
+}

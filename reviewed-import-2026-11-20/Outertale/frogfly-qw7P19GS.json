@@ -1,0 +1,31 @@
+{ "frames": [
+   {
+    "filename": "0",
+    "frame": { "x": 0, "y": 0, "w": 10, "h": 10 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 10, "h": 10 },
+    "sourceSize": { "w": 10, "h": 10 },
+    "duration": 200
+   },
+   {
+    "filename": "1",
+    "frame": { "x": 12, "y": 0, "w": 10, "h": 10 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 10, "h": 10 },
+    "sourceSize": { "w": 10, "h": 10 },
+    "duration": 200
+   }
+ ],
+ "meta": {
+  "app": "http://www.aseprite.org/",
+  "version": "1.3-rc4-dev",
+  "image": "frogfly.png",
+  "format": "RGBA8888",
+  "size": { "w": 22, "h": 10 },
+  "scale": "1",
+  "frameTags": [
+  ]
+ }
+}
