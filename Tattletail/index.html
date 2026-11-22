@@ -84,6 +84,7 @@
               : "?";
           loadingText.textContent = `LOADING... ${doneText} / ${totalText} (${percent}%)`;
         }
+        if (!received) throw new Error("Empty split part: " + url);
         let fullBuffer = new Uint8Array(received);
         let offset = 0;
         for (let chunk of chunks) {
