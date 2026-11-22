@@ -26,7 +26,7 @@ function mergeFiles(fileParts) {
 function getParts(file, start, end) {
     let parts = [];
     for (let i = start; i <= end; i++) {
-        parts.push(file + ".part" + i);
+        parts.push(new URL(file + ".part" + i, location.href).href);
     }
     return parts;
 }
