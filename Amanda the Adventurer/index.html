@@ -78,21 +78,13 @@
             const url = args[0];
             if (typeof url === "string") {
                 if (url.includes("gn-math.github.io/Clip_Secret Tape 2.webm")) {
-                    return new Response(f2Url, {
-                        status: 200
-                    });
+                    return originalFetch.apply(this, [f2Url, ...args.slice(1)]);
                 } else if (url.includes("gn-math.github.io/Clip_Secret Tape 3.webm")) {
-                    return new Response(f3Url, {
-                        status: 200
-                    });
+                    return originalFetch.apply(this, [f3Url, ...args.slice(1)]);
                 } else if (url.includes("gn-math.github.io/Clip_Secret Tape 5.webm")) {
-                    return new Response(f5Url, {
-                        status: 200
-                    });
+                    return originalFetch.apply(this, [f5Url, ...args.slice(1)]);
                 } else if (url.includes("gn-math.github.io/Clip_Secret Tape 6.webm")) {
-                    return new Response(f6Url, {
-                        status: 200
-                    });
+                    return originalFetch.apply(this, [f6Url, ...args.slice(1)]);
                 }
             }
             return originalFetch.apply(this, args);
