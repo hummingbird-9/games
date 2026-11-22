@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>Doodle Garden Gnomes Online</title>
+
+    <meta property="og:title" content="Doodle Garden Gnomes Online" />
+    <meta property="og:type" content="website" />
+    <meta
+      property="og:description"
+      content="Doodle Garden Gnomes is a charming online game where players tend to a magical garden inhabited by quirky gnomes. With colorful doodle-style graphics and engaging tasks, players can plant flowers, design pathways, and keep the mischievous gnomes in check for a delightful gaming experience."
+    />
+    <meta property="og:site_name" content="Doodle Cricket Game" />
+
+    <script
+      src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"
+      defer
+    ></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        corePlugins: {
+          container: false,
+        },
+      };
+    </script>
+
+    <meta
+      name="description"
+      content="Doodle Garden Gnomes is a charming online game where players tend to a magical garden inhabited by quirky gnomes. With colorful doodle-style graphics and engaging tasks, players can plant flowers, design pathways, and keep the mischievous gnomes in check for a delightful gaming experience."
+    />
+
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+
+    <link
+      rel="apple-touch-icon"
+      sizes="57x57"
+      href="/icons/apple-icon-57x57.png"
+    />
+    <link
+      rel="apple-touch-icon"
+      sizes="60x60"
+      href="/icons/apple-icon-60x60.png"
+    />
+    <link
+      rel="apple-touch-icon"
+      sizes="72x72"
+      href="/icons/apple-icon-72x72.png"
+    />
+    <link
+      rel="apple-touch-icon"
+      sizes="76x76"
+      href="/icons/apple-icon-76x76.png"
+    />
+    <link
+      rel="apple-touch-icon"
+      sizes="114x114"
+      href="/icons/apple-icon-114x114.png"
+    />
+    <link
+      rel="apple-touch-icon"
+      sizes="120x120"
+      href="/icons/apple-icon-120x120.png"
+    />
+    <link
+      rel="apple-touch-icon"
+      sizes="144x144"
+      href="/icons/apple-icon-144x144.png"
+    />
+    <link
+      rel="apple-touch-icon"
+      sizes="152x152"
+      href="/icons/apple-icon-152x152.png"
+    />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/icons/apple-icon-180x180.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="192x192"
+      href="/icons/android-icon-192x192.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="/icons/favicon-32x32.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="96x96"
+      href="/icons/favicon-96x96.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="/icons/favicon-16x16.png"
+    />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="msapplication-TileColor" content="#ffffff" />
+    <meta
+      name="msapplication-TileImage"
+      content="/icons/ms-icon-144x144.png"
+    />
+    <meta name="theme-color" content="#25e6f8" />
+
+    <link rel="stylesheet" href="/css/styles.css" />
+    <link rel="stylesheet" href="/css/game.css" />
+    <style>
+      :root {
+        --ad-top-height: 50px;
+        --ad-bottom-height: 100px;
+        --ad-left-width: 300px;
+        --ad-right-width: 300px;
+
+        --ad-top-bg-color: #25e6f8;
+        --ad-bottom-bg-color: #25e6f8;
+        --ad-left-bg-color: #25e6f8;
+        --ad-right-bg-color: #25e6f8;
+      }
+
+      /* Game specific styles */
+      #game {
+        display: flex;
+        align-items: center;
+        /* Scale the game to fit the viewport while keeping its 16:9 aspect ratio */
+        width: min(100vw, 177.78vh);  /* 177.78vh = 100vh * (16/9) */
+        height: min(100vh, 56.25vw); /* 56.25vw  = 100vw * (9/16) */
+      }
+
+      .center {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+      }
+    </style>
+
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "UA-105728110-1");
+    </script>
+  </head>
+
+  <body class="column">
+    <div class="center">
+      <div class="col content">
+        <div id="game"></div>
+        <div id="gameOverlay"></div>
+      </div>
+    </div>
+    <script src="/js/createjs.js"></script>
+    <script src="/js/game.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        if (window.location !== window.parent.location) {
+          const links = document.querySelectorAll("nav a");
+          links.forEach(function (link) {link.target = "_blank";});
+        }
+      });
+    </script>
+  </body>
+</html>
