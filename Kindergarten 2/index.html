@@ -9,27 +9,36 @@
     <link rel="shortcut icon" href="TemplateData/favicon.ico">
     <link rel="stylesheet" href="TemplateData/style.css">
     <style>
-        html,
-        body {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            height: 100%;
-            width: 100%;
+        html, body { margin: 0; padding: 0; overflow: hidden; height: 100%; width: 100%; }
+        #unity-container { width: 100%; height: 100%; position: fixed; top: 0; left: 0; }
+        #preload-screen {
+            position: fixed; inset: 0; z-index: 9999; display: grid; place-items: center;
+            padding: 24px; background: #101116; color: #f5f5f7;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
+        #preload-screen[hidden] { display: none; }
+        .preload-card { width: min(460px, 100%); }
+        .preload-title { margin-bottom: 10px; font-size: 20px; font-weight: 650; letter-spacing: .01em; }
+        #loading-text { min-height: 22px; color: #c5c7d0; font-size: 14px; }
+        .preload-track { height: 9px; margin-top: 18px; overflow: hidden; border-radius: 99px; background: #30323b; }
+        #preload-progress { width: 0%; height: 100%; border-radius: inherit; background: #7c9cff; transition: width .12s linear; }
+        .preload-meta { display: flex; justify-content: space-between; gap: 12px; margin-top: 9px; color: #9da1ae; font-size: 12px; }
+        #preload-percent { color: #f5f5f7; font-variant-numeric: tabular-nums; }
+        #preload-screen.error #loading-text { color: #ffb4b4; }
+        #preload-screen.error #preload-progress { background: #e56b6b; }
         
-        #unity-container {
-            width: 100%;
-            height: 100%;
-            position: fixed;
-            top: 0;
-            left: 0;
-        }
     </style>
 </head>
 
 <body>
-    <div id="loading-text" style="color: black; font-family: cursive; font-size: 48px; text-align: center; margin-top: 20px;">LOADING...</div>
+    <div id="preload-screen" role="status" aria-live="polite">
+        <div class="preload-card">
+            <div class="preload-title">Preparing Kindergarten 2</div>
+            <div id="loading-text">Downloading game files…</div>
+            <div class="preload-track"><div id="preload-progress"></div></div>
+            <div class="preload-meta"><span id="preload-detail">Starting download…</span><span id="preload-percent">0%</span></div>
+        </div>
+    </div>
     <div id="unity-container" class="unity-desktop" hidden>
         <canvas id="unity-canvas" tabindex="-1"></canvas>
         <div id="unity-loading-bar">
@@ -48,30 +57,61 @@
         var fullscreenButton = document.querySelector("#unity-fullscreen-button");
         var warningBanner = document.querySelector("#unity-warning");
 
-        function unityShowBanner(msg, type) {}
 
-        function mergeFiles(fileParts) {
-            return new Promise((resolve, reject) => {
-                let buffers = [];
+        const preloadScreen = document.getElementById("preload-screen");
+        const preloadFill = document.getElementById("preload-progress");
+        const preloadPercent = document.getElementById("preload-percent");
+        const preloadDetail = document.getElementById("preload-detail");
+        const loadingText = document.getElementById("loading-text");
 
-                function fetchPart(index) {
-                    if (index >= fileParts.length) {
-                        let mergedBlob = new Blob(buffers);
-                        let mergedFileUrl = URL.createObjectURL(mergedBlob);
-                        resolve(mergedFileUrl);
-                        return;
-                    }
-                    fetch(fileParts[index]).then((response) => {
-                        if (!response.ok) throw new Error(fileParts[index] + " returned HTTP " + response.status);
-                        return response.arrayBuffer();
-                    }).then((data) => {
-                        buffers.push(data);
-                        fetchPart(index + 1);
-                    }).catch(reject);
-                }
-                fetchPart(0);
-            });
+        function setPreloadProgress(percent, status) {
+            const safePercent = Math.max(0, Math.min(100, percent));
+            preloadFill.style.width = safePercent + "%";
+            preloadPercent.textContent = Math.round(safePercent) + "%";
+            loadingText.textContent = status;
+            preloadDetail.textContent = status;
         }
+
+        function showLoadError(message) {
+            preloadScreen.hidden = false;
+            preloadScreen.classList.add("error");
+            loadingText.textContent = message;
+            preloadDetail.textContent = "Check the connection and try again.";
+            preloadFill.style.width = "100%";
+            preloadPercent.textContent = "!";
+        }
+
+        async function readPartWithProgress(response, url, label, partNumber, partCount, state) {
+            if (!response.ok) throw new Error(url + " returned HTTP " + response.status);
+            const reader = response.body && response.body.getReader ? response.body.getReader() : null;
+            if (!reader) {
+                const data = await response.arrayBuffer();
+                state.loaded += data.byteLength;
+                setPreloadProgress(state.loaded / state.total * 100, label + " (part " + partNumber + "/" + partCount + ")");
+                return data;
+            }
+            const buffers = [];
+            while (true) {
+                const result = await reader.read();
+                if (result.done) break;
+                buffers.push(result.value);
+                state.loaded += result.value.byteLength;
+                setPreloadProgress(state.loaded / state.total * 100, label + " (part " + partNumber + "/" + partCount + ")");
+            }
+            return new Blob(buffers);
+        }
+
+        async function mergeFiles(fileParts, label, partSizes, state) {
+            const buffers = [];
+            for (let index = 0; index < fileParts.length; index++) {
+                const url = fileParts[index];
+                const response = await fetch(url);
+                buffers.push(await readPartWithProgress(response, url, label, index + 1, fileParts.length, state));
+            }
+            return URL.createObjectURL(new Blob(buffers));
+        }
+
+        function unityShowBanner(msg, type) {}
 
         function getParts(file, start, end) {
             let parts = [];
@@ -80,10 +120,13 @@
             }
             return parts;
         }
+        const preloadState = { loaded: 0, total: 82873456 };
         Promise.all([
-            mergeFiles(getParts("Build/Build.data", 1, 2)),
-            mergeFiles(getParts("Build/Build.wasm", 1, 3))
+            mergeFiles(getParts("Build/Build.data", 1, 2), "Downloading game data", [14013947, 14013946], preloadState),
+            mergeFiles(getParts("Build/Build.wasm", 1, 3), "Downloading WebAssembly", [18281855, 18281855, 18281853], preloadState)
         ]).then(([dataUrl, wasmUrl]) => {
+            setPreloadProgress(100, "Game files ready. Starting Unity…");
+            preloadScreen.hidden = true;
             container.hidden = false;
             var buildUrl = "Build";
             var loaderUrl = buildUrl + "/Build.loader.js?v=kindergarten-2-repair-1";
@@ -127,22 +170,11 @@
                     alert(message);
                 });
             };
-            script.onerror = () => {
-                const loadingText = document.querySelector("#loading-text");
-                if (loadingText) loadingText.textContent = "Kindergarten 2 failed to load its Unity loader (HTTP/network error).";
-            };
+            script.onerror = () => showLoadError("Kindergarten 2 failed to load its Unity loader (HTTP/network error).");
             document.body.appendChild(script);
         }).catch((error) => {
             console.error("Kindergarten 2 asset loading failed:", error);
-            const loadingText = document.querySelector("#loading-text");
-            if (loadingText) {
-                loadingText.textContent = "Kindergarten 2 failed to load: " + (error && error.message ? error.message : String(error));
-                loadingText.style.color = "#ff7777";
-                loadingText.style.fontFamily = "system-ui, sans-serif";
-                loadingText.style.fontSize = "18px";
-                loadingText.style.padding = "24px";
-                loadingText.style.overflowWrap = "anywhere";
-            }
+            showLoadError("Kindergarten 2 failed to load: " + (error && error.message ? error.message : String(error)));
         });
     </script>
 </body>
