@@ -1,7 +1,14 @@
 <head>
 	<script src="//www.google.com/jsapi"></script>
 	<script>
-		window.parent.maeExportApis_();
+		// Original Google-host page API is optional inside the games iframe.
+		try {
+			if (window.parent && typeof window.parent.maeExportApis_ === "function") {
+				window.parent.maeExportApis_();
+			}
+		} catch (error) {
+			console.debug("Optional parent game API is unavailable.");
+		}
 	</script>
 
 	<style>

@@ -362,19 +362,16 @@
       <div id="messages">
       </div>
     </div>
-	<!-- Ads Stuff for games that need it -->
-   <script async
-     data-ad-client="ca-pub-123"
-     data-ad-frequency-hint="30s"
-     data-adbreak-test="on"
-     src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js">
-   </script>
-
+   <!-- Local ad-unavailable stub: no ad requests or impressions are made. -->
    <script>
-     window.adsbygoogle = window.adsbygoogle || [];
-     adConfig = function(o) {adsbygoogle.push(o);}
+     window.adsbygoogle = [];
+     window.adConfig = function () {};
+     window.adBreak = function (options) {
+       if (options && typeof options.afterAd === "function") {
+         options.afterAd({ breakStatus: "noAdPreloaded" });
+       }
+     };
    </script>
-
 <script>
   function mergeFiles(fileParts) {
       return new Promise((resolve, reject) => {
