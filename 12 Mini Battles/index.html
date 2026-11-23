@@ -1,13 +1,19 @@
 <html lang="en">
 
 <head>
-    <script async="" src="https://www.google-analytics.com/analytics.js"></script>
-    <script type="text/javascript" id="analytics" async="" src="https://cdn.jsdelivr.net/gh/st39/sdk@main/ga.js"></script>
-    <script type="text/javascript" async="" src="https://imasdk.googleapis.com/js/sdkloader/ima3.js"></script>
+<script type="text/javascript" async="" src="https://imasdk.googleapis.com/js/sdkloader/ima3.js"></script>
     <script id="gamemonetize-sdk" src="https://cdn.jsdelivr.net/gh/st39/sdk@main/sdk.js"></script>
     <script src="//www.google.com/jsapi"></script>
     <script>
-        window.parent.maeExportApis_();
+        // Google-hosted parent APIs are optional; do not throw when this game
+        // is embedded by a normal site iframe instead of its original host.
+        try {
+            if (window.parent && typeof window.parent.maeExportApis_ === "function") {
+                window.parent.maeExportApis_();
+            }
+        } catch (error) {
+            console.debug("Optional parent game API is unavailable.");
+        }
     </script>
     <script type="text/javascript">
         window.SDK_OPTIONS = {
