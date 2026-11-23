@@ -1,79 +1,87 @@
-<!DOCTYPE html>
-<html lang="en-us">
-	<head>
-    <script src="/game-capture.js"></script>
-		<meta charset="utf-8" />
-		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-		<title>Unity WebGL Player | Kindergarten3</title>
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-PXHK7Q7G3Z"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag() {
-    dataLayer.push(arguments);
-  }
-  gtag("js", new Date());
-  gtag("config", "G-PXHK7Q7G3Z");
-</script>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="theme-color" content="#050505">
+  <base href="https://cdn.jsdelivr.net/gh/slqntdevss/Kindergarten3Port/">
+  <title>Kindergarten 3</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #050505; }
+    #unity-canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; background: #050505; }
+    #loading-message {
+      position: fixed; z-index: 2; inset: 0; display: grid; place-content: center;
+      padding: 24px; color: #fff; background: #050505; font: 16px system-ui, sans-serif;
+      text-align: center; overflow-wrap: anywhere;
+    }
+    #loading-message.error { color: #ffb4b4; }
+  </style>
 </head>
-	<body
-		style="text-align: center; padding: 0; border: 0; margin: 0; height: 100vh"
-	>
-		<canvas
-			id="unity-canvas"
-			width="100%"
-			height="100%"
-			tabindex="-1"
-			style="width: 100%; height: 100%; background: #000000"
-		></canvas>
-		<script src="Build/Kindergarten3Port.loader.js"></script>
-		    <style>
-        html,
-        body {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            overflow: hidden;
-            background: #231F20;
+<body>
+  <div id="loading-message">Loading Kindergarten 3…</div>
+  <canvas id="unity-canvas" tabindex="-1"></canvas>
+  <script>
+    (() => {
+      'use strict';
+      const canvas = document.getElementById('unity-canvas');
+      const message = document.getElementById('loading-message');
+
+      function showError(error) {
+        console.error('Kindergarten 3 failed to load:', error);
+        message.classList.add('error');
+        message.textContent = 'Kindergarten 3 could not load. ' +
+          (error && error.message ? error.message : String(error));
+      }
+
+      function resizeCanvas() {
+        const ratio = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.max(1, Math.floor(window.innerWidth * ratio));
+        canvas.height = Math.max(1, Math.floor(window.innerHeight * ratio));
+      }
+      resizeCanvas();
+      window.addEventListener('resize', resizeCanvas);
+
+      async function mergeParts(file, count) {
+        const chunks = [];
+        for (let i = 1; i <= count; i++) {
+          const url = file + '.part' + i;
+          const response = await fetch(url);
+          if (!response.ok) throw new Error(url + ' returned HTTP ' + response.status);
+          chunks.push(await response.arrayBuffer());
         }
+        return URL.createObjectURL(new Blob(chunks));
+      }
 
-        #unity-container {
-            width: 100%;
-            height: 100%;
-            position: fixed;
-            top: 0;
-            left: 0;
-        }
-
-    </style>
-
-		<script>
-			if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-				// Mobile device style: fill the whole browser client area with the game canvas:
-				var meta = document.createElement("meta");
-				meta.name = "viewport";
-				meta.content =
-					"width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes";
-				document.getElementsByTagName("head")[0].appendChild(meta);
-
-				var canvas = document.querySelector("#unity-canvas");
-				canvas.style.width = "100%";
-				canvas.style.height = "100%";
-				canvas.style.position = "fixed";
-
-				document.body.style.textAlign = "left";
-			}
-
-			createUnityInstance(document.querySelector("#unity-canvas"), {
-				dataUrl: "Build/Kindergarten3Port.data",
-				frameworkUrl: "Build/Kindergarten3Port.framework.js",
-				codeUrl: "Build/Kindergarten3Port.wasm",
-				streamingAssetsUrl: "StreamingAssets",
-				companyName: "Con Man Games",
-				productName: "Kindergarten3",
-				productVersion: "0.01",
-				// matchWebGLToCanvasSize: false, // Uncomment this to separately control WebGL canvas render size and DOM element size.
-				// devicePixelRatio: 1, // Uncomment this to override low DPI rendering on high DPI displays.
-			});
-		</script>
-	</body>
+      Promise.all([
+        mergeParts('Build/Kindergarten3Port.data', 2),
+        mergeParts('Build/Kindergarten3Port.wasm', 3)
+      ]).then(([dataUrl, wasmUrl]) => {
+        const loader = document.createElement('script');
+        loader.src = 'Build/Kindergarten3Port.loader.js';
+        loader.onerror = () => showError(new Error('The Unity loader script could not be downloaded.'));
+        loader.onload = () => {
+          if (typeof createUnityInstance !== 'function') {
+            showError(new Error('The Unity loader did not initialize.'));
+            return;
+          }
+          createUnityInstance(canvas, {
+            dataUrl,
+            frameworkUrl: 'Build/Kindergarten3Port.framework.js',
+            codeUrl: wasmUrl,
+            streamingAssetsUrl: 'StreamingAssets',
+            companyName: 'Con Man Games',
+            productName: 'Kindergarten3',
+            productVersion: '0.01'
+          }, progress => {
+            message.textContent = 'Loading Kindergarten 3… ' + Math.round(progress * 100) + '%';
+          }).then(() => {
+            message.remove();
+          }).catch(showError);
+        };
+        document.body.appendChild(loader);
+      }).catch(showError);
+    })();
+  </script>
+</body>
 </html>
