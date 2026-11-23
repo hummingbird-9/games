@@ -12,26 +12,61 @@
     #unity-canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; background: #050505; }
     #loading-message {
       position: fixed; z-index: 2; inset: 0; display: grid; place-content: center;
-      padding: 24px; color: #fff; background: #050505; font: 16px system-ui, sans-serif;
-      text-align: center; overflow-wrap: anywhere;
+      padding: 24px; color: #f5f5f7; background: #101116;
+      font: 14px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      text-align: left; overflow-wrap: anywhere;
     }
-    #loading-message.error { color: #ffb4b4; }
+    #loading-message[hidden] { display: none; }
+    .loading-card { width: min(460px, calc(100vw - 48px)); }
+    .loading-title { margin-bottom: 10px; font-size: 20px; font-weight: 650; }
+    #loading-status { min-height: 22px; color: #c5c7d0; }
+    .progress-track { height: 9px; margin-top: 18px; overflow: hidden; border-radius: 99px; background: #30323b; }
+    #progress-fill { width: 0%; height: 100%; border-radius: inherit; background: #7c9cff; transition: width .12s linear; }
+    .progress-meta { display: flex; justify-content: space-between; gap: 12px; margin-top: 9px; color: #9da1ae; font-size: 12px; }
+    #progress-percent { color: #f5f5f7; font-variant-numeric: tabular-nums; }
+    #loading-message.error #loading-status { color: #ffb4b4; }
+    #loading-message.error #progress-fill { background: #e56b6b; }
   </style>
 </head>
 <body>
-  <div id="loading-message">Loading Kindergarten 3…</div>
+  <div id="loading-message" role="status" aria-live="polite">
+    <div class="loading-card">
+      <div class="loading-title">Preparing Kindergarten 3</div>
+      <div id="loading-status">Downloading game files…</div>
+      <div class="progress-track"><div id="progress-fill"></div></div>
+      <div class="progress-meta"><span id="progress-detail">Starting download…</span><span id="progress-percent">0%</span></div>
+    </div>
+  </div>
   <canvas id="unity-canvas" tabindex="-1"></canvas>
   <script>
     (() => {
       'use strict';
       const canvas = document.getElementById('unity-canvas');
       const message = document.getElementById('loading-message');
+      const status = document.getElementById('loading-status');
+      const detail = document.getElementById('progress-detail');
+      const fill = document.getElementById('progress-fill');
+      const percentText = document.getElementById('progress-percent');
+      const totalBytes = 79482876;
+      const progressState = { loaded: 0 };
+
+      function setProgress(percent, label) {
+        const safePercent = Math.max(0, Math.min(100, percent));
+        fill.style.width = safePercent + '%';
+        percentText.textContent = Math.round(safePercent) + '%';
+        status.textContent = label;
+        detail.textContent = label;
+      }
 
       function showError(error) {
         console.error('Kindergarten 3 failed to load:', error);
+        message.hidden = false;
         message.classList.add('error');
-        message.textContent = 'Kindergarten 3 could not load. ' +
+        status.textContent = 'Kindergarten 3 could not load. ' +
           (error && error.message ? error.message : String(error));
+        detail.textContent = 'Check the connection and try again.';
+        fill.style.width = '100%';
+        percentText.textContent = '!';
       }
 
       function resizeCanvas() {
@@ -42,21 +77,41 @@
       resizeCanvas();
       window.addEventListener('resize', resizeCanvas);
 
-      async function mergeParts(file, count) {
+      async function readPart(response, url, label, partNumber, partCount) {
+        if (!response.ok) throw new Error(url + ' returned HTTP ' + response.status);
+        const reader = response.body && response.body.getReader ? response.body.getReader() : null;
+        if (!reader) {
+          const data = await response.arrayBuffer();
+          progressState.loaded += data.byteLength;
+          setProgress(progressState.loaded / totalBytes * 100, label + ' (part ' + partNumber + '/' + partCount + ')');
+          return data;
+        }
         const chunks = [];
-        for (let i = 1; i <= count; i++) {
-          const url = file + '.part' + i;
+        while (true) {
+          const result = await reader.read();
+          if (result.done) break;
+          chunks.push(result.value);
+          progressState.loaded += result.value.byteLength;
+          setProgress(progressState.loaded / totalBytes * 100, label + ' (part ' + partNumber + '/' + partCount + ')');
+        }
+        return new Blob(chunks);
+      }
+
+      async function mergeParts(file, sizes, label) {
+        const chunks = [];
+        for (let i = 0; i < sizes.length; i++) {
+          const url = file + '.part' + (i + 1);
           const response = await fetch(url);
-          if (!response.ok) throw new Error(url + ' returned HTTP ' + response.status);
-          chunks.push(await response.arrayBuffer());
+          chunks.push(await readPart(response, url, label, i + 1, sizes.length));
         }
         return URL.createObjectURL(new Blob(chunks));
       }
 
       Promise.all([
-        mergeParts('Build/Kindergarten3Port.data', 2),
-        mergeParts('Build/Kindergarten3Port.wasm', 3)
+        mergeParts('Build/Kindergarten3Port.data', [20866662, 14057147], 'Downloading game data'),
+        mergeParts('Build/Kindergarten3Port.wasm', [20866662, 20866662, 2825743], 'Downloading WebAssembly')
       ]).then(([dataUrl, wasmUrl]) => {
+        setProgress(100, 'Game files ready. Starting Unity…');
         const loader = document.createElement('script');
         loader.src = 'Build/Kindergarten3Port.loader.js';
         loader.onerror = () => showError(new Error('The Unity loader script could not be downloaded.'));
@@ -65,6 +120,7 @@
             showError(new Error('The Unity loader did not initialize.'));
             return;
           }
+          setProgress(0, 'Loading Unity…');
           createUnityInstance(canvas, {
             dataUrl,
             frameworkUrl: 'Build/Kindergarten3Port.framework.js',
@@ -74,7 +130,7 @@
             productName: 'Kindergarten3',
             productVersion: '0.01'
           }, progress => {
-            message.textContent = 'Loading Kindergarten 3… ' + Math.round(progress * 100) + '%';
+            setProgress(progress * 100, 'Loading Kindergarten 3…');
           }).then(() => {
             message.remove();
           }).catch(showError);
