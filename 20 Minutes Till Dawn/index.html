@@ -118,6 +118,33 @@ var loadingText = document.querySelector("#loading-text");
       var progressBarFull = document.querySelector("#unity-progress-bar-full");
       var warningBanner = document.querySelector("#unity-warning");
 
+      // Keep the Unity render buffer and the visible canvas matched to the
+      // actual game viewport. This build's framework otherwise writes a
+      // fixed pixel size to the canvas after startup.
+      function resizeUnityCanvas(instance) {
+        var rect = container.getBoundingClientRect();
+        var width = Math.max(1, Math.round(rect.width || window.innerWidth));
+        var height = Math.max(1, Math.round(rect.height || window.innerHeight));
+
+        if (instance && instance.Module &&
+            typeof instance.Module.setCanvasSize === "function") {
+          instance.Module.setCanvasSize(width, height);
+        } else {
+          canvas.width = width;
+          canvas.height = height;
+        }
+
+        // The Unity framework can set inline !important pixel dimensions.
+        // Re-apply viewport sizing after its internal resize operation.
+        canvas.style.setProperty("width", "100%", "important");
+        canvas.style.setProperty("height", "100%", "important");
+      }
+
+      resizeUnityCanvas(null);
+      window.addEventListener("resize", function () {
+        resizeUnityCanvas(window.__twentyMinutesUnityInstance || null);
+      });
+
       function unityShowBanner(msg, type) {
 
       }
@@ -166,6 +193,13 @@ var loadingText = document.querySelector("#loading-text");
         createUnityInstance(canvas, config, (progress) => {
           progressBarFull.style.width = 100 * progress + "%";
         }).then((unityInstance) => {
+          window.__twentyMinutesUnityInstance = unityInstance;
+          resizeUnityCanvas(unityInstance);
+          // Re-apply once the Unity startup frame has completed as well.
+          window.requestAnimationFrame(function () {
+            resizeUnityCanvas(unityInstance);
+          });
+
           loadingBar.style.display = "none";
           loadingText.remove();
         }).catch((message) => {
