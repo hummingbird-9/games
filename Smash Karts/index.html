@@ -40,8 +40,7 @@
 	<script src="firebase-app-compat.js"></script>
 	<script src="firebase-auth-compat.js"></script>
 	<script src="firebase-database-compat.js"></script>
-	<script src="firebase-analytics-compat.js"></script>
-	<script src="firebase-performance-compat.js"></script>
+
 	<script src="firebase-functions-compat.js"></script>
 	<script src="scripts/main.js"></script>
 	<script src="scripts/auth.js"></script>
@@ -58,25 +57,8 @@
 		};
 		// Initialize Firebase
 		firebase.initializeApp(firebaseConfig);
-		var firebaseSupported = false;
-		if(firebase.analytics != null)
-		{
-			firebase.analytics.isSupported().then((isSupported) => 
-			{
-				if (isSupported) 
-				{
-				analytics = firebase.analytics();
-				firebaseSupported = true;
-				}
-				else 
-				{
-				console.log("firebase.analytics() not supported ");
-				}
-			})
-		}
-
 	</script>
 <!-- will also be copied to the resulting body //-->
-<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v84a3a4012de94ce1a686ba8c167c359c1696973893317" integrity="sha512-euoFGowhlaLqXsPWQ48qSkBSCFs3DPRyiwVu3FjR96cMPx+Fr+gpWRhIafcHwqwCqWS42RZhIudOvEI+Ckf6MA==" data-cf-beacon='{"rayId":"83527c138b5e1095","version":"2023.10.0","token":"08a46637120a404a963395dd86986b4f"}' crossorigin="anonymous"></script>
+
 </body>
 </html>

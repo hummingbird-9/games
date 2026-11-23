@@ -16,8 +16,7 @@
     <div id="content"></div>
     <div id="orientation"></div>
     <div id="loader">Loading ...</div>
-    <script type="text/javascript" src="https://imasdk.googleapis.com/js/sdkloader/ima3.js"></script>
-    <script type="text/javascript" src="https://318573026-162284027483016384.preview.editmysite.com/uploads/b/139890129-642750312748978757/files/assets/lib/nape.min.js">
+<script type="text/javascript" src="https://318573026-162284027483016384.preview.editmysite.com/uploads/b/139890129-642750312748978757/files/assets/lib/nape.min.js">
         var nape = "https://318573026-162284027483016384.preview.editmysite.com/uploads/b/139890129-642750312748978757/files/assets/lib/nape.min.js";
     </script>
     <script type="text/javascript" src="https://318573026-162284027483016384.preview.editmysite.com/uploads/b/139890129-642750312748978757/files/assets/lib/jquery-3.1.1.min.js"></script>
@@ -59,10 +58,14 @@
                 }
             },
         };
-        (function (a, b, c) {
-            var d = a.getElementsByTagName(b)[0];
-            a.getElementById(c) || (a = a.createElement(b), a.id = c, a.src = "https://cdn.jsdelivr.net/gh/st39/sdk@main/sdk.js", d.parentNode.insertBefore(a, d))
-        })(document, "script", "gamemonetize-sdk");
+        // Ads are unavailable in this mirror. Continue locally without an ad call
+        // or impression; the game receives only its normal resume event.
+        window.addEventListener("load", function () {
+            if (window.SDK_OPTIONS && typeof window.SDK_OPTIONS.onEvent === "function") {
+                window.SDK_OPTIONS.onEvent({ name: "SDK_READY" });
+                window.SDK_OPTIONS.onEvent({ name: "SDK_GAME_START" });
+            }
+        }, { once: true });
     </script>
     <script type="text/javascript" src="https://318573026-162284027483016384.preview.editmysite.com/uploads/b/139890129-642750312748978757/files/motox3m6.min.js"></script>
 </body>
