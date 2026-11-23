@@ -61,7 +61,10 @@
                         resolve(mergedFileUrl);
                         return;
                     }
-                    fetch(fileParts[index]).then((response) => response.arrayBuffer()).then((data) => {
+                    fetch(fileParts[index]).then((response) => {
+                        if (!response.ok) throw new Error(fileParts[index] + " returned HTTP " + response.status);
+                        return response.arrayBuffer();
+                    }).then((data) => {
                         buffers.push(data);
                         fetchPart(index + 1);
                     }).catch(reject);
@@ -73,7 +76,7 @@
         function getParts(file, start, end) {
             let parts = [];
             for (let i = start; i <= end; i++) {
-                parts.push(new URL(file + ".part" + i, location.href).href);
+                parts.push(new URL(file + ".part" + i + "?v=kindergarten-2-repair-1", location.href).href);
             }
             return parts;
         }
@@ -83,10 +86,10 @@
         ]).then(([dataUrl, wasmUrl]) => {
             container.hidden = false;
             var buildUrl = "Build";
-            var loaderUrl = buildUrl + "/Build.loader.js";
+            var loaderUrl = buildUrl + "/Build.loader.js?v=kindergarten-2-repair-1";
             var config = {
                 dataUrl: dataUrl,
-                frameworkUrl: buildUrl + "/Build.framework.js",
+                frameworkUrl: buildUrl + "/Build.framework.js?v=kindergarten-2-repair-1",
                 codeUrl: wasmUrl,
                 streamingAssetsUrl: "StreamingAssets",
                 companyName: "SmashGames",
@@ -124,7 +127,22 @@
                     alert(message);
                 });
             };
+            script.onerror = () => {
+                const loadingText = document.querySelector("#loading-text");
+                if (loadingText) loadingText.textContent = "Kindergarten 2 failed to load its Unity loader (HTTP/network error).";
+            };
             document.body.appendChild(script);
+        }).catch((error) => {
+            console.error("Kindergarten 2 asset loading failed:", error);
+            const loadingText = document.querySelector("#loading-text");
+            if (loadingText) {
+                loadingText.textContent = "Kindergarten 2 failed to load: " + (error && error.message ? error.message : String(error));
+                loadingText.style.color = "#ff7777";
+                loadingText.style.fontFamily = "system-ui, sans-serif";
+                loadingText.style.fontSize = "18px";
+                loadingText.style.padding = "24px";
+                loadingText.style.overflowWrap = "anywhere";
+            }
         });
     </script>
 </body>
