@@ -1,0 +1,521 @@
+{
+  "schema_version": 1,
+  "repository": "hummingbird-9/games",
+  "branch": "main",
+  "updated": "2026-11-23",
+  "audit_method": "Static inspection of each folder's entry HTML and accessible referenced local helpers. No live browser/gameplay testing was performed.",
+  "batches": [
+    {
+      "batch": 1,
+      "date": "2026-11-23",
+      "commit": "bcbed137a99c153d648d435fc0f0e5b0fde23ba9",
+      "supplemental_commits": [
+        "d808f9f758d63241938ffc3c0da0ca88be479efe"
+      ],
+      "folders": [
+        {
+          "folder": "Moto X3M",
+          "status": "fixed",
+          "files": [
+            "index.html",
+            "pk-sdk.js"
+          ],
+          "changes": "Removed the top-frame anti-clickjack redirect and GameBridge/IMA loads; replaced the Poki SDK with a local shim. Interstitials resume locally and rewarded requests return false; no ad network or impression."
+        },
+        {
+          "folder": "Moto X3M 2",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "No iframe escape or ad/redirect injection detected in the entry page; kept external game assets unchanged."
+        },
+        {
+          "folder": "Moto X3M 3",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "No iframe escape or ad/redirect injection detected in the entry page; kept external game assets unchanged."
+        },
+        {
+          "folder": "Moto X3M Legacy",
+          "status": "needs manual review",
+          "files": [
+            "index.html"
+          ],
+          "changes": "IMA SDK is loaded with the upstream game engine; its ad callback dependency was not verified, so the integration was preserved."
+        },
+        {
+          "folder": "Moto X3M Main",
+          "status": "needs manual review",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Complex Google Sites wrapper includes IMA, analytics, and Replit authentication; requires separate dependency analysis before changing."
+        },
+        {
+          "folder": "Moto X3M Pool Party",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "No iframe escape or ad injection detected in the entry page."
+        },
+        {
+          "folder": "Moto X3M Pool",
+          "status": "fixed",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Removed anti-clickjack code that navigated the top frame away from the game."
+        },
+        {
+          "folder": "Moto X3M Spooky Legacy",
+          "status": "fixed",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Removed IMA and GameMonetize loader; fires only local SDK_READY and SDK_GAME_START callbacks, without ad request or impression."
+        },
+        {
+          "folder": "Moto X3M Spooky",
+          "status": "fixed",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Removed anti-clickjack code that navigated the top frame away from the game."
+        },
+        {
+          "folder": "Moto X3M Winter Legacy",
+          "status": "needs manual review",
+          "files": [
+            "index.html"
+          ],
+          "changes": "IMA SDK is loaded with an upstream engine; ad dependency not yet verified."
+        },
+        {
+          "folder": "Moto X3M Winter",
+          "status": "fixed",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Removed anti-clickjack code that navigated the top frame away from the game."
+        },
+        {
+          "folder": "motox3m",
+          "status": "fixed",
+          "files": [
+            "index.html",
+            "pk-sdk.js"
+          ],
+          "changes": "Removed top-frame escape and ad SDK references; installed the same local Poki compatibility shim as Moto X3M."
+        },
+        {
+          "folder": "moto-x3m-spooky-land",
+          "status": "fixed",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Removed anti-clickjack code that navigated the top frame away from the game."
+        },
+        {
+          "folder": "motox3m-winter",
+          "status": "fixed",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Removed anti-clickjack code that navigated the top frame away from the game."
+        },
+        {
+          "folder": "Madalin Stunt Cars 2",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "No ad/redirect or top-frame escape detected in the entry page."
+        },
+        {
+          "folder": "Madalin Stunt Cars 3",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "No ad/redirect detected; the shared main.js reference resolves to a non-navigation helper."
+        },
+        {
+          "folder": "Subway Surfers",
+          "status": "needs manual review",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Uses the 4399 domain integration and game-capture wrapper; requires runtime-origin testing before changing."
+        },
+        {
+          "folder": "Paper.io 2",
+          "status": "needs manual review",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Removed js/main.js, which injected Google Analytics/Ads and redirected to ubg365. GameMonetize/IMA hooks remain integrated with obfuscated game code and need callback-level review."
+        },
+        {
+          "folder": "Smash Karts",
+          "status": "fixed",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Removed Firebase Analytics/Performance and Cloudflare Insights beacons while preserving Firebase app, auth, database, and functions for multiplayer."
+        },
+        {
+          "folder": "Among Us",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "No ad or redirect behavior detected in the new game entry page."
+        }
+      ]
+    },
+    {
+      "batch": 2,
+      "date": "2026-11-23",
+      "commit": "78c696dfa0def8dfbf583a83d9bf9573c5f63035",
+      "folders": [
+        {
+          "folder": "1 on 1 Soccer",
+          "status": "needs manual review",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Entry page references a shared /js/all.js path not present in the repository, so its behavior could not be verified."
+        },
+        {
+          "folder": "10 Minutes Till Dawn",
+          "status": "fixed",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Removed Google Analytics script and initialization; kept Unity loader, asset JSON, and local cloak reference unchanged."
+        },
+        {
+          "folder": "12 Mini Battles",
+          "status": "needs manual review",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Removed standalone Google Analytics scripts and guarded optional Google parent API. IMA/GameMonetize pause/resume callbacks are coupled to the game and remain for manual review."
+        },
+        {
+          "folder": "17Bucks",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "No ad/redirect or frame-escape behavior detected in the entry page."
+        },
+        {
+          "folder": "1v1 LOL Legacy",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "The existing ad callback is a local no-ad completion callback to Unity; no external ad SDK is loaded."
+        },
+        {
+          "folder": "20 Minutes Till Dawn",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "No ad/redirect injection detected in the entry page."
+        },
+        {
+          "folder": "2048-cupcakes",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "No ad/redirect injection detected in the entry page."
+        },
+        {
+          "folder": "2048",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "No ad/redirect injection detected in the entry page."
+        },
+        {
+          "folder": "3D Bowling",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Standalone YouTube game API stub already returns an ad-rejected result; no ad provider is requested."
+        },
+        {
+          "folder": "8 Ball Classic",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Standalone YouTube game API stub already returns an ad-rejected result; no ad provider is requested."
+        },
+        {
+          "folder": "8 Ball Pool",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Ruffle game wrapper; no ad/redirect injection detected."
+        },
+        {
+          "folder": "99 Balls",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Ruffle wrapper and engine scripts; no ad/redirect injection detected."
+        },
+        {
+          "folder": "A Bite at Freddy's",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "No ad/redirect injection detected in the entry page."
+        },
+        {
+          "folder": "A Dance of Fire and Ice",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Unity loader entry with external game assets; no ad or redirect behavior detected."
+        },
+        {
+          "folder": "A Small World Cup",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Construct/Ruffle wrapper; no ad or top-frame redirect detected."
+        },
+        {
+          "folder": "Abandoned",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Ruffle wrapper; no ad or top-frame redirect detected."
+        },
+        {
+          "folder": "Achievement Unlocked 2 Legacy",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Ruffle wrapper; no direct ad or redirect behavior detected."
+        },
+        {
+          "folder": "Achievement Unlocked 2",
+          "status": "needs manual review",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Uses a shared /js/all.js path not present in the repository, so helper behavior could not be verified."
+        },
+        {
+          "folder": "Achievement Unlocked 3",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Ruffle wrapper; no direct ad or redirect behavior detected."
+        },
+        {
+          "folder": "Achievement Unlocked Legacy",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Ruffle wrapper; no direct ad or redirect behavior detected."
+        }
+      ]
+    },
+    {
+      "batch": 3,
+      "date": "2026-11-23",
+      "commit": "8e7ebfb9e674e7ce3002f2b5909d7ec2e18a0e0a",
+      "folders": [
+        {
+          "folder": "Achievement Unlocked",
+          "status": "needs manual review",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Uses shared /js/all.js, which is not present in this repository; helper behavior could not be verified."
+        },
+        {
+          "folder": "Age of War",
+          "status": "needs manual review",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Uses shared /js/all.js, which is not present in this repository; helper behavior could not be verified."
+        },
+        {
+          "folder": "Ages of Conflict",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Unity WebGL loader; no ad or iframe redirect behavior detected."
+        },
+        {
+          "folder": "Alien Hominid",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Ruffle wrapper; no ad or redirect behavior detected."
+        },
+        {
+          "folder": "Alien Shooter",
+          "status": "needs manual review",
+          "files": [
+            "index.html"
+          ],
+          "changes": "The repository file fetch returned an empty entry page, so the launch path could not be audited."
+        },
+        {
+          "folder": "Amanda the Adventurer",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "location.href is used only as the base URL for split asset-part construction, not as a redirect."
+        },
+        {
+          "folder": "Amaze",
+          "status": "fixed",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Removed the invalid inline Google Analytics/dataLayer setup; preserved the remote game base and playable engine."
+        },
+        {
+          "folder": "Amazing Rope Police",
+          "status": "needs manual review",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Removed Google Analytics; wrapper still embeds a remote game and loads geo/settings helpers that need separate review."
+        },
+        {
+          "folder": "An Ordinary Sonic ROM Hack",
+          "status": "fixed",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Guarded the optional maeExportApis_ parent call so the page does not throw when embedded outside its original Google host."
+        },
+        {
+          "folder": "Andys Apple Farm",
+          "status": "fixed",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Removed AdSense loader and installed a local ad-unavailable stub; adBreak reports noAdPreloaded without an ad request or fake impression."
+        },
+        {
+          "folder": "Angry Birds Chrome",
+          "status": "fixed",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Removed the frame-domain check that hid the game in normal iframes and removed Google Analytics; kept user-triggered help/install links."
+        },
+        {
+          "folder": "Angry Birds Showdown",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "YouTube game API standalone ad stub rejects ad requests; no external ad provider is loaded."
+        },
+        {
+          "folder": "Angry Birds",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Unity game wrapper; no ad/redirect behavior detected."
+        },
+        {
+          "folder": "Aquapark.io",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "YouTube playable game wrapper; no ad or top-frame redirect detected."
+        },
+        {
+          "folder": "Archery World Tour",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "The location.href reference only checks file-protocol mode for a leaderboard API fallback; the local YouTube ad stub rejects ad requests."
+        },
+        {
+          "folder": "Attack Hole",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Standalone YouTube game API stub rejects ad requests; no external ad provider is loaded."
+        },
+        {
+          "folder": "Aviamasters",
+          "status": "fixed",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Removed Google Analytics, Amplitude, replay recording, and Cloudflare Insights scripts; kept lobby/game bundles and the game client."
+        },
+        {
+          "folder": "Awesome Tanks 2 Legacy",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Ruffle wrapper; no ad or redirect behavior detected."
+        },
+        {
+          "folder": "Awesome Tanks 2",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Local HTML5 game entry; no ad or redirect behavior detected."
+        },
+        {
+          "folder": "Awesome Tanks Legacy",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Ruffle wrapper; no ad or redirect behavior detected."
+        }
+      ]
+    }
+  ],
+  "totals": {
+    "folders_audited": 60,
+    "fixed": 15,
+    "no_issue": 33,
+    "needs_manual_review": 12
+  }
+}
