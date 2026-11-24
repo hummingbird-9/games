@@ -884,7 +884,7 @@
     {
       "batch": 6,
       "date": "2026-11-24",
-      "commit": "pending",
+      "commit": "0c49a5d09e90268121b3208175f22d11d89110ec",
       "commit_message": "Remove Poki ads and broken launch helpers from selected games",
       "folders": [
         {
@@ -1058,13 +1058,13 @@
         },
         {
           "folder": "Build a Queen",
-          "status": "needs manual review",
+          "status": "fixed",
           "files": [
             "index.html",
             "remote ytgame.js",
             "remote Unity game"
           ],
-          "changes": "Loads an external YouTube game SDK whose requestAd method uses the parent bridge; the game’s callback path could not be verified safely, so the SDK was left intact."
+          "changes": "Replaced the external ytgame.js SDK (which contains an obfuscated location redirect and parent-bridge ad requests) with a local standalone API stub preserving localStorage save/score behavior and rejecting ad requests."
         },
         {
           "folder": "Burrito Bison Legacy",
@@ -1077,12 +1077,15 @@
           ],
           "changes": "Removed empty script-src references and unused promo-overlay CSS. The external Kongregate API contains a top.location.replace fallback to the Kongregate game URL when Unity is unavailable; kept the service API intact pending runtime-safe isolation."
         }
+      ],
+      "supplemental_commits": [
+        "6c3ebaf8ef7b77ec66d629a8c9a3240c8408b6fc"
       ]
     },
     {
       "batch": 7,
       "date": "2026-11-24",
-      "commit": "pending",
+      "commit": "301e052a48c2ef5e01afcf5f80ac57f4c09dcd26",
       "commit_message": "Remove iframe redirects, trackers, and ad bridges from game entries",
       "folders": [
         {
@@ -1284,8 +1287,8 @@
   ],
   "totals": {
     "folders_audited": 140,
-    "fixed": 36,
+    "fixed": 37,
     "no_issue": 67,
-    "needs_manual_review": 37
+    "needs_manual_review": 36
   }
 }
