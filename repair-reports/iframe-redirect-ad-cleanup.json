@@ -3,7 +3,7 @@
   "repository": "hummingbird-9/games",
   "branch": "main",
   "updated": "2026-11-24",
-  "audit_method": "Static inspection of entry HTML and selected accessible referenced local helpers. No live browser/gameplay testing was performed.",
+  "audit_method": "Static inspection of entry HTML and accessible referenced local helpers; static reference and pattern checks. No live browser/gameplay testing was performed.",
   "batches": [
     {
       "batch": 1,
@@ -685,12 +685,204 @@
           "changes": "Entry loads remote Construct assets and references /game-capture.js outside the folder; helper behavior and iframe runtime behavior remain unverified."
         }
       ]
+    },
+    {
+      "batch": 5,
+      "date": "2026-11-24",
+      "commit": "pending",
+      "commit_message": "Remove injected ads and broken helper references from game launchers",
+      "folders": [
+        {
+          "folder": "Big Neon Tower Tiny Square",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "remote preview.editmysite.com scripts/styles"
+          ],
+          "changes": "Core Construct scripts, styles, and assets are loaded from a remote preview.editmysite.com host; the remote implementation could not be verified for ad or redirect behavior."
+        },
+        {
+          "folder": "Big Tower Tiny Square 2",
+          "status": "fixed",
+          "files": [
+            "index.html",
+            "remote https://cdn.jsdelivr.net/gh/IlIIll1/more/1.js"
+          ],
+          "changes": "Removed a timed floating “More Unblocked Games” promotional overlay that opened a new tab and loaded a third-party image/link; kept the Construct game scripts."
+        },
+        {
+          "folder": "Big Tower Tiny Square Legacy",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Legacy Construct entry has no explicit top-frame navigation, ad SDK, tracker, or forced new-tab behavior in the inspected entry page."
+        },
+        {
+          "folder": "Big Tower Tiny Square",
+          "status": "fixed",
+          "files": [
+            "index.html",
+            "disk.js",
+            "game.js",
+            "start.js"
+          ],
+          "changes": "Removed two missing root-level geoblocker/settings script references. Inspected local scripts: the frame check only manages focus, and location.href query updates are in-game mode changes, not redirects."
+        },
+        {
+          "folder": "Binding of Issac Wrath of the Lamb",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Ruffle wrapper and remote SWF entry show no ad, tracker, or frame-escape behavior."
+        },
+        {
+          "folder": "Bit Planes",
+          "status": "fixed",
+          "files": [
+            "index.html",
+            "index.js"
+          ],
+          "changes": "Removed Yandex.Metrika tracking/beacon code; preserved local game logic and its same-frame query-string mode changes."
+        },
+        {
+          "folder": "BitLife",
+          "status": "fixed",
+          "files": [
+            "index.html",
+            "Build/UnityLoader.js",
+            "Build/BitLife.json",
+            "TemplateData/UnityProgress.js"
+          ],
+          "changes": "Removed missing root-level /cloak.js and /assets/js/geoblocker.js/settings.js references; retained the local Unity loader and game configuration."
+        },
+        {
+          "folder": "BitPlanes",
+          "status": "no issue",
+          "files": [
+            "index.html",
+            "remote CDN game assets"
+          ],
+          "changes": "No ad SDK, tracker, top-frame escape, or forced-tab behavior in the inspected entry; the external base points to the game bundle and the Discord link is user-initiated."
+        },
+        {
+          "folder": "Bitlife Legacy",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Remote Unity game entry has no explicit ad, tracker, top-frame redirect, or forced new-tab behavior in the inspected page."
+        },
+        {
+          "folder": "Blackjack",
+          "status": "no issue",
+          "files": [
+            "index.html",
+            "remote game assets"
+          ],
+          "changes": "No ad or redirect behavior detected. Rules/source links are user-clicked navigation rather than popunders or automatic redirects."
+        },
+        {
+          "folder": "Blade Ball",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "remote Unity client"
+          ],
+          "changes": "GameMonetize and Yandex SDK/auth/payment/ad callbacks are intertwined with the remote Unity client; left integrations intact pending callback-level testing."
+        },
+        {
+          "folder": "Block Blast",
+          "status": "fixed",
+          "files": [
+            "index.html",
+            "ServiceWorker.js",
+            "Build/BlockBlast1.1-8.loader.js"
+          ],
+          "changes": "Removed Google AdSense loaders/ad placement and Google Analytics gtag initialization/events; removed missing root-level geoblocker/settings references and preserved Unity/service-worker assets."
+        },
+        {
+          "folder": "Blockpost",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "remote master-loader.js",
+            "remote Unity build"
+          ],
+          "changes": "The entry delegates to a remote master-loader.js and remote Unity build/config; ad and redirect behavior cannot be verified from repository-local files."
+        },
+        {
+          "folder": "Blocky Snakes",
+          "status": "fixed",
+          "files": [
+            "index.html",
+            "remote Unity loader/build"
+          ],
+          "changes": "Removed the empty GameDistribution SDK injection and remote ad configuration. ShowAds now invokes only the local AdsManager.onAdServed resume callback and focuses the canvas; no ad request or impression is made."
+        },
+        {
+          "folder": "Bloodmoney",
+          "status": "no issue",
+          "files": [
+            "index.html",
+            "js/main.js",
+            "js/plugins.js"
+          ],
+          "changes": "Inspected the local RPG Maker entry and referenced game scripts; no ad, tracker, top-frame redirect, or forced new-tab behavior detected."
+        },
+        {
+          "folder": "Bloons TD 2",
+          "status": "fixed",
+          "files": [
+            "index.html",
+            "btd2.swf"
+          ],
+          "changes": "Removed the missing root-level /js/all.js reference (404); retained Ruffle and the local SWF."
+        },
+        {
+          "folder": "Bloons TD 3",
+          "status": "fixed",
+          "files": [
+            "index.html",
+            "bloonstd3.swf"
+          ],
+          "changes": "Removed the missing root-level /js/all.js reference (404); retained Ruffle and the local SWF."
+        },
+        {
+          "folder": "Bloons TD 4",
+          "status": "fixed",
+          "files": [
+            "index.html",
+            "btd4.swf"
+          ],
+          "changes": "Removed the missing root-level /js/all.js reference (404); retained Ruffle and the local SWF."
+        },
+        {
+          "folder": "Bloons TD 5",
+          "status": "fixed",
+          "files": [
+            "index.html",
+            "btd5.swf"
+          ],
+          "changes": "Removed the missing root-level /js/all.js reference (404); retained Ruffle and the local SWF."
+        },
+        {
+          "folder": "Bloons TD",
+          "status": "fixed",
+          "files": [
+            "index.html",
+            "btd.swf"
+          ],
+          "changes": "Removed the missing root-level /js/all.js reference (404); retained Ruffle and the local SWF."
+        }
+      ]
     }
   ],
   "totals": {
-    "folders_audited": 80,
-    "fixed": 17,
-    "no_issue": 43,
-    "needs_manual_review": 20
+    "folders_audited": 100,
+    "fixed": 28,
+    "no_issue": 49,
+    "needs_manual_review": 23
   }
 }
