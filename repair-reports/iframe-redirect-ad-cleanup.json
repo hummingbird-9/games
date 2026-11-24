@@ -1078,12 +1078,214 @@
           "changes": "Removed empty script-src references and unused promo-overlay CSS. The external Kongregate API contains a top.location.replace fallback to the Kongregate game URL when Unity is unavailable; kept the service API intact pending runtime-safe isolation."
         }
       ]
+    },
+    {
+      "batch": 7,
+      "date": "2026-11-24",
+      "commit": "pending",
+      "commit_message": "Remove iframe redirects, trackers, and ad bridges from game entries",
+      "folders": [
+        {
+          "folder": "Bust-a-Loop",
+          "status": "fixed",
+          "files": [
+            "index.html",
+            "_ext/static.itch.io/htmlgame.js",
+            "Build/Web.loader.js"
+          ],
+          "changes": "Removed the itch.io embed helper that sent a sendBeacon telemetry request and redirected framed launches to itch.io/embed-hotlink for non-itch referrers; deleted the helper file and preserved the Unity game loader/assets."
+        },
+        {
+          "folder": "Camouflage and Sniper",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "remote Yandex Games SDK",
+            "remote Unity game"
+          ],
+          "changes": "Yandex SDK is used for ads alongside player auth, cloud saves, purchases, and leaderboards; isolating only ads requires runtime testing, so the integration was left intact."
+        },
+        {
+          "folder": "Candy Crush",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "save-helper.js",
+            "remote custom-phaser.min.js",
+            "remote game.min.js"
+          ],
+          "changes": "Removed Google Analytics, supports-ad-play-button metadata, and the remote st39 promo overlay that injected a floating Classroom 6x link; replaced it with a local save/restore helper extracted without the promo code. Remote Phaser game scripts remain unverified."
+        },
+        {
+          "folder": "Cannon Balls 3D",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "remote html5games/gameapi/v1.js",
+            "remote Famobi game assets"
+          ],
+          "changes": "Replaced the external ytgame.js redirect/ad bridge with a local standalone API stub that keeps local save/score support and rejects ads. The separate Famobi API still exposes interstitial/rewarded ads and top-frame branding-link navigation, so it remains for manual review."
+        },
+        {
+          "folder": "Cannon Basketball 2",
+          "status": "no issue",
+          "files": [
+            "index.html",
+            "remote Ruffle runtime",
+            "remote cannon-basketball-2.swf"
+          ],
+          "changes": "Ruffle wrapper and remote SWF only; no ad SDK, tracker, or automatic frame navigation detected."
+        },
+        {
+          "folder": "Cannon Basketball",
+          "status": "no issue",
+          "files": [
+            "index.html",
+            "remote Ruffle runtime",
+            "remote cannon-basketball.swf"
+          ],
+          "changes": "Ruffle wrapper and remote SWF only; no ad SDK, tracker, or automatic frame navigation detected."
+        },
+        {
+          "folder": "Car Survival 3D",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "remote Yandex Games SDK",
+            "remote Unity game"
+          ],
+          "changes": "Yandex SDK handles ad callbacks plus auth, cloud saves, purchases, and leaderboards; left intact because safely isolating ads needs runtime verification."
+        },
+        {
+          "folder": "Carrom Clash",
+          "status": "no issue",
+          "files": [
+            "index.html",
+            "remote PlayCanvas game assets"
+          ],
+          "changes": "Remote game bundle entry has no explicit ad SDK, tracker, top-frame escape, or forced new-tab behavior."
+        },
+        {
+          "folder": "Cat Connection V2",
+          "status": "no issue",
+          "files": [
+            "index.html",
+            "remote game bundle"
+          ],
+          "changes": "Remote game bundle entry has no explicit ad SDK, tracker, top-frame escape, or forced new-tab behavior."
+        },
+        {
+          "folder": "Cat Gunner_ Super Zombie Shoot",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "scripts/main.js",
+            "scripts/offlineclient.js"
+          ],
+          "changes": "Removed missing root-level /game-capture.js and /poki-sdk.js references. The local Construct runtime includes generic top/parent navigation support and Poki plugin callbacks; with the absent SDK, ad requests return false, but game-event navigation still needs runtime review."
+        },
+        {
+          "folder": "Celeste Pico",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Standalone PICO-8 HTML shell; no ad, tracker, or frame-escape behavior detected."
+        },
+        {
+          "folder": "Cheese Chompers 3D",
+          "status": "no issue",
+          "files": [
+            "index.html",
+            "remote Unity build"
+          ],
+          "changes": "Remote Unity base entry has no visible ad SDK, tracker, top-frame redirect, or forced new-tab behavior."
+        },
+        {
+          "folder": "Cheese Chompers",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "TemplateData/style.css",
+            "missing Build/CheeseChompers3DFinal.loader.js"
+          ],
+          "changes": "No ad/redirect behavior found, but the entry references a local Unity loader under Build/ that is absent from the folder; the game cannot be verified until its loader asset is restored or its URL is corrected."
+        },
+        {
+          "folder": "Chess Classic",
+          "status": "no issue",
+          "files": [
+            "index.html",
+            "remote game assets"
+          ],
+          "changes": "Inline standalone YouTube API stub rejects ad requests and resolves interstitial requests without an ad provider."
+        },
+        {
+          "folder": "Chess",
+          "status": "fixed",
+          "files": [
+            "index.html",
+            "script.js",
+            "js/ltpgnviewer.js",
+            "js/chess.min.js"
+          ],
+          "changes": "Removed the missing root-level /js/all.js reference (404); preserved local chess logic and user-initiated PGN/FEN tools. Parent-frame operations are confined to the viewer's internal import workflow."
+        },
+        {
+          "folder": "Chiikawa Puzzle",
+          "status": "no issue",
+          "files": [
+            "index.html",
+            "remote bundle"
+          ],
+          "changes": "Remote puzzle bundle entry has no visible ad SDK, tracker, or frame-escape behavior."
+        },
+        {
+          "folder": "Choppy Orc",
+          "status": "no issue",
+          "files": [
+            "index.html",
+            "remote Construct assets"
+          ],
+          "changes": "Remote Construct game entry has no visible ad SDK, tracker, or top-frame redirect behavior."
+        },
+        {
+          "folder": "Circloo 2",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "remote html5game_a5/circloo2.js",
+            "remote UGS assets"
+          ],
+          "changes": "Replaced the remote Poki bridge with a local no-ad shim (commercial breaks continue locally; rewarded breaks return false), removed Google Analytics and the UBG235 client loader, and removed an obfuscated host-check/redirect block. The remote GameMaker bundle remains uninspected."
+        },
+        {
+          "folder": "City Defense",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "remote Yandex Games SDK",
+            "remote Unity game"
+          ],
+          "changes": "Yandex SDK is shared by ad callbacks, player auth, saves, payments, and leaderboards; left intact until those services can be tested independently."
+        },
+        {
+          "folder": "City Smash",
+          "status": "fixed",
+          "files": [
+            "index.html",
+            "remote Unity build",
+            "remote unarchiver.min.js"
+          ],
+          "changes": "Replaced the external ytgame.js SDK (which contains an obfuscated location redirect and parent-bridge ad requests) with a local standalone API stub preserving localStorage save/score behavior and rejecting all ad requests."
+        }
+      ]
     }
   ],
   "totals": {
-    "folders_audited": 120,
-    "fixed": 33,
-    "no_issue": 58,
-    "needs_manual_review": 29
+    "folders_audited": 140,
+    "fixed": 36,
+    "no_issue": 67,
+    "needs_manual_review": 37
   }
 }
