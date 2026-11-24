@@ -689,7 +689,7 @@
     {
       "batch": 5,
       "date": "2026-11-24",
-      "commit": "pending",
+      "commit": "6cab9e1c90d3b331396673106a23dbb53facf112",
       "commit_message": "Remove injected ads and broken helper references from game launchers",
       "folders": [
         {
@@ -876,13 +876,214 @@
           ],
           "changes": "Removed the missing root-level /js/all.js reference (404); retained Ruffle and the local SWF."
         }
+      ],
+      "supplemental_commits": [
+        "bd5db3e18ceb23abeb19278ad01cafbf5bb762c9"
+      ]
+    },
+    {
+      "batch": 6,
+      "date": "2026-11-24",
+      "commit": "pending",
+      "commit_message": "Remove Poki ads and broken launch helpers from selected games",
+      "folders": [
+        {
+          "folder": "Bloxorz",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Ruffle wrapper loads the remote SWF directly; no ad, tracker, top-frame redirect, or forced new-tab behavior detected."
+        },
+        {
+          "folder": "Bob the Robber 2",
+          "status": "fixed",
+          "files": [
+            "index.html",
+            "remote version.js",
+            "remote bob-the-robber-2.min.f.js"
+          ],
+          "changes": "Removed the missing root-level /js/main.js reference (404); the entry still loads its version and game bundle through its explicit remote asset base."
+        },
+        {
+          "folder": "Bob's Onslaught",
+          "status": "no issue",
+          "files": [
+            "index.html",
+            "remote BOB.js"
+          ],
+          "changes": "OpenFL game bundle and assets are loaded through the explicit CDN base; no ad or redirect behavior detected in the entry."
+        },
+        {
+          "folder": "Boom Slingers",
+          "status": "no issue",
+          "files": [
+            "index.html",
+            "Build/d37667e316197a45bf53aa3fdcc6dee6.loader.js"
+          ],
+          "changes": "Unity entry only reconstructs split WASM/data assets and starts the local game; the adjacent cg-sdk.js is not referenced by the entry."
+        },
+        {
+          "folder": "BopCity",
+          "status": "fixed",
+          "files": [
+            "index.html",
+            "remote PsychEngine.js"
+          ],
+          "changes": "Removed missing root-level /assets/css.css and /assets/js.js references (404); preserved the remote PsychEngine runtime and game content."
+        },
+        {
+          "folder": "Bottle Jump 3D",
+          "status": "no issue",
+          "files": [
+            "index.html",
+            "remote game.js"
+          ],
+          "changes": "Standalone YouTube game API stub returns REJECTED for ad requests and resolves interstitial requests without a provider; localStorage save/load remains intact."
+        },
+        {
+          "folder": "Bouncemasters",
+          "status": "no issue",
+          "files": [
+            "index.html",
+            "remote game.js"
+          ],
+          "changes": "Standalone YouTube game API stub returns REJECTED for ad requests and resolves interstitial requests without a provider; localStorage save/load remains intact."
+        },
+        {
+          "folder": "Bowmasters",
+          "status": "no issue",
+          "files": [
+            "index.html",
+            "remote game.js"
+          ],
+          "changes": "Standalone YouTube game API stub returns REJECTED for ad requests and resolves interstitial requests without a provider; localStorage save/load remains intact."
+        },
+        {
+          "folder": "Boxing Physics 2",
+          "status": "fixed",
+          "files": [
+            "index.html",
+            "scripts/poki-sdk.js",
+            "scripts/poki-unity-loader.js",
+            "poki-sdk-core-v2.234.2.js"
+          ],
+          "changes": "Replaced the Poki loader with a local compatibility shim: commercial breaks continue immediately, rewarded breaks return false with an “Ad unavailable — Continue” notice, and no ad request/impression is made. Removed the dedicated Poki core SDK and missing /js/all.js reference; retained Unity/game assets."
+        },
+        {
+          "folder": "Boxing Random Legacy",
+          "status": "no issue",
+          "files": [
+            "index.html",
+            "remote Construct runtime"
+          ],
+          "changes": "Remote Construct wrapper has no explicit ad SDK, tracker, or iframe escape behavior in the inspected entry."
+        },
+        {
+          "folder": "Boxing Random",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "scripts/main.js",
+            "data.json"
+          ],
+          "changes": "Removed missing root-level geoblocker/settings references. The Construct runtime contains generic top/parent navigation support for explicit URL actions; no game-data call site was confirmed, so the runtime was preserved pending event-level review."
+        },
+        {
+          "folder": "Brawl Guys.io",
+          "status": "no issue",
+          "files": [
+            "index.html",
+            "remote CDN game assets"
+          ],
+          "changes": "Entry loads the game runtime through its explicit CDN base and has no visible ad, tracker, or top-frame redirect injection."
+        },
+        {
+          "folder": "Bridge Race",
+          "status": "no issue",
+          "files": [
+            "index.html",
+            "remote game assets"
+          ],
+          "changes": "Standalone YouTube game API stub returns REJECTED for ad requests and resolves interstitial requests without an ad provider."
+        },
+        {
+          "folder": "Brotato",
+          "status": "fixed",
+          "files": [
+            "index.html",
+            "remote Godot game assets"
+          ],
+          "changes": "Removed Google Analytics gtag loader/initialization and the missing root-level /game-capture.js reference; preserved the Godot game bundle and assets."
+        },
+        {
+          "folder": "Buckshot Roulette",
+          "status": "no issue",
+          "files": [
+            "index.html",
+            "main.js",
+            "buckshot-roulette.js"
+          ],
+          "changes": "Godot runtime contains a generic shell_open window.open helper for user-triggered game links; no ad, tracker, or automatic iframe escape detected in the entry."
+        },
+        {
+          "folder": "Build Now GG",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "gameloader-helper.js",
+            "gameloader2020.js"
+          ],
+          "changes": "Local obfuscated CrazyGames bridge exposes requestAd callbacks; no remote ad provider is directly loaded by the entry, but callback semantics require runtime testing, so the loader was preserved."
+        },
+        {
+          "folder": "Build a Big Army",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "remote Yandex Games SDK",
+            "remote Unity game"
+          ],
+          "changes": "Yandex SDK is shared by player auth, cloud saves, purchases, leaderboards, environment data, and ad callbacks; isolating ads safely requires runtime verification, so the SDK and gates were left intact."
+        },
+        {
+          "folder": "Build a Plane",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "remote Yandex Games SDK",
+            "remote Unity game"
+          ],
+          "changes": "Yandex SDK is shared by player auth, saves, purchases, leaderboards, and ad callbacks; isolating ads safely requires runtime verification, so the SDK and gates were left intact."
+        },
+        {
+          "folder": "Build a Queen",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "remote ytgame.js",
+            "remote Unity game"
+          ],
+          "changes": "Loads an external YouTube game SDK whose requestAd method uses the parent bridge; the game’s callback path could not be verified safely, so the SDK was left intact."
+        },
+        {
+          "folder": "Burrito Bison Legacy",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "remote burrito-bison-ll.js",
+            "remote kongregate_api.js",
+            "remote UnityLoader.js"
+          ],
+          "changes": "Removed empty script-src references and unused promo-overlay CSS. The external Kongregate API contains a top.location.replace fallback to the Kongregate game URL when Unity is unavailable; kept the service API intact pending runtime-safe isolation."
+        }
       ]
     }
   ],
   "totals": {
-    "folders_audited": 100,
-    "fixed": 28,
-    "no_issue": 49,
-    "needs_manual_review": 23
+    "folders_audited": 120,
+    "fixed": 33,
+    "no_issue": 58,
+    "needs_manual_review": 29
   }
 }
