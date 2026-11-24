@@ -64,8 +64,12 @@
                         resolve(mergedFileUrl);
                         return;
                     }
-                    fetch(fileParts[index]).then((response) => response.arrayBuffer()).then((data) => {
-                        buffers.push(data);
+                    fetch(new URL(fileParts[index], document.baseURI).href).then((response) => {
+                            if (!response.ok) throw new Error("Missing split part: " + fileParts[index] + " (HTTP " + response.status + ")");
+                            return response.arrayBuffer();
+                    }).then((data) => {
+                            if (!data.byteLength) throw new Error("Empty split part: " + fileParts[index]);
+                            buffers.push(data);
                         fetchPart(index + 1);
                     }).catch(reject);
                 }
@@ -98,6 +102,10 @@
             }).then((e) => {
                 document.querySelector("#loading-text").remove();
             });
+        }).catch(error => {
+            console.error("Failed to reconstruct ULTRAKILL split data:", error);
+            const loadingText = document.querySelector("#loading-text");
+            if (loadingText) loadingText.textContent = "Failed to load split game data. Check the console for details.";
         });
     </script>
 </body>
