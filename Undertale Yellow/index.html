@@ -370,8 +370,12 @@
                       resolve(mergedFileUrl);
                       return;
                   }
-                  fetch(fileParts[index]).then((response) => response.arrayBuffer()).then((data) => {
-                      buffers.push(data);
+                  fetch(new URL(fileParts[index], document.baseURI).href).then((response) => {
+                          if (!response.ok) throw new Error("Missing split part: " + fileParts[index] + " (HTTP " + response.status + ")");
+                          return response.arrayBuffer();
+                  }).then((data) => {
+                          if (!data.byteLength) throw new Error("Empty split part: " + fileParts[index]);
+                          buffers.push(data);
                       fetchPart(index + 1);
                   }).catch(reject);
               }
