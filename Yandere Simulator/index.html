@@ -2,7 +2,7 @@
 <html lang="en-us">
 
 <head>
-	<base href="https://cdn.jsdelivr.net/gh/genizy/web-port@master/yandere-simulator/">
+	<base href="./">
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>YandereSimulator</title>
@@ -58,10 +58,14 @@
                         resolve(URL.createObjectURL(blob));
                         return;
                     }
-                    fetch(fileParts[index])
-                        .then(r => r.arrayBuffer())
-                        .then(b => {
-                            buffers.push(b);
+                    fetch(new URL(fileParts[index], document.baseURI).href)
+                        .then(response => {
+                                    if (!response.ok) throw new Error("Missing split part: " + fileParts[index] + " (HTTP " + response.status + ")");
+                                    return response.arrayBuffer();
+                        })
+                        .then(buffer => {
+                                    if (!buffer.byteLength) throw new Error("Empty split part: " + fileParts[index]);
+                                    buffers.push(buffer);
                             done++;
                             document.querySelector("#loading-text").textContent = `LOADING... (${done}/${max})`;
                             fetchPart(index + 1);
@@ -122,6 +126,10 @@
             };
             window.addEventListener("resize", resize);
             resize();
+        }).catch(error => {
+            console.error("Failed to reconstruct Yandere Simulator split data:", error);
+            const loadingText = document.querySelector("#loading-text");
+            if (loadingText) loadingText.textContent = "Failed to load split game data. Check the console for details.";
         });
     </script>
 </head>
