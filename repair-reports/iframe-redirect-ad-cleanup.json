@@ -1287,8 +1287,8 @@
   ],
   "totals": {
     "folders_audited": 140,
-    "fixed": 37,
-    "no_issue": 67,
+    "fixed": 36,
+    "no_issue": 68,
     "needs_manual_review": 36
   }
 }
