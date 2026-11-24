@@ -1,42 +1,18 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <script src="/game-capture.js"></script>
-<meta charset="UTF-8">
-<title>Basket Random</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
-
-<meta name="generator" content="Scirra Construct">
-	<meta name="author" content="RHM Interactive">
-	<meta name="description" content="Basket Random - Twoplayergames.org">
-	<link rel="manifest" href="appmanifest.json">
-
-
-<link rel="stylesheet" href="style.css">
-<script>
-	window.addEventListener("keydown", function(e) {
-        // space and arrow keys
-        if([32, 37, 38, 39, 40].indexOf(e.keyCode) > -1) {
-            e.preventDefault();
-        }
-    }, false);
-    </script>
-
-    <!--data-adbreak-test="on"-->	 
-	<!--data-checked-head="true"-->
-    <!--data-ad-channel="9976299074"-->
-
-    <script async
-    data-ad-client="ca-pub-8349441957149316"
-    data-ad-channel="2601149586"
-    data-ad-frequency-hint="90s"
-    src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"
-    crossorigin="anonymous">
-    </script>
+    
 
 	<script>
-        window.adsbygoogle = window.adsbygoogle || [];
-        const adBreak = adConfig = function(o) {adsbygoogle.push(o);}
+        // Local no-ad adapter: no network request, impression, or rewarded-ad success.
+        function adConfig(options) {
+            if (options && typeof options.onReady === "function") options.onReady();
+        }
+        function adBreak(options) {
+            if (options && typeof options.adBreakDone === "function") {
+                options.adBreakDone({ breakStatus: "notReady" });
+            }
+        }
         
         function initSDK() {
 			// Game start logic

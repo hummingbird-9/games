@@ -226,133 +226,10 @@
 	    }
 	  </style>
 
-	  <!-- Google tag (gtag.js) -->
-	  <script async src="https://www.googletagmanager.com/gtag/js?id=G-D67EBFNGR6"></script>
-
-	  <script>
-	    window.dataLayer = window.dataLayer || [];
-
-	    function gtag() {
-	      dataLayer.push(arguments);
-	    }
-	    gtag('js', new Date());
-
-	    if (location.hostname != "localhost") gtag('config', 'G-D67EBFNGR6', {
-	      cookie_flags: 'secure;samesite=none'
-	    });
-	  </script>
-
-	  <script>
-	    //Interstitial ad available event
-	    document.addEventListener("aip_interstitialadavailable", function(e) {
-	      console.log("An interstitial ad is available");
-	    });
-	  </script>
-	  <script>
-	    console.log("Initting AIP")
-	    window.aiptag = window.aiptag || {
-	      cmd: []
-	    };
-	    aiptag.cmd.display = aiptag.cmd.display || [];
-	    aiptag.cmd.player = aiptag.cmd.player || [];
-
-	    //CMP tool settings
-	    aiptag.consented = false; // GDPR setting, please set this value to false if an EU user has declined or not yet accepted marketing cookies, for users outside the EU please use true and for users accepted the GDPR also use true
-	    aiptag.cmp = {
-	      show: true,
-	      position: "centered",
-	      button: false,
-	      buttonText: "Privacy settings",
-	      buttonPosition: "bottom-left"
-	    }
-	  </script>
-	  <script async src="tag.min.js"></script>
-
-	  <script>
-	    function SetupMSNotification() {
-	      console.log("notifying");
-	      if (typeof $msstart !== 'undefined') {
-	        console.log("notifying2");
-	        var id = btoa("https://baseballbros.io/sbros_364x180.png");
-	        $msstart.scheduleNotificationAsync({
-	          title: 'Unlock new bros now!',
-	          description: 'You are just about to unlock a new Bro! Who will it be?',
-	          type: 1,
-	          minDelayInSeconds: 24 * 60 * 60
-	        }).then(response => {
-	          console.log("notification response: " + response);
-	        });
-	        $msstart.scheduleNotificationAsync({
-	          title: 'Dunk all over your bros!',
-	          description: 'New bros just waiting to be dunked on! Unlock them now!',
-	          type: 1,
-	          minDelayInSeconds: 24 * 7 * 60 * 60
-	        }).then(response => {
-	          console.log("notification response: " + response);
-	        });
-
-	      }
-	    }
-
-	    var msAdID;
-
-	    function LoadVideo() {
-	      if (typeof $msstart !== 'undefined') {
-	        $msstart.loadAdsAsync().then(adInstance => {
-	          // Use the adInstance.instanceId to make a call to showAdsAsync
-	          msAdID = adInstance.instanceId;
-	        });
-
-	        SetupMSNotification();
-	      }
-	    }
-
-	    function ShowVideo(theUnitName = null) {
-	      Main.DoneVideoAd(true);
-	      return; //! when aip is live, remove this
-
-	      console.log('SHOW_VIDEO:' + theUnitName);
-	      var aUnitName = "";
-	      if (typeof $msstart !== 'undefined') {
-	        $msstart.showAdsAsync(msAdID).then(adInstance => {
-	          // Use the adInstance.showAdsCompletedAsync to be notified of the completion of showing the advertisement
-	          adInstance.showAdsCompletedAsync.then((val) => {
-	            console.log('MS Video Ad Complete');
-	            Main.DoneVideoAd();
-	            window.focus();
-	            window.document.getElementById('openfl-content').focus();
-	            LoadVideo();
-	          }).catch((err) => {
-	            console.log('Ms Video Ad Error');
-	            Main.DoneVideoAd();
-	            window.focus();
-	            window.document.getElementById('openfl-content').focus();
-	            LoadVideo();
-	          });
-	        });
-	      } else if (typeof gCrazySDK !== 'undefined') {
-	        gCrazySDK.addEventListener("adFinished", Main.DoneVideoAd); // reenable sound, enable ui
-	        gCrazySDK.addEventListener("adError", Main.DoneVideoAd); // reenable sound, enable ui
-	        gCrazySDK.requestAd();
-	        console.log('CG_AD_REQUESTED');
-	        SendEvent('event', 'cgvideo');
-	        return;
-	      } else if (typeof adplayer === 'undefined') {
-	        Main.DoneVideoAd(true);
-	        SendEvent('event', 'video_adblocked');
-	        console.log('VIDEO_ADBLOCKED');
-
-	      } else {
-	        var aStr = 'preroll';
-	        //if(theUnitName != null) aStr = theUnitName;
-	        lastUnitPlayed = aStr;
-	        SendEvent('event', 'startvideo-' + aStr);
-
-	        aiptag.cmd.player.push(function() {
-	          adplayer.startVideoAd(theUnitName);
-	        });
-	      }
-	    }
+	  <script> function ShowVideo(theUnitName = null) {
+      // Ad unavailable — continue without an ad request or a claimed view.
+      Main.DoneVideoAd(true);
+    }
 	  </script>
 
 	  <!-- Firebase App (the core Firebase SDK) -->
@@ -660,7 +537,7 @@
 	      <b>Which browser should I use?</b>
 	      <p>You should use Chrome. It is the only browser guaranteed to work. Baseball Bros has also been tested to work on Firefox and Safari, but not guaranteed.</p>
 	      <b>Are there more Bros games?</b>
-	      <p>Yes! Check out <a tabindex="-1" href="https://footballbros.io">Football Bros</a>, href="https://basketbros.io">Basket Bros</a>, <a tabindex="-1" href="https://soccerbros.gg">Soccer Bros</a> and <a tabindex="-1" href="https://wrestlebros.io">Wrestle Bros</a>. Also be sure to check out <a tabindex="-1" href="https://freegames.io" target="_blank">Web games at FreeGames.io</a></p>
+	      <p>Yes! Check out <a tabindex="-1" href="https://footballbros.io">Football Bros</a>, href="https://basketbros.io">Basket Bros</a>, <a tabindex="-1" href="https://soccerbros.gg">Soccer Bros</a> and <a tabindex="-1" href="https://wrestlebros.io">Wrestle Bros</a>. Also be sure to check out <a tabindex="-1" href="https://freegames.io">Web games at FreeGames.io</a></p>
 	      <b>Do you have a favorite team?</b>
 	      <p>Yes, but we're not saying which one. Drop us an e-mail if you think you know.</p>
 	      <b>I'm blocked, where else can i play?</b>
@@ -944,20 +821,9 @@
 	    }
 
 	    function ShowAdBreak() {
-	      //check if the adslib is loaded correctly or blocked by adblockers etc.
-	      if (typeof gCrazySDK !== 'undefined') {
-	        Main.DoneInterstitialAd(false);
-	        return;
-	      }
-
-	      if (typeof adplayer === 'undefined') {
-	        Main.DoneInterstitialAd(true);
-	        return;
-	      }
-	      aiptag.cmd.player.push(function() {
-	        adplayer.startAdBreak();
-	      });
-	    }
+      // Ad unavailable — resume locally without an ad request or impression.
+      Main.DoneInterstitialAd(true);
+    }
 
 
 	    document.getElementById("openfl-content").addEventListener("wheel", doScroll);
@@ -1012,28 +878,13 @@
 
 	    var sid = '02k06etmp6fnad6qk2e82s1dfi'
 
-	    function updateStatus(fromEvent = false) {
-	      const req = new XMLHttpRequest();
-	      var aStr = "recordsession.php?s=" + sid;
-	      if (fromEvent == true) aStr = aStr + "&e=1"
-	      req.open("GET", aStr);
-	      req.send();
-	    }
+	    function updateStatus() {}
 
-	    function SendEvent(theEvent, theAction, theParms = '') {
-	      if (theParms == '') {
-	        gtag(theEvent, theAction);
-	      } else {
-	        gtag(theEvent, theAction, theParms);
-	      }
-	      updateStatus(true);
-	      //console.log("Sending event: " + theEvent + "/" + theAction + "/" + theParms);
-	    }
+	    function SendEvent() {}
 	    //setInterval(function() { updateStatus, 4*60*1000);			
 	    //setInterval( function() { 
 	    //	window.scrollTo(0, 0); 
-	    //}, 2000 );					
-	    updateStatus(true);
+	    //}, 2000 );
 
 	    //setInterval(ClearAds, 2000);		
 

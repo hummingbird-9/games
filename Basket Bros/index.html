@@ -68,179 +68,13 @@
 			animation: spin1 2s infinite linear;
 		}
   	</style>
-
-
-	<script async src="https://www.googletagmanager.com/gtag/js?id=UA-125804026-2"></script>
-	<script>
-		window.dataLayer = window.dataLayer || [];
-		function gtag(){dataLayer.push(arguments);}
-		gtag('js', new Date());
-		gtag('config', 'UA-125804026-2', { cookie_flags: 'secure;samesite=none' }); 
-		gtag('config', 'G-GYMF5NRSDN', { cookie_flags: 'secure;samesite=none' }); 
-	</script>
-	<script type="text/javascript">
-		(function(c,l,a,r,i,t,y){
-			c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-			t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-			y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-		})(window, document, "clarity", "script", "jpzfplk0la");
-	</script>
-			<script>
-			//Interstitial ad available event
-			document.addEventListener("aip_interstitialadavailable", function(e) {
-				console.log("An interstitial ad is available");
-			});
-		</script>
-		<script src="//api.adinplay.com/libs/aiptag/pub/SSK/basketbros.io/tag.min.js"></script>
 	
 	<script>
 
-			var aiptag = aiptag || {};
-		aiptag.cmd = aiptag.cmd || [];
-		aiptag.cmd.display = aiptag.cmd.display || [];	aiptag.cmd.player = aiptag.cmd.player || [];
-		// Settings
-		aiptag.consented = false; // GDPR setting, please set this value to false if an EU user has declined or not yet accepted marketing cookies, for users outside the EU please use true and for users accepted the GDPR also use true
-	
-				
-
-		aiptag.cmd.player.push(function() {
-			adplayer = new aipPlayer({
-				AIP_ADBREAK_COMPLETE: function ()  {
-					console.log("Adbreak Completed");
-					Main.DoneInterstitialAd(false);
-				},
-				AD_WIDTH: 960,
-				AD_HEIGHT: 540,
-				AD_DISPLAY: 'default', //default, fullscreen, center, fill
-				TRUSTED: true,
-				LOADING_TEXT: 'loading advertisement',
-				PREROLL_ELEM: function(){return document.getElementById('preroll')},
-				AIP_COMPLETE: function (state)  {
-					/*******************
-					 ***** WARNING *****
-					*******************
-					Please do not remove the PREROLL_ELEM
-					from the page, it will be hidden automaticly.
-					If you do want to remove it use the AIP_REMOVE callback.
-					*/
-					Main.DoneVideoAd();
-					window.focus();
-					window.document.getElementById('openfl-content').focus();
-					if(state == null) state = 'null';
-					console.log('Video Ad Complete: '+state);
-					SendEvent('event', 'donevideo-'+lastUnitPlayed+"-"+state);
-				},
-				AIP_REMOVE: function ()  {
-					// Here it's safe to remove the PREROLL_ELEM from the page if you want. But it's not recommend.
-				}
-			});
-		});
-	
-
-	function SetupMSNotification()
-	{
-		console.log("notifying");
-		if(typeof $msstart !== 'undefined')
-		{
-			console.log("notifying2");
-			var id = btoa("https://basketbros.io/bbros_364x180.png");
-			$msstart.scheduleNotificationAsync({title: 'Unlock new bros now!', 
-												description: 'You are just about to unlock a new Bro! Who will it be?',
-												type: 1,
-												minDelayInSeconds: 24*60*60
-											}).then(response => {
-					console.log("notification response: "+response);
-				});
-			$msstart.scheduleNotificationAsync({title: 'Dunk all over your bros!', 
-											description: 'New bros just waiting to be dunked on! Unlock them now!',
-											type: 1,
-											minDelayInSeconds: 24*7*60*60
-										}).then(response => {
-				console.log("notification response: "+response);
-			});
-
-  		}
-	}
-
-	var msAdID;
-	function LoadVideo()
-	{
-		if(typeof $msstart !== 'undefined')
-		{
-			$msstart.loadAdsAsync().then(adInstance => {
-    			// Use the adInstance.instanceId to make a call to showAdsAsync
-				msAdID = adInstance.instanceId;
-			});		
-			
-			SetupMSNotification();
-		}
-	}
-
-	function ShowVideo(theUnitName=null, forceaip=false)
-	{
-		console.log('SHOW_VIDEO');
-		try {
-			var aUnitName = "";
-			if(typeof $msstart !== 'undefined' && forceaip == false)
-			{
-				$msstart.showAdsAsync(msAdID).then(adInstance => {
-					// Use the adInstance.showAdsCompletedAsync to be notified of the completion of showing the advertisement
-					adInstance.showAdsCompletedAsync.then((val) => {
-						console.log('MS Video Ad Complete');
-						Main.DoneVideoAd();
-						window.focus();
-						window.document.getElementById('openfl-content').focus();
-						SendEvent('event', 'ms_video_shown2');
-						LoadVideo();
-					}).catch((err) => {
-						SendEvent('event', 'ms_video_not_completed');
-						LoadVideo();
-					});
-				}).catch((err) => {
-						console.log('Ms Video Ad Error, showing aip');
-						//Main.DoneVideoAd();
-						window.focus();
-						window.document.getElementById('openfl-content').focus();
-						SendEvent('event', 'ms_video_show_error2');
-						LoadVideo();
-						ShowVideo(theUnitName, true);
-				});
-			}
-			else if(typeof window.CrazyGames !== 'undefined' && window.CrazyGames.SDK.environment != "disabled") {
-
-				const callbacks = {
-					adFinished: () => Main.DoneVideoAd(),
-					adError: (error) => Main.DoneVideoAd(),
-					adStarted: () => console.log("Start midgame ad"),
-				};
-				window.CrazyGames.SDK.ad.requestAd("midgame", callbacks);
-
-				//			window.CrazyGames.SDK.addEventListener("adFinished", Main.DoneVideoAd); // reenable sound, enable ui
-				//			window.CrazyGames.SDK.addEventListener("adError", Main.DoneVideoAd); // reenable sound, enable ui
-				//			window.CrazyGames.SDK.requestAd();		
-				console.log('CG_AD_REQUESTED');		
-				SendEvent('event', 'cgvideo');
-				return;
-			}
-			else if (typeof adplayer === 'undefined') {
-				Main.DoneVideoAd(true);
-				SendEvent('event', 'video_adblocked');
-				console.log('VIDEO_ADBLOCKED');		
-
-			} else {
-				var aStr = 'preroll';
-				if(theUnitName != null) aStr = theUnitName;
-				lastUnitPlayed = aStr;
-				SendEvent('event', 'startvideo-'+aStr);
-
-
-				aiptag.cmd.player.push(function() { adplayer.startPreRoll(theUnitName); });
-			}			
-		} catch (error) {
-			console.log("video ad error");	
-			Main.DoneVideoAd();		
-		}
-
+			// Ad provider removed; local callbacks below report unavailable.
+		var aiptag = { cmd: { display: [], player: [] } }; function ShowVideo(theUnitName=null, forceaip=false) {
+		// Ad unavailable — continue without an ad request or a claimed view.
+		Main.DoneVideoAd(true);
 	}
 	</script>
 
@@ -437,7 +271,7 @@
                 <b>Which browser should I use?</b>
                 <p>You should use chrome.  It is the only browser guaranteed to work.  BasketBros has also been tested to work on FireFox and Safari, but not guaranteed.</p>
                 <b>Are there more Bros games?</b>
-                <p>Yes! Our newest is <a href="https://footballbros.io">Football Bros</a>. But we also have <a href="https://soccerbros.gg">Soccer Bros</a> and <a href="https://wrestlebros.io">Wrestle Bros</a>. Also be sure to check out <a href="https://freegames.io" target="_blank">Web games at FreeGames.io</a></p>
+                <p>Yes! Our newest is <a href="https://footballbros.io">Football Bros</a>. But we also have <a href="https://soccerbros.gg">Soccer Bros</a> and <a href="https://wrestlebros.io">Wrestle Bros</a>. Also be sure to check out <a href="https://freegames.io">Web games at FreeGames.io</a></p>
             </div>
         </div>
         <div class="section">
@@ -448,23 +282,23 @@
 							var referrer = document.referrer;
 							if(referrer.includes('crazygames'))
 							{
-								return '<center><br><div style="transform:translate('+'-50'+'px,'+y+'px); width=70%; z-index: 101; text-align:right;><font style="font-weight:normal;font-family:Arial;color:#010101;font-size:20px;"><a href="https://crazygames.com" target="_blank">Crazy Games</a></font><br></div></center>';
+								return '<center><br><div style="transform:translate('+'-50'+'px,'+y+'px); width=70%; z-index: 101; text-align:right;><font style="font-weight:normal;font-family:Arial;color:#010101;font-size:20px;"><a href="https://crazygames.com">Crazy Games</a></font><br></div></center>';
 							}
 							else if (referrer.includes('iogames.space'))
 							{
-								return '<center><br><div style="transform:translate('+'-50'+'px,'+y+'px); width=70%; z-index: 101; text-align:right;><font style="font-weight:normal;font-family:Arial;color:#010101;font-size:20px;"><a href="https://iogames.space" target="_blank">IO Games</a></font><br></div></center>';
+								return '<center><br><div style="transform:translate('+'-50'+'px,'+y+'px); width=70%; z-index: 101; text-align:right;><font style="font-weight:normal;font-family:Arial;color:#010101;font-size:20px;"><a href="https://iogames.space">IO Games</a></font><br></div></center>';
 							}
 							else if(referrer.includes('poki'))
 							{
-								return '<center><br><div style="transform:translate('+'-50'+'px,'+y+'px); width=70%; z-index: 101; text-align:right;><font style="font-weight:normal;font-family:Arial;color:#010101;font-size:20px;">Check out our friends at <a href="https://poki.com" target="_blank">Poki</a></font><br></div></center>';
+								return '<center><br><div style="transform:translate('+'-50'+'px,'+y+'px); width=70%; z-index: 101; text-align:right;><font style="font-weight:normal;font-family:Arial;color:#010101;font-size:20px;">Check out our friends at <a href="https://poki.com">Poki</a></font><br></div></center>';
 							}
 							else if(referrer.includes('silver'))
 							{
-								return '<center><br><div style="transform:translate('+'-50'+'px,'+y+'px); width=70%; z-index: 101; text-align:right;><font style="font-weight:normal;font-family:Arial;color:#010101;font-size:20px;"><a href="https://silvergames.com" target="_blank">Silver Games</a></font><br></div></center>';
+								return '<center><br><div style="transform:translate('+'-50'+'px,'+y+'px); width=70%; z-index: 101; text-align:right;><font style="font-weight:normal;font-family:Arial;color:#010101;font-size:20px;"><a href="https://silvergames.com">Silver Games</a></font><br></div></center>';
 							}
 							else
 							{
-								//return '<center><br><div style="transform:translate('+'-50'+'px,'+y+'px); width=70%; z-index: 101; text-align:right;><font style="font-weight:normal;font-family:Arial;color:#010101;font-size:20px;"><a href="https://wrestlebros.io" target="_blank">Wrestle Bros</a></font><br></div></center>';
+								//return '<center><br><div style="transform:translate('+'-50'+'px,'+y+'px); width=70%; z-index: 101; text-align:right;><font style="font-weight:normal;font-family:Arial;color:#010101;font-size:20px;"><a href="https://wrestlebros.io">Wrestle Bros</a></font><br></div></center>';
 							}
 							return "";
 						}
@@ -479,10 +313,10 @@
                 </div> 
 
 				<!--                <div class="partner defaultshow hidecrazygames">
-                    <a href="https://iogames.space/" target="_blank">More IO Games</a>
+                    <a href="https://iogames.space/">More IO Games</a>
                 </div> -->
 <!--                <div class="partner  defaultshow hidecrazygames">
-                    <a href="https://silvergames.com/" target="_blank">Silver Games</a>
+                    <a href="https://silvergames.com/">Silver Games</a>
                 </div> -->
             </div>
         </div>
@@ -882,19 +716,9 @@
 
 
 		function ShowAdBreak() {
-			//check if the adslib is loaded correctly or blocked by adblockers etc.
-			if(typeof window.CrazyGames !== 'undefined' && window.CrazyGames.SDK.environment != "disabled")
-			{
-				Main.DoneInterstitialAd(false);
-				return;
-			}
-
-						if(typeof adplayer === 'undefined' ) {
-				Main.DoneInterstitialAd(true);
-				return;
-			}
-			aiptag.cmd.player.push(function() { adplayer.startAdBreak(); });
-		}
+		// Ad unavailable — resume locally without an ad request or impression.
+		Main.DoneInterstitialAd(true);
+	}
 
 		
 		document.getElementById("openfl-content").addEventListener("wheel", doScroll);
@@ -942,25 +766,9 @@
 		}, 32000);*/
 
 		var sid='p5m6p5i6sv9de37e077opjmlpi'
-		function updateStatus(fromEvent = false)
-		{
-			const req = new XMLHttpRequest();
-			var aStr = "recordsession.php?s="+sid;
-			if(fromEvent == true)  aStr = aStr + "&e=1"
-			req.open("GET", aStr);
-			req.send();
-		}
-		function SendEvent(theEvent, theAction, theParms = '') {
-			if(theParms == '') {
-				gtag(theEvent, theAction);
-			} else {
-				gtag(theEvent, theAction, theParms);
-			}
-			updateStatus(true);
-			//console.log("Sending event: " + theEvent + "/" + theAction + "/" + theParms);
-		}
-		//setInterval(function() { updateStatus, 4*60*1000);			
-		updateStatus(true);
+		function updateStatus() {}
+		function SendEvent() {}
+		//setInterval(function() { updateStatus, 4*60*1000);
 
 		//setInterval(ClearAds, 2000);		
 
