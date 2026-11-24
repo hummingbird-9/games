@@ -11,10 +11,11 @@ function mergeFiles(fileParts) {
                 resolve(mergedFileUrl);
                 return;
             }
-            fetch(fileParts[index]).then((response) => {
-                if (!response.ok) throw new Error("Missing part: " + fileParts[index]);
+            fetch(new URL(fileParts[index], document.baseURI).href).then((response) => {
+                if (!response.ok) throw new Error("Missing part: " + fileParts[index] + " (HTTP " + response.status + ")");
                 return response.arrayBuffer();
             }).then((data) => {
+                if (!data.byteLength) throw new Error("Empty split part: " + fileParts[index]);
                 buffers.push(data);
                 fetchPart(index + 1);
             }).catch(reject);
@@ -41,4 +42,11 @@ Promise.all([
         }
     };
     window.godotrunfunction();
+}).catch(error => {
+    console.error("Failed to reconstruct split Web Fishing PCK:", error);
+    const notice = document.getElementById("status-notice");
+    if (notice) {
+        notice.textContent = "Failed to load game data: " + (error.message || error);
+        notice.style.display = "block";
+    }
 });
