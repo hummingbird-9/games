@@ -2,8 +2,8 @@
   "schema_version": 1,
   "repository": "hummingbird-9/games",
   "branch": "main",
-  "updated": "2026-11-23",
-  "audit_method": "Static inspection of each folder's entry HTML and accessible referenced local helpers. No live browser/gameplay testing was performed.",
+  "updated": "2026-11-24",
+  "audit_method": "Static inspection of entry HTML and selected accessible referenced local helpers. No live browser/gameplay testing was performed.",
   "batches": [
     {
       "batch": 1,
@@ -510,12 +510,187 @@
           "changes": "Ruffle wrapper; no ad or redirect behavior detected."
         }
       ]
+    },
+    {
+      "batch": 4,
+      "date": "2026-11-24",
+      "commit": "9d71809edb853c7a53d5137a873ee4fe19c41095",
+      "commit_message": "Remove ad and tracking redirects from selected basketball games",
+      "folders": [
+        {
+          "folder": "Awesome Tanks",
+          "status": "needs manual review",
+          "files": [
+            "index.html"
+          ],
+          "changes": "The repository entry page is empty, so no launch code or referenced paths could be verified."
+        },
+        {
+          "folder": "Backrooms",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "remote js/main.js"
+          ],
+          "changes": "The entry loads its Unity game and a remote main.js helper from jsDelivr; the helper is outside the repository and its behavior could not be verified."
+        },
+        {
+          "folder": "Bad Parenting 1",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Unity WebGL entry uses a fixed external asset base and local-relative loader paths; no ad, tracker, top-frame redirect, or forced new-tab behavior detected."
+        },
+        {
+          "folder": "Baldi Plus",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Unity WebGL entry loads local split data/WASM parts and its local loader; no ad, tracker, or iframe escape detected."
+        },
+        {
+          "folder": "Baldi Remastered",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Unity WebGL entry reconstructs local split data/WASM files and loads the local framework; no ad or redirect behavior detected."
+        },
+        {
+          "folder": "Baldi's Basics",
+          "status": "needs manual review",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Entry depends on remote main.js and Firebase helpers not present in the game folder; helper behavior and launch dependencies need verification."
+        },
+        {
+          "folder": "Ball Blast",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "remote VOODOO-H5SDK.youtube.js",
+            "remote main.js"
+          ],
+          "changes": "Entry uses remote YouTube/Voodoo playable helpers through its external base; ad and callback behavior cannot be verified from repository-local files."
+        },
+        {
+          "folder": "Bank Robbery 2",
+          "status": "needs manual review",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Removed the Google Analytics loader and initialization. Yandex auth, cloud saves, leaderboards, purchases, and rewarded-ad callbacks are intertwined; left them intact pending callback-level review."
+        },
+        {
+          "folder": "Baseball Bros Official Site",
+          "status": "fixed",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Removed Google Analytics, AdInPlay, Microsoft ad preloads/notifications, and recordsession telemetry; ShowVideo/ShowAdBreak now report ad-unavailable locally without requests or impressions. Removed forced new-tab targets; Firebase multiplayer/auth services remain."
+        },
+        {
+          "folder": "Basket Battle",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Standalone YouTube game API stub and remote game bundle; no ad provider, analytics beacon, or iframe escape detected in the entry."
+        },
+        {
+          "folder": "Basket Bros",
+          "status": "fixed",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Removed Google Analytics, Clarity, AdInPlay, Microsoft/CrazyGames ad requests, and recordsession telemetry; local unavailable callbacks resume gameplay without claiming an ad view. Removed forced new-tab targets and preserved Firebase multiplayer/auth."
+        },
+        {
+          "folder": "Basket Random Legacy",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Ruffle wrapper with no direct ad, tracker, top-frame redirect, or forced new-tab behavior detected."
+        },
+        {
+          "folder": "Basket Random",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "scripts/main.js"
+          ],
+          "changes": "Removed Google AdSense and replaced adConfig/adBreak with local notReady callbacks; interstitials continue and rewarded placements fail without granting a reward. Construct runtime contains generic top/parent navigation support and entry references /game-capture.js, so iframe behavior still needs runtime verification."
+        },
+        {
+          "folder": "Basketball Frvr",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Bundled game code contains a no-op analytics stub for non-analytics platforms; no external analytics beacon, ad provider, or top-frame redirect detected in the entry."
+        },
+        {
+          "folder": "Basketball Stars",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "js/analytics_ubg_v1_4.js",
+            "js/main.min.js"
+          ],
+          "changes": "Removed the UBG Google Analytics loader reference. The large GameDistribution bundle contains ad/analytics platform code and frame messaging, and the entry also references root-level geoblocker/settings helpers; left the runtime intact pending dependency review."
+        },
+        {
+          "folder": "Bazooka Boy",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Standalone YouTube game API stub and external game bundle; no external ad provider, tracker beacon, or iframe escape detected in the entry."
+        },
+        {
+          "folder": "Bendy and the Ink Machine",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Unity WebGL entry uses local loader and split-file reconstruction; no ad or iframe redirect behavior detected."
+        },
+        {
+          "folder": "Bergentruck",
+          "status": "no issue",
+          "files": [
+            "BERGENTRUCK_201X.html",
+            "main.js"
+          ],
+          "changes": "Godot entry uses local assets and service-worker registration; window.location.reload is a same-frame reload after registration, not a top-frame or external redirect."
+        },
+        {
+          "folder": "Big Ice Tower Tiny Square",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Construct game entry uses remote runtime assets but contains no ad, tracker, or top-frame navigation code."
+        },
+        {
+          "folder": "Big NEON Tower Tiny Square",
+          "status": "needs manual review",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Entry loads remote Construct assets and references /game-capture.js outside the folder; helper behavior and iframe runtime behavior remain unverified."
+        }
+      ]
     }
   ],
   "totals": {
-    "folders_audited": 60,
-    "fixed": 15,
-    "no_issue": 33,
-    "needs_manual_review": 12
+    "folders_audited": 80,
+    "fixed": 17,
+    "no_issue": 43,
+    "needs_manual_review": 20
   }
 }
