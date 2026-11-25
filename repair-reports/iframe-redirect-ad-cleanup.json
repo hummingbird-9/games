@@ -2,7 +2,7 @@
   "schema_version": 1,
   "repository": "hummingbird-9/games",
   "branch": "main",
-  "updated": "2026-11-24",
+  "updated": "2026-11-25",
   "audit_method": "Static inspection of entry HTML and accessible referenced local helpers; static reference and pattern checks. No live browser/gameplay testing was performed.",
   "batches": [
     {
@@ -1283,12 +1283,593 @@
           "changes": "Replaced the external ytgame.js SDK (which contains an obfuscated location redirect and parent-bridge ad requests) with a local standalone API stub preserving localStorage save/score behavior and rejecting all ad requests."
         }
       ]
+    },
+    {
+      "batch": 8,
+      "date": "2026-11-25",
+      "commit": "a39bf91f0bf5e1906f967658442cc2e9e5b69a6a",
+      "commit_message": "Remove injected ads and broken host helpers from C–C games (batch 8)",
+      "folders": [
+        {
+          "folder": "Clash Of Vikings",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "remote game.js"
+          ],
+          "changes": "Removed the missing root-level /game-capture.js reference. MarketJS MobileAd placeholders and the remote game patch remain; ad callback behavior needs runtime review."
+        },
+        {
+          "folder": "Clash of Vikings",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "remote game.js"
+          ],
+          "changes": "MarketJS MobileAd placeholders and remote game patch remain; the ad callback dependency could not be verified safely."
+        },
+        {
+          "folder": "Class of 09",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Only an optional user-clicked external Ren'Py link was found; no automatic frame navigation, ad SDK, or tracker."
+        },
+        {
+          "folder": "Clover Pit",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Unity entry uses the game assets directly; no ad, tracker, or frame-escape behavior was detected."
+        },
+        {
+          "folder": "CloverPit",
+          "status": "fixed",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Removed the missing root-level /game-capture.js reference; preserved the Unity loader and game data."
+        },
+        {
+          "folder": "Cluster Rush Legacy",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Unity entry showed no ad SDK, tracker, top-frame redirect, or forced new-tab behavior."
+        },
+        {
+          "folder": "Cluster Rush",
+          "status": "fixed",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Removed missing root-level /assets/js/geoblocker.js and settings.js references; preserved the Construct game base and runtime."
+        },
+        {
+          "folder": "Color Match",
+          "status": "no issue",
+          "files": [
+            "index.html",
+            "remote YouTube playable API/game assets"
+          ],
+          "changes": "YouTube playable entry showed no ad provider, tracker beacon, or automatic iframe escape."
+        },
+        {
+          "folder": "Color Water Sort 3D",
+          "status": "no issue",
+          "files": [
+            "index.html",
+            "remote YouTube playable API/game assets"
+          ],
+          "changes": "YouTube playable entry showed no ad provider, tracker beacon, or automatic iframe escape."
+        },
+        {
+          "folder": "Cookie Clicker",
+          "status": "fixed",
+          "files": [
+            "index.html",
+            "remote main.js",
+            "base64.js"
+          ],
+          "changes": "Removed Facebook Pixel, AdSense/showads loader, ad backfill iframes, Playsaurus redirect banners, and support ad containers; changed external top-bar marketing links to same-frame navigation. Kept the core game scripts and save logic."
+        },
+        {
+          "folder": "Cool Cars Run 3D",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "remote Yandex Games SDK",
+            "remote Unity game"
+          ],
+          "changes": "Yandex SDK is shared by authentication, purchases, cloud saves, leaderboards, and ads; left intact pending callback-level separation and runtime testing."
+        },
+        {
+          "folder": "Coreball",
+          "status": "fixed",
+          "files": [
+            "index.html",
+            "remote coreball-1.js",
+            "remote coreball-2.js"
+          ],
+          "changes": "Removed Google Analytics, the missing /game-capture.js reference, Google JSAPI, and the parent maeExportApis_ ad bridge; retained the game logic assets."
+        },
+        {
+          "folder": "Counter Strike 1.6",
+          "status": "no issue",
+          "files": [
+            "index.html",
+            "remote engine assets"
+          ],
+          "changes": "Entry uses the game engine and its asset services; no ad SDK, tracker, top-frame redirect, or forced new-tab behavior was detected."
+        },
+        {
+          "folder": "Crazy Cars",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "remote Poki SDK/game bundle"
+          ],
+          "changes": "Poki SDK and ad callbacks are coupled to the remote game bundle; left intact pending callback-level review."
+        },
+        {
+          "folder": "Crazy Cattle 3D (2)",
+          "status": "fixed",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Removed the Google AdSense loader; retained the game assets and engine."
+        },
+        {
+          "folder": "Crazy Cattle 3D",
+          "status": "fixed",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Removed the Google AdSense loader; retained the game assets and engine."
+        },
+        {
+          "folder": "Crazy Cattle",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "No ad provider, tracker, top-frame redirect, or forced new-tab behavior was detected in the entry."
+        },
+        {
+          "folder": "Crazy Chicken 3D",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "No ad provider, tracker, top-frame redirect, or forced new-tab behavior was detected in the entry."
+        },
+        {
+          "folder": "Crazy Grand Prix",
+          "status": "fixed",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Removed the missing root-level /game-capture.js reference; retained the game loader and assets."
+        },
+        {
+          "folder": "Crazy Kitty 3D",
+          "status": "no issue",
+          "files": [
+            "index.html"
+          ],
+          "changes": "No ad provider, tracker, top-frame redirect, or forced new-tab behavior was detected in the entry."
+        }
+      ]
+    },
+    {
+      "batch": 9,
+      "date": "2026-11-25",
+      "commit": "4d2f7e354df6136a186d4dd297200d68fae04626",
+      "commit_message": "Remove ad SDK injections and tracking from D–D games (batch 9)",
+      "folders": [
+        {
+          "folder": "Crazycattle3d Legacy",
+          "status": "fixed",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Removed the Google AdSense loader; preserved the game runtime and assets."
+        },
+        {
+          "folder": "Crossy Road",
+          "status": "no issue",
+          "files": [
+            "index.html",
+            "remote game bundle"
+          ],
+          "changes": "Entry showed no ad SDK, tracker beacon, top-frame redirect, or forced new-tab behavior."
+        },
+        {
+          "folder": "Crush Cars 3D",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "remote Yandex Games SDK",
+            "remote Unity game"
+          ],
+          "changes": "Yandex SDK provides ads alongside player services; kept intact pending runtime separation of ad callbacks from auth, saves, and purchases."
+        },
+        {
+          "folder": "Cube Field",
+          "status": "fixed",
+          "files": [
+            "index.html",
+            "cubefield.min.js",
+            "api.js",
+            "version.js"
+          ],
+          "changes": "Removed the missing root-level /js/all.js reference; preserved the local game logic and configuration."
+        },
+        {
+          "folder": "Cubefield",
+          "status": "no issue",
+          "files": [
+            "index.html",
+            "remote Ruffle runtime"
+          ],
+          "changes": "Ruffle wrapper showed no ad, tracker, or frame-escape behavior."
+        },
+        {
+          "folder": "Cuphead",
+          "status": "no issue",
+          "files": [
+            "index.html",
+            "remote game assets"
+          ],
+          "changes": "Entry showed no ad provider, tracker beacon, or automatic frame navigation."
+        },
+        {
+          "folder": "Cut the Rope Legacy",
+          "status": "fixed",
+          "files": [
+            "index.html",
+            "remote game scripts"
+          ],
+          "changes": "Removed the GameMonetize SDK injection and timed showBanner calls misnamed as analytics; preserved the core game scripts."
+        },
+        {
+          "folder": "Cut the Rope",
+          "status": "fixed",
+          "files": [
+            "index.html",
+            "remote game scripts"
+          ],
+          "changes": "Removed the missing /game-capture.js reference, GameMonetize SDK injection, and timed showBanner calls; preserved the core game scripts."
+        },
+        {
+          "folder": "DOOM II",
+          "status": "no issue",
+          "files": [
+            "index.html",
+            "remote DOSBox/Ruffle runtime"
+          ],
+          "changes": "Entry showed no ad, tracker, top-frame redirect, or forced new-tab behavior."
+        },
+        {
+          "folder": "DOOM",
+          "status": "no issue",
+          "files": [
+            "index.html",
+            "remote DOSBox/Ruffle runtime"
+          ],
+          "changes": "Entry showed no ad, tracker, top-frame redirect, or forced new-tab behavior."
+        },
+        {
+          "folder": "Dadish 2 Legacy",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "remote GameBridge/Poki SDK",
+            "remote game bundle"
+          ],
+          "changes": "GameBridge/Poki ad callbacks are coupled to the remote game bundle; preserved them pending callback-level review."
+        },
+        {
+          "folder": "Dadish 2",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "Dadish 2 Poki.js",
+            "remote Poki SDK"
+          ],
+          "changes": "Removed Google Analytics and AdSense plus missing root geoblocker/settings/global.js references. Retained the Poki SDK and local game bundle because ad callbacks and gameplay hooks could not be separated safely without runtime testing."
+        },
+        {
+          "folder": "Dadish 3 Legacy",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "remote obfuscated Poki loader"
+          ],
+          "changes": "The obfuscated Poki bootstrap is tied to the game startup path; left intact pending a safe local callback replacement."
+        },
+        {
+          "folder": "Dadish 3",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "dadish3/Dadish 3 Poki.js"
+          ],
+          "changes": "The obfuscated Poki bootstrap and large local game bundle require callback-level review before removing the SDK."
+        },
+        {
+          "folder": "Dadish 3D",
+          "status": "fixed",
+          "files": [
+            "index.html",
+            "assets/js/LoadData.js",
+            "remote Unity loader/build"
+          ],
+          "changes": "Removed the Google Analytics loader; preserved the Unity loader, game build, and local save-data helper."
+        },
+        {
+          "folder": "Dadish Legacy",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "remote Poki SDK",
+            "remote game bundle"
+          ],
+          "changes": "Removed Google Analytics and AdSense. Poki SDK remains coupled to the remote game bundle, so ad callback behavior needs runtime review."
+        },
+        {
+          "folder": "Dadish",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "remote Poki SDK",
+            "remote game bundle"
+          ],
+          "changes": "Removed Google Analytics, AdSense, and the missing /game-capture.js reference. Poki SDK remains coupled to the remote game bundle pending callback review."
+        },
+        {
+          "folder": "Daily Dadish",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "gamebridge.js",
+            "pk-sdk.js",
+            "Dadish POKI.js"
+          ],
+          "changes": "Removed Google Analytics. GameBridge/pk-sdk still advertises timed ads and is intertwined with the game bridge; preserved pending a local no-ad callback test."
+        },
+        {
+          "folder": "Dalgona Candy Honeycomb Cookie",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "remote GameSnacks SDK",
+            "remote game bundle"
+          ],
+          "changes": "GameSnacks monetization SDK is integrated with the game API; left intact until its gameplay callbacks can be separated safely."
+        },
+        {
+          "folder": "Dead Plate",
+          "status": "no issue",
+          "files": [
+            "index.html",
+            "remote game assets"
+          ],
+          "changes": "Entry showed no ad SDK, tracker, top-frame redirect, or forced new-tab behavior."
+        }
+      ]
+    },
+    {
+      "batch": 10,
+      "date": "2026-11-25",
+      "commit": "0a1e58b25cd4713fdc317e4bb934c030a3c96a3e",
+      "commit_message": "Remove iframe-host hooks, ad overlays, and tracking from D–D games (batch 10)",
+      "folders": [
+        {
+          "folder": "Dead Seat",
+          "status": "no issue",
+          "files": [
+            "index.html",
+            "remote game assets"
+          ],
+          "changes": "Entry showed no ad, tracker, top-frame redirect, or forced new-tab behavior."
+        },
+        {
+          "folder": "Death Run 3D",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "shared/lib.js",
+            "shared/gamebreak/gamebreak.js"
+          ],
+          "changes": "Removed the missing /js/all.js reference. Preserved parent postMessage('bonk') and the WebSocket/XHR proxy because their host/game effects require runtime verification."
+        },
+        {
+          "folder": "Deltarune",
+          "status": "no issue",
+          "files": [
+            "index.html",
+            "remote game assets"
+          ],
+          "changes": "Chapter navigation stays in the game frame; window.open is only used for explicit user-clicked external port/credit links, not an automatic redirect."
+        },
+        {
+          "folder": "Deltatraveler",
+          "status": "no issue",
+          "files": [
+            "index.html",
+            "remote game assets"
+          ],
+          "changes": "Entry showed no ad, tracker, top-frame redirect, or forced new-tab behavior."
+        },
+        {
+          "folder": "Demolotion Derby 3",
+          "status": "fixed",
+          "files": [
+            "index.html"
+          ],
+          "changes": "Removed the missing root-level /game-capture.js reference; preserved the game loader and assets."
+        },
+        {
+          "folder": "Destiny Run 3D",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "remote Yandex Games SDK",
+            "remote Unity game"
+          ],
+          "changes": "Yandex SDK is shared by player services and ad callbacks; left intact pending runtime verification."
+        },
+        {
+          "folder": "Destroy The Car 3D",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "remote Yandex Games SDK",
+            "remote Unity game"
+          ],
+          "changes": "Removed the missing /game-capture.js reference. The /sdk.js Yandex bridge and its auth/save/ad dependencies remain unresolved and need runtime testing."
+        },
+        {
+          "folder": "Diamond Seeker",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "remote Yandex Games SDK",
+            "remote game bundle"
+          ],
+          "changes": "Yandex SDK handles player services and ads; left intact pending runtime callback separation."
+        },
+        {
+          "folder": "Dig Deep",
+          "status": "no issue",
+          "files": [
+            "index.html",
+            "game.js",
+            "style/index.css"
+          ],
+          "changes": "Local game entry and scripts showed no ad SDK, tracker, top-frame redirect, or forced new-tab behavior."
+        },
+        {
+          "folder": "Dogeminer",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "remote DogeMiner/js/main.js",
+            "remote js/main.js"
+          ],
+          "changes": "The entry's privacy text says Google Analytics is used, but the loader is in external game scripts not present in this repository; left the core scripts intact pending source inspection."
+        },
+        {
+          "folder": "Don't You Lecture Me",
+          "status": "fixed",
+          "files": [
+            "index.html",
+            "remote game scripts"
+          ],
+          "changes": "Removed Google Analytics loader/initialization and changed external social/marketing links to same-frame navigation."
+        },
+        {
+          "folder": "Doodle Jump",
+          "status": "fixed",
+          "files": [
+            "index.html",
+            "main.js",
+            "style.css"
+          ],
+          "changes": "Removed Google AdSense and the Cloudflare Insights beacon; changed external credits/share links to same-frame navigation. Preserved Cloudflare Rocket Loader because the entry uses its script-type attributes."
+        },
+        {
+          "folder": "Draw Climber",
+          "status": "no issue",
+          "files": [
+            "index.html",
+            "remote 4399 game assets"
+          ],
+          "changes": "document.domain='4399.com' is an origin-compatibility setting for the game, not a redirect; preserved it and the game runtime."
+        },
+        {
+          "folder": "Draw Joust",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "remote Yandex Games SDK",
+            "remote Unity game"
+          ],
+          "changes": "Removed the missing /game-capture.js reference. The Yandex /sdk.js bridge and its player/ad callbacks remain pending runtime verification."
+        },
+        {
+          "folder": "Draw the Hill",
+          "status": "fixed",
+          "files": [
+            "index.html",
+            "scripts/main.js",
+            "scripts/supportcheck.js"
+          ],
+          "changes": "Removed the missing /game-capture.js and root /js/main.js references; preserved the actual scripts/main.js Construct runtime and asset base."
+        },
+        {
+          "folder": "Draw the Line",
+          "status": "no issue",
+          "files": [
+            "index.html",
+            "remote YouTube playable API/game assets"
+          ],
+          "changes": "YouTube playable entry showed no ad provider, tracker, or automatic iframe escape."
+        },
+        {
+          "folder": "Dreadhead Parkour",
+          "status": "no issue",
+          "files": [
+            "index.html",
+            "remote Construct assets"
+          ],
+          "changes": "Construct entry showed no ad SDK, tracker, top-frame redirect, or forced new-tab behavior."
+        },
+        {
+          "folder": "Drift Boss",
+          "status": "needs manual review",
+          "files": [
+            "index.html",
+            "js/analytics_games235.js",
+            "js/analytics_ubg_v1_4.js",
+            "js/ubg235_client_v1_1.js",
+            "js/main.min.js",
+            "gamedock-sdk.min.js",
+            "game.js"
+          ],
+          "changes": "Removed UBG235 analytics/ad client loads, generated MobileAd overlay placeholders, missing geoblocker/settings references, and deleted the three dedicated UBG/Google Analytics scripts; corrected the favicon to a game-folder-relative path. The dormant GameDistribution/Gamedock SDK files and large game.js still need runtime dependency review."
+        },
+        {
+          "folder": "Drift Hunters",
+          "status": "fixed",
+          "files": [
+            "index.html",
+            "remote UnityLoader2019.js",
+            "remote dh.json"
+          ],
+          "changes": "Removed Google Analytics, GameMonetize, IMA/DoubleClick SDKs, the parent ad-export call, ad iframes/containers, origin-trial ad metadata, and empty script references; preserved the Unity loader and game data."
+        },
+        {
+          "folder": "Duck Life 2",
+          "status": "no issue",
+          "files": [
+            "index.html",
+            "remote Ruffle runtime",
+            "remote SWF"
+          ],
+          "changes": "Ruffle entry showed no ad, tracker, top-frame redirect, or forced new-tab behavior."
+        }
+      ]
     }
   ],
   "totals": {
-    "folders_audited": 140,
-    "fixed": 36,
-    "no_issue": 68,
-    "needs_manual_review": 36
+    "folders_audited": 200,
+    "fixed": 53,
+    "no_issue": 91,
+    "needs_manual_review": 56
   }
 }
