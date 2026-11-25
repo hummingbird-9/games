@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no"
+    />
+    <title>GTA: Vice City — WASM Port</title>
+    <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+    <link rel="manifest" href="./manifest.json" />
+    <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+    <meta name="theme-color" content="#05060a" />
+    <script type="module" crossorigin src="./assets/index-F4cFBnRz.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-DsiJYsui.css">
+  </head>
+
+  <body
+    class="app-body"
+    data-is-touch="0"
+    data-state-car="0"
+    data-state-car-gun="0"
+    data-state-gun="0"
+    data-state-bike="0"
+    data-state-menu="1"
+    data-state-cutscene="0"
+    data-state-mobring="0"
+    data-state-job="0"
+    data-state-disable-controls="0"
+    data-state-panzer="0"
+    data-state-car-with-weapon="0"
+    data-state-hunter="0"
+    data-state-scope-mode="0"
+    data-state-scope-gun="0"
+  >
+    <div class="rotate-overlay">
+      <span class="rotate-overlay-icon">&#8635;</span>
+      <span data-i18n="rotate">Rotate your device</span>
+    </div>
+
+    <div class="loading-screen" hidden>
+      <div class="loader-container">
+        <div class="progress-bar-container" id="spinner">
+          <div class="progress-bar-fill"></div>
+        </div>
+        <div id="status" data-i18n="loader.downloading">Downloading...</div>
+        <div>
+          <progress id="progress"></progress>
+        </div>
+      </div>
+    </div>
+
+    <div class="lang-switcher">
+      <div class="lang-picker">
+        <svg
+          class="lang-picker-icon"
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+          <path d="M2 12h20" />
+        </svg>
+        <select
+          id="ui-lang"
+          class="lang-select"
+          aria-label="Language"
+          data-i18n-aria-label="language.label"
+        ></select>
+        <svg
+          class="lang-picker-chevron"
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </div>
+    </div>
+
+    <div class="start-container">
+      <div class="simple-start-layout">
+        <div class="simple-game-card">
+          <h1>Grand Theft Auto: Vice City</h1>
+          <div id="setup-overlay">
+            <div id="storage-status" class="storage-status" data-i18n="setup.checking">
+              Checking local game files…
+            </div>
+            <div class="setup-actions-panel">
+              <div id="game-drop" class="file-picker">
+                <span class="file-picker-label" data-i18n="setup.select">Game files (PC)</span>
+                <span id="selected-file-name" class="file-picker-name" data-i18n="setup.drop">Choose a folder or ZIP</span>
+                <span class="file-picker-actions">
+                  <button id="game-folder-btn" class="game-pick-btn" type="button">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                    </svg>
+                    <span data-i18n="setup.chooseFolder">Choose folder</span>
+                  </button>
+                  <button id="game-zip-btn" class="game-pick-btn" type="button">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M6 3h9l4 4v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
+                      <path d="M11 3v2m0 2v2m0 2v2m-1 2h2v3h-2z" />
+                    </svg>
+                    <span data-i18n="setup.chooseZip">Choose ZIP</span>
+                  </button>
+                </span>
+              </div>
+              <input type="file" id="game-folder-input" class="game-input" webkitdirectory />
+              <input type="file" id="game-zip-input" class="game-input" accept=".zip,application/zip" />
+            </div>
+            <div id="setup-progress">
+              <div class="setup-progress-head">
+                <span class="setup-progress-title" data-i18n="setup.importing">Importing game files</span>
+                <span id="setup-progress-percent" class="setup-progress-percent">0%</span>
+              </div>
+              <p id="setup-progress-label" data-i18n="setup.preparing">Preparing…</p>
+              <div class="prog-bar-wrap">
+                <div class="prog-bar-fill" id="setup-progress-bar"></div>
+              </div>
+            </div>
+            <div id="setup-error"></div>
+          </div>
+          <div class="config-option cheats-toggle">
+            <label for="enable-cheats">
+              <span data-i18n="cheats.enable">Enable cheats</span>
+              <span class="switch">
+                <input type="checkbox" id="enable-cheats" />
+                <span class="switch-track"></span>
+              </span>
+            </label>
+          </div>
+          <div class="click-to-play">
+            <button id="click-to-play-button" class="disabled" data-i18n="play.start" type="button" disabled>Play Game</button>
+          </div>
+          <div
+            id="config-panel"
+          >
+            <div>
+              <label
+                for="config-cheats"
+              >
+                <input
+                  type="checkbox"
+                  id="config-cheats"
+                />
+                <span id="config-cheats-label" data-i18n="config.cheats">Cheats (F3)</span>
+              </label>
+            </div>
+            <div>
+              <label
+                for="config-fullscreen"
+              >
+                <input
+                  type="checkbox"
+                  id="config-fullscreen"
+                  checked
+                />
+                <span id="config-fullscreen-label" data-i18n="config.fullscreen">Fullscreen</span>
+              </label>
+            </div>
+            <div>
+              <label
+                for="config-max-fps"
+              >
+                <span id="config-max-fps-label" data-i18n="config.maxFps">Max FPS:</span>
+                <input
+                  type="number"
+                  id="config-max-fps"
+                  min="0"
+                  max="240"
+                  value="0"
+                />
+                <span id="config-max-fps-unlimited" data-i18n="config.unlimited">(0 = unlimited)</span>
+              </label>
+            </div>
+          </div>
+          <details id="more-options" class="userdata-panel">
+            <summary><h2>More options</h2></summary>
+            <button id="reset-files-btn" class="reset-btn" type="button" data-i18n="setup.resetFiles">Delete game</button>
+            <details id="saves-panel" class="userdata-panel">
+            <summary><h2 data-i18n="saves.title">Saves</h2></summary>
+            <p class="userdata-note" data-i18n="saves.note">
+              Import a GTA Vice City PC save (.b or .zip) into a slot. Stored in
+              this browser; make changes here before pressing Start.
+            </p>
+            <div id="saves-status" class="userdata-status" role="status" hidden></div>
+
+            <ul id="save-slot-list" class="userdata-list"></ul>
+            <input type="file" id="save-file-input" accept=".b,.zip" hidden />
+          </details>
+            <details id="skins-panel" class="userdata-panel">
+            <summary><h2 data-i18n="skins.title">Skins</h2></summary>
+            <p class="userdata-note" data-i18n="skins.note">
+              Change how Tommy looks. After starting the game, open Options
+              → Player Skin Setup to pick one. Skins only change his street
+              outfit, not cutscenes.
+            </p>
+            <div id="skins-status" class="userdata-status" role="status" hidden></div>
+
+            <ul id="skin-list" class="userdata-list"></ul>
+            <label id="skin-drop" class="file-picker userdata-drop" for="skin-file-input">
+              <span class="file-picker-label" data-i18n="skins.importLabel">Import skins</span>
+              <span class="file-picker-name" data-i18n="skins.dropHint"
+                >Choose or drop a .bmp, .png, .jpg or .zip file</span
+              >
+            </label>
+            <input type="file" id="skin-file-input" accept=".bmp,.png,.jpg,.jpeg,.zip,image/bmp,image/png,image/jpeg,application/zip" multiple hidden />
+          </details>
+            <details id="controller-panel" class="userdata-panel controller-option">
+            <summary>
+              <h2 data-i18n="controller.title">Controller</h2>
+              <span id="controller-badge" class="controller-badge" data-i18n="controller.badge" hidden>Connected</span>
+            </summary>
+            <p id="controller-note" class="userdata-note" data-i18n="controller.note">Pair your controller and press any button.</p>
+            <button id="connect-controller" class="userdata-btn" type="button" data-i18n="controller.connect" hidden>Connect</button>
+            <div id="controller-status" class="userdata-status" role="status" aria-live="polite" hidden></div>
+          </details>
+          </details>
+          <div class="disclaimer" hidden aria-hidden="true"></div>
+          <div class="developed-by" hidden aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+    <canvas class="emscripten" id="canvas"></canvas>
+
+    <div class="touch-controls-wrapper">
+      <div id="move"></div>
+      <div id="look"></div>
+
+      <div class="touch-control radio"></div>
+      <div class="touch-control weapon"></div>
+      <div class="touch-control menu"></div>
+      <div class="touch-control fist"></div>
+      <div class="touch-control drift"></div>
+      <div class="touch-control run"></div>
+      <div class="touch-control car getIn"></div>
+      <div class="touch-control left"></div>
+      <div class="touch-control right"></div>
+      <div class="touch-control jump"></div>
+      <div class="touch-control car getOut"></div>
+      <div class="touch-control camera"></div>
+      <div class="touch-control mobile"></div>
+      <div class="touch-control job"></div>
+      <div class="touch-control horn"></div>
+      <div class="touch-control fireRight"></div>
+      <div class="touch-control fireLeft"></div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,23 @@
+{
+  "file": "vc-sky-en-v6.data",
+  "size": 161977224,
+  "chunkSize": 47185920,
+  "parts": [
+    {
+      "name": "part-00",
+      "size": 47185920
+    },
+    {
+      "name": "part-01",
+      "size": 47185920
+    },
+    {
+      "name": "part-02",
+      "size": 47185920
+    },
+    {
+      "name": "part-03",
+      "size": 20419464
+    }
+  ]
+}
