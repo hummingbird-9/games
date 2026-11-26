@@ -1,0 +1,221 @@
+name: Import GTA San Andreas
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/import-gta-san-andreas.yml
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Import browser build and split game data
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GIT_TERMINAL_PROMPT=0
+
+          WORK="${RUNNER_TEMP}/gta-sa-import"
+          mkdir -p "$WORK"
+          cd "$WORK"
+
+          git init -b main
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          AUTH_HEADER="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          git remote add origin "https://github.com/${REPO}.git"
+          git -c http.extraheader="$AUTH_HEADER" fetch --depth=1 --filter=blob:none origin main
+          git update-ref refs/heads/main FETCH_HEAD
+          git update-ref refs/remotes/origin/main FETCH_HEAD
+
+          git remote add source https://github.com/hummingbird-9/GTA-San-Andreas.git
+          git fetch --depth=1 --no-tags source main
+          SOURCE_SHA="$(git rev-parse FETCH_HEAD)"
+          echo "Source revision: $SOURCE_SHA"
+
+          python3 - <<'PY'
+          import base64
+          import os
+          import subprocess
+          import sys
+          import time
+
+          ROOT_FILES = {
+              "index.html",
+              "main.js",
+              "loader.js",
+              "worker.js",
+              "audio-worklet.js",
+              "mods.js",
+          }
+          DEST_PREFIX = "GTA-San-Andreas/"
+          MAX_BATCH_BYTES = 750 * 1024 * 1024
+
+          def git(args, *, data=None, capture=False):
+              return subprocess.run(
+                  ["git", *args],
+                  input=data,
+                  check=True,
+                  stdout=subprocess.PIPE if capture else None,
+                  stderr=subprocess.PIPE if capture else None,
+              ).stdout if capture else None
+
+          source_sha = subprocess.check_output(
+              ["git", "rev-parse", "FETCH_HEAD"], text=True
+          ).strip()
+          parent = subprocess.check_output(
+              ["git", "rev-parse", "refs/heads/main"], text=True
+          ).strip()
+
+          raw = subprocess.check_output(
+              ["git", "ls-tree", "-r", "-l", "-z", "FETCH_HEAD"]
+          )
+          entries = []
+          for record in raw.split(b"\0"):
+              if not record:
+                  continue
+              meta, raw_path = record.split(b"\t", 1)
+              mode, obj_type, sha, size_text = meta.decode("ascii").split()
+              if obj_type != "blob":
+                  continue
+              path = raw_path.decode("utf-8")
+              if not (
+                  path in ROOT_FILES
+                  or path.startswith("pkg/")
+                  or path.startswith("game/")
+              ):
+                  continue
+              entries.append({
+                  "mode": mode,
+                  "sha": sha,
+                  "size": int(size_text),
+                  "path": DEST_PREFIX + path,
+              })
+
+          if not entries:
+              raise SystemExit("STOP: no browser runtime or game files found in source.")
+
+          entries.sort(key=lambda item: item["path"])
+
+          current_tree = subprocess.check_output(
+              ["git", "ls-tree", "-r", "-z", "--full-tree", parent, "--", DEST_PREFIX],
+          )
+          existing = {}
+          for record in current_tree.split(b"\0"):
+              if not record:
+                  continue
+              meta, raw_path = record.split(b"\t", 1)
+              _mode, obj_type, sha = meta.decode("ascii").split()
+              if obj_type == "blob":
+                  existing[raw_path.decode("utf-8")] = sha
+
+          missing = []
+          for entry in entries:
+              old_sha = existing.get(entry["path"])
+              if old_sha is None:
+                  missing.append(entry)
+              elif old_sha != entry["sha"]:
+                  raise SystemExit(
+                      "STOP: existing file differs from source; refusing to overwrite "
+                      + entry["path"]
+                  )
+
+          readme_path = DEST_PREFIX + "README.md"
+          if readme_path not in existing:
+              readme = (
+                  "# Grand Theft Auto: San Andreas — browser build\n\n"
+                  "This folder contains the web launcher, compiled WebAssembly runtime, "
+                  "and the split game-data files used by game/game-index.json.\n\n"
+                  "Open index.html to launch. The game data is loaded on demand by "
+                  "loader.js; the split pieces are stored under game/.parts/.\n\n"
+                  f"Imported from hummingbird-9/GTA-San-Andreas at source revision {source_sha}.\n"
+              ).encode("utf-8")
+              readme_sha = subprocess.check_output(
+                  ["git", "hash-object", "-w", "--stdin"], input=readme, text=False
+              ).decode().strip()
+              missing.append({
+                  "mode": "100644",
+                  "sha": readme_sha,
+                  "size": len(readme),
+                  "path": readme_path,
+              })
+
+          if not missing:
+              print("GTA-San-Andreas is already complete; nothing to import.")
+              sys.exit(0)
+
+          batches = []
+          batch = []
+          batch_bytes = 0
+          for entry in missing:
+              if batch and batch_bytes + entry["size"] > MAX_BATCH_BYTES:
+                  batches.append((batch, batch_bytes))
+                  batch = []
+                  batch_bytes = 0
+              if entry["size"] > MAX_BATCH_BYTES:
+                  raise SystemExit("STOP: one source file exceeds the safe batch size: " + entry["path"])
+              batch.append(entry)
+              batch_bytes += entry["size"]
+          if batch:
+              batches.append((batch, batch_bytes))
+
+          total_bytes = sum(entry["size"] for entry in missing)
+          print(
+              f"Importing {len(missing)} new files ({total_bytes / 1024**3:.3f} GiB) "
+              f"in {len(batches)} commits."
+          )
+
+          auth = base64.b64encode(
+              ("x-access-token:" + os.environ["GH_TOKEN"]).encode("utf-8")
+          ).decode("ascii")
+
+          for number, (items, byte_count) in enumerate(batches, start=1):
+              git(["read-tree", parent])
+              for entry in items:
+                  git([
+                      "update-index", "--add", "--cacheinfo",
+                      f'{entry["mode"]},{entry["sha"]},{entry["path"]}',
+                  ])
+
+              tree_sha = subprocess.check_output(["git", "write-tree"], text=True).strip()
+              message = (
+                  f"Import GTA San Andreas browser build ({number}/{len(batches)})\n\n"
+                  f"Source: hummingbird-9/GTA-San-Andreas@{source_sha}\n"
+                  f"Files: {len(items)}; source bytes: {byte_count}\n"
+              )
+              commit_sha = subprocess.check_output(
+                  ["git", "commit-tree", tree_sha, "-p", parent],
+                  input=message,
+                  text=True,
+              ).strip()
+
+              git(["update-ref", "refs/heads/main", commit_sha, parent])
+              git([
+                  "-c", f"http.extraheader=AUTHORIZATION: basic {auth}",
+                  "push", "--porcelain", "origin",
+                  "refs/heads/main:refs/heads/main",
+              ])
+              git(["update-ref", "refs/remotes/origin/main", commit_sha])
+              parent = commit_sha
+
+              print(
+                  f"Committed batch {number}/{len(batches)}: "
+                  f"{len(items)} files, {byte_count / 1024**2:.1f} MiB, {commit_sha}"
+              )
+              if number < len(batches):
+                  time.sleep(15)
+
+          print("Import complete. Final commit:", parent)
+          print("Game URL: https://hummingbird-games-cdn.humming6ird-9.workers.dev/GTA-San-Andreas/index.html")
+          PY
