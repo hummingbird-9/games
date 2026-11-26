@@ -110,7 +110,9 @@ export default {
     }
 
     const headers = new Headers(upstream.headers);
-    const filename = decodedSegments[decodedSegments.length - 1] || "index.html";
+    const filename = isSanAndreas && originSegments.length === 0
+      ? "index.html"
+      : (decodedSegments[decodedSegments.length - 1] || "index.html");
     const extension = filename.includes(".")
       ? filename.split(".").pop().toLowerCase()
       : "";
