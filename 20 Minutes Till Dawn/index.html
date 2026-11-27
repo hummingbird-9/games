@@ -51,8 +51,17 @@
     <script>
 
 var loadingText = document.querySelector("#loading-text");
-    let totalBytes = 0;
+    // Total size of the two merged Unity files (data + WASM, both split in two parts).
+    // Keep the same counter visible when either merged file is restored from Cache Storage.
+    const totalBytes = 57650104;
     let loadedBytes = 0;
+
+    function updateLoadingProgress() {
+      const safeLoadedBytes = Math.min(loadedBytes, totalBytes);
+      const mbDone = (safeLoadedBytes / (1024 * 1024)).toFixed(2);
+      const mbTotal = (totalBytes / (1024 * 1024)).toFixed(2);
+      loadingText.textContent = `LOADING... ${mbDone} MB / ${mbTotal} MB`;
+    }
 
     async function fetchWithProgress(url) {
       const response = await fetch(url);
@@ -70,9 +79,7 @@ var loadingText = document.querySelector("#loading-text");
         received += value.length;
         loadedBytes += value.length;
         chunks.push(value);
-        let mbDone = (loadedBytes / (1024 * 1024)).toFixed(2);
-        let mbTotal = '54.98';
-        loadingText.textContent = `LOADING... ${mbDone} MB / ${mbTotal} MB`;
+        updateLoadingProgress();
       }
       if (!received) throw new Error("Empty split part: " + url);
       let fullBuffer = new Uint8Array(received);
@@ -89,6 +96,8 @@ var loadingText = document.querySelector("#loading-text");
       const cachedResponse = await cache.match(cacheKey);
       if (cachedResponse) {
         const blob = await cachedResponse.blob();
+        loadedBytes += blob.size;
+        updateLoadingProgress();
         return URL.createObjectURL(blob);
       }
       const buffers = await Promise.all(
